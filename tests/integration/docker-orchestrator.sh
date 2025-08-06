@@ -82,6 +82,19 @@ run_direct_tests() {
         log "WARNING" "Failed to copy report assertions, falling back to basic verification"
     }
     
+    log "INFO" "Installing DNS plugin in container..."
+    # Install the plugin first
+    if ! docker exec "$DOKKU_CONTAINER" bash -c "cd /tmp/dokku-dns && ./install"; then
+        log "ERROR" "Failed to install DNS plugin"
+        return 1
+    fi
+    
+    # Fix permissions after installation
+    log "INFO" "Fixing DNS plugin data directory permissions..."
+    docker exec "$DOKKU_CONTAINER" bash -c "chown -R dokku:dokku /var/lib/dokku/data/dns 2>/dev/null || true"
+    
+    log "SUCCESS" "DNS plugin installed successfully"
+    
     log "INFO" "Copying and executing integration test script..."
     # Use the new comprehensive integration test script
     local INTEGRATION_SCRIPT="$SCRIPT_DIR/../../test-integration.sh"
