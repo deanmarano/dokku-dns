@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+# Load dokku functions if available
+if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
+  source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
+fi
+
+# Define missing functions if needed
+if ! declare -f dokku_log_info1 >/dev/null 2>&1; then
+  dokku_log_info1() { echo "-----> $*"; }
+fi
+
+if ! declare -f dokku_log_info2 >/dev/null 2>&1; then
+  dokku_log_info2() { echo "=====> $*"; }
+fi
+
+if ! declare -f dokku_log_warn >/dev/null 2>&1; then
+  dokku_log_warn() { echo " !     $*"; }
+fi
+
+if ! declare -f dokku_log_fail >/dev/null 2>&1; then
+  dokku_log_fail() { echo " !     $*" >&2; exit 1; }
+fi
+
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
+
+service-cron-cmd() {
+  #E show automated DNS synchronization cron status and logs
+  #E dokku $PLUGIN_COMMAND_PREFIX:cron
+  #E displays current cron job status, schedule, last run time,
+  #E and recent log entries from automated DNS synchronization.
+  declare desc="show automated DNS synchronization cron status and logs"
+  local cmd="$PLUGIN_COMMAND_PREFIX:cron"
+  
+  local CRON_DATA_DIR="$PLUGIN_DATA_ROOT/cron"
+  
+  echo
+  dokku_log_info2 "DNS Cron Status"
+  
+  # Check if cron job exists in system crontab
+  local cron_job_active=false
+  local current_job=""
+  if crontab -l 2>/dev/null | grep -q "dokku dns:sync-all"; then
+    cron_job_active=true
+    current_job=$(crontab -l 2>/dev/null | grep "dokku dns:sync-all" | head -1)
+  fi
+  
+  # Check metadata status
+  local status="unknown"
+  local schedule="N/A"
+  local command="N/A"
+  local log_file="N/A"
+  local enabled_at="N/A"
+  local disabled_at="N/A"
+  
+  if [[ -d "$CRON_DATA_DIR" ]]; then
+    [[ -f "$CRON_DATA_DIR/status" ]] && status=$(cat "$CRON_DATA_DIR/status")
+    [[ -f "$CRON_DATA_DIR/schedule" ]] && schedule=$(cat "$CRON_DATA_DIR/schedule")
+    [[ -f "$CRON_DATA_DIR/command" ]] && command=$(cat "$CRON_DATA_DIR/command")
+    [[ -f "$CRON_DATA_DIR/log_file" ]] && log_file=$(cat "$CRON_DATA_DIR/log_file")
+    [[ -f "$CRON_DATA_DIR/enabled_at" ]] && enabled_at=$(cat "$CRON_DATA_DIR/enabled_at")
+    [[ -f "$CRON_DATA_DIR/disabled_at" ]] && disabled_at=$(cat "$CRON_DATA_DIR/disabled_at")
+  fi
+  
+  # Display status
+  if [[ "$cron_job_active" == "true" ]]; then
+    dokku_log_info1 "Status: ✅ ENABLED"
+    dokku_log_info1 "Active Job: $current_job"
+  else
+    dokku_log_info1 "Status: ❌ DISABLED"
+  fi
+  
+  # Display configuration
+  echo
+  dokku_log_info2 "Configuration"
+  dokku_log_info1 "Schedule: $schedule (Daily at 2:00 AM)"
+  dokku_log_info1 "Command: $command"
+  dokku_log_info1 "Log File: $log_file"
+  
+  # Display timestamps
+  echo
+  dokku_log_info2 "History"
+  if [[ "$enabled_at" != "N/A" ]]; then
+    dokku_log_info1 "Enabled At: $enabled_at"
+  fi
+  if [[ "$disabled_at" != "N/A" ]]; then
+    dokku_log_info1 "Disabled At: $disabled_at"
+  fi
+  
+  # Display log file information and recent entries
+  echo
+  dokku_log_info2 "Log Information"
+  
+  if [[ -f "$log_file" && "$log_file" != "N/A" ]]; then
+    local log_size
+    log_size=$(wc -l < "$log_file" 2>/dev/null || echo "0")
+    local log_modified
+    log_modified=$(stat -c %y "$log_file" 2>/dev/null || echo "Unknown")
+    
+    dokku_log_info1 "Log Entries: $log_size lines"
+    dokku_log_info1 "Last Modified: $log_modified"
+    
+    echo
+    dokku_log_info2 "Recent Log Entries (last 10 lines)"
+    if [[ -s "$log_file" ]]; then
+      tail -n 10 "$log_file" | while IFS= read -r line; do
+        echo "  $line"
+      done
+    else
+      dokku_log_info1 "  (No log entries yet)"
+    fi
+  else
+    dokku_log_info1 "Log File: Not found or not configured"
+  fi
+  
+  # Display management commands
+  echo
+  dokku_log_info2 "Management Commands"
+  if [[ "$cron_job_active" == "true" ]]; then
+    dokku_log_info1 "• Disable cron: dokku $PLUGIN_COMMAND_PREFIX:cron-disable"
+    dokku_log_info1 "• Manual sync: dokku $PLUGIN_COMMAND_PREFIX:sync-all"
+  else
+    dokku_log_info1 "• Enable cron: dokku $PLUGIN_COMMAND_PREFIX:cron-enable"
+    dokku_log_info1 "• Manual sync: dokku $PLUGIN_COMMAND_PREFIX:sync-all"
+  fi
+}
+
+service-cron-cmd "$@"
