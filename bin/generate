@@ -469,7 +469,8 @@ def command_data(command, service, variable, alias, image, scheme, ports):
 
             if "declare desc" in line:
                 description = re.search('"(.+)"', line).group(1)
-            elif "$1" in line:
+            elif "$1" in line and ("=" in line or "declare" in line):
+                # Only parse lines that are actually declaring arguments, not conditional statements
                 arguments_string = parse_args(line)
             elif line.startswith("#A "):
                 argument = line.replace("#A ", "")
@@ -481,6 +482,17 @@ def command_data(command, service, variable, alias, image, scheme, ports):
                 flags.append(f"`{parts[0]}`: {parts[1]}")
             elif line.startswith("#E "):
                 example_lines.append(line.replace("#E ", ""))
+
+    # Special handling for commands with flags but no positional arguments
+    if not arguments_string and flags and command == "cron":
+        # Generate arguments from flags for flag-only commands
+        flag_args = []
+        for flag_desc in flags:
+            flag_name = flag_desc.split(":")[0].strip("`")
+            if flag_name.startswith("--"):
+                flag_args.append(f"[{flag_name}]")
+        if flag_args:
+            arguments_string = "|".join(flag_args)
 
     examples = []
     sentence_lines = []

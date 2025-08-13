@@ -28,12 +28,32 @@ fi
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
 
 service-cron-cmd() {
-  #E show automated DNS synchronization cron status and logs
-  #E dokku $PLUGIN_COMMAND_PREFIX:cron
-  #E displays current cron job status, schedule, last run time,
+  #E manage automated DNS synchronization cron job
+  #E dokku $PLUGIN_COMMAND_PREFIX:cron [--enable|--disable]
+  #E without flags: displays current cron job status, schedule, last run time,
   #E and recent log entries from automated DNS synchronization.
-  declare desc="show automated DNS synchronization cron status and logs"
+  #E --enable: creates a system cron job that runs dns:sync-all daily at 2:00 AM
+  #E --disable: removes the cron job while preserving logs and metadata
+  #F --enable, enable automated DNS synchronization via cron
+  #F --disable, disable automated DNS synchronization cron job
+  declare desc="manage automated DNS synchronization cron job"
   local cmd="$PLUGIN_COMMAND_PREFIX:cron"
+  
+  # Parse arguments
+  
+  if [[ "$1" == "--enable" ]]; then
+    cron_enable_functionality
+    return $?
+  elif [[ "$1" == "--disable" ]]; then
+    cron_disable_functionality
+    return $?
+  elif [[ "$1" == "--enable" && "$2" == "--disable" ]] || [[ "$1" == "--disable" && "$2" == "--enable" ]]; then
+    dokku_log_fail "Cannot use both --enable and --disable flags together."
+  elif [[ -n "$1" && "$1" != "--enable" && "$1" != "--disable" ]]; then
+    dokku_log_fail "Unknown option: $1. Use --enable or --disable, or no flags for status."
+  fi
+  
+  # Default: show status (original functionality)
   
   local CRON_DATA_DIR="$PLUGIN_DATA_ROOT/cron"
   
@@ -96,7 +116,7 @@ service-cron-cmd() {
   
   if [[ -f "$log_file" && "$log_file" != "N/A" ]]; then
     local log_size
-    log_size=$(wc -l < "$log_file" 2>/dev/null || echo "0")
+    log_size=$(wc -l < "$log_file" 2>/dev/null | xargs || echo "0")
     local log_modified
     log_modified=$(stat -c %y "$log_file" 2>/dev/null || echo "Unknown")
     
@@ -120,12 +140,119 @@ service-cron-cmd() {
   echo
   dokku_log_info2 "Management Commands"
   if [[ "$cron_job_active" == "true" ]]; then
-    dokku_log_info1 "• Disable cron: dokku $PLUGIN_COMMAND_PREFIX:cron-disable"
+    dokku_log_info1 "• Disable cron: dokku $PLUGIN_COMMAND_PREFIX:cron --disable"
     dokku_log_info1 "• Manual sync: dokku $PLUGIN_COMMAND_PREFIX:sync-all"
   else
-    dokku_log_info1 "• Enable cron: dokku $PLUGIN_COMMAND_PREFIX:cron-enable"
+    dokku_log_info1 "• Enable cron: dokku $PLUGIN_COMMAND_PREFIX:cron --enable"
     dokku_log_info1 "• Manual sync: dokku $PLUGIN_COMMAND_PREFIX:sync-all"
   fi
+}
+
+cron_enable_functionality() {
+  local CRON_DATA_DIR="$PLUGIN_DATA_ROOT/cron"
+  local CRON_SCHEDULE="0 2 * * *"  # Daily at 2 AM
+  local CRON_COMMAND="dokku dns:sync-all"
+  local CRON_LOG_FILE="$CRON_DATA_DIR/sync.log"
+  local CRON_JOB_COMMENT="# Dokku DNS auto-sync"
+  local CRON_ENTRY="$CRON_SCHEDULE $CRON_COMMAND >> $CRON_LOG_FILE 2>&1 $CRON_JOB_COMMENT"
+  
+  # Check if DNS provider is configured
+  local PROVIDER_FILE="$PLUGIN_DATA_ROOT/PROVIDER"
+  if [[ ! -f "$PROVIDER_FILE" ]]; then
+    dokku_log_fail "No DNS provider configured. Run: dokku $PLUGIN_COMMAND_PREFIX:configure [provider]"
+  fi
+  
+  # Create cron data directory
+  mkdir -p "$CRON_DATA_DIR"
+  
+  # Check if cron job already exists
+  if crontab -l 2>/dev/null | grep -q "dokku dns:sync-all"; then
+    dokku_log_warn "DNS cron job already exists"
+    dokku_log_info1 "Current cron job:"
+    crontab -l 2>/dev/null | grep "dokku dns:sync-all" || true
+    dokku_log_info1 "To disable: dokku $PLUGIN_COMMAND_PREFIX:cron --disable"
+    return 0
+  fi
+  
+  # Create the cron job
+  dokku_log_info1 "Creating DNS sync cron job..."
+  dokku_log_info2 "Schedule: Daily at 2:00 AM (0 2 * * *)"
+  dokku_log_info2 "Command: $CRON_COMMAND"
+  dokku_log_info2 "Log file: $CRON_LOG_FILE"
+  
+  # Add cron job to crontab
+  (crontab -l 2>/dev/null || echo "") | { cat; echo "$CRON_ENTRY"; } | crontab -
+  
+  if crontab -l 2>/dev/null | grep -q "dokku dns:sync-all"; then
+    # Store cron job metadata
+    echo "enabled" > "$CRON_DATA_DIR/status"
+    echo "$CRON_SCHEDULE" > "$CRON_DATA_DIR/schedule"
+    echo "$CRON_COMMAND" > "$CRON_DATA_DIR/command"
+    echo "$CRON_LOG_FILE" > "$CRON_DATA_DIR/log_file"
+    date +%Y-%m-%d\ %H:%M:%S > "$CRON_DATA_DIR/enabled_at"
+    
+    # Initialize log file
+    echo "$(date): DNS cron job enabled" > "$CRON_LOG_FILE"
+    
+    dokku_log_info1 "✅ DNS cron job enabled successfully!"
+    echo
+    dokku_log_info2 "Automated DNS synchronization is now active"
+    dokku_log_info1 "• Schedule: Daily at 2:00 AM"
+    dokku_log_info1 "• Command: $CRON_COMMAND"
+    dokku_log_info1 "• Log file: $CRON_LOG_FILE"
+    dokku_log_info1 "• Check status: dokku $PLUGIN_COMMAND_PREFIX:cron"
+    dokku_log_info1 "• Disable: dokku $PLUGIN_COMMAND_PREFIX:cron --disable"
+  else
+    dokku_log_fail "Failed to create DNS cron job. Check system permissions."
+  fi
+}
+
+cron_disable_functionality() {
+  local CRON_DATA_DIR="$PLUGIN_DATA_ROOT/cron"
+  
+  # Check if cron job exists
+  if ! crontab -l 2>/dev/null | grep -q "dokku dns:sync-all"; then
+    dokku_log_fail "No DNS cron job found. Enable with: dokku $PLUGIN_COMMAND_PREFIX:cron --enable"
+  fi
+  
+  dokku_log_info1 "Disabling DNS sync cron job..."
+  
+  # Show current job before removing
+  local current_job
+  current_job=$(crontab -l 2>/dev/null | grep "dokku dns:sync-all" || echo "")
+  if [[ -n "$current_job" ]]; then
+    dokku_log_info2 "Removing job: $current_job"
+  fi
+  
+  # Remove the cron job from crontab
+  # Handle case where crontab might be empty or fail, and grep -v returns 1 when filtering out all lines
+  (crontab -l 2>/dev/null || echo "") | (grep -v "dokku dns:sync-all" || true) | crontab -
+  
+  # Verify removal
+  if crontab -l 2>/dev/null | grep -q "dokku dns:sync-all"; then
+    dokku_log_fail "Failed to remove DNS cron job. Check system permissions."
+  fi
+  
+  # Update status metadata
+  if [[ -d "$CRON_DATA_DIR" ]]; then
+    echo "disabled" > "$CRON_DATA_DIR/status"
+    date +%Y-%m-%d\ %H:%M:%S > "$CRON_DATA_DIR/disabled_at"
+    
+    # Add log entry about disabling
+    local CRON_LOG_FILE
+    if [[ -f "$CRON_DATA_DIR/log_file" ]]; then
+      CRON_LOG_FILE=$(cat "$CRON_DATA_DIR/log_file")
+      echo "$(date): DNS cron job disabled" >> "$CRON_LOG_FILE"
+    fi
+  fi
+  
+  dokku_log_info1 "✅ DNS cron job disabled successfully!"
+  echo
+  dokku_log_info2 "Automated DNS synchronization is now inactive"
+  dokku_log_info1 "• Cron job removed from system crontab"
+  dokku_log_info1 "• Logs and metadata preserved for reference"
+  dokku_log_info1 "• Check status: dokku $PLUGIN_COMMAND_PREFIX:cron"
+  dokku_log_info1 "• Re-enable: dokku $PLUGIN_COMMAND_PREFIX:cron --enable"
 }
 
 service-cron-cmd "$@"
