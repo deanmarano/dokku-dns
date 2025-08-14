@@ -64,6 +64,60 @@ validate_cron_field() {
   fi
 }
 
+calculate_next_cron_run() {
+  local schedule="$1"
+  
+  # Simple approximation for common cron patterns
+  local minute hour day month weekday
+  read -r minute hour day month weekday <<< "$schedule"
+  
+  # Get current time
+  local now_epoch current_hour current_minute current_date
+  now_epoch=$(date +%s)
+  current_hour=$(date +%H | sed 's/^0*//')  
+  current_minute=$(date +%M | sed 's/^0*//')
+  current_date=$(date +%Y-%m-%d)
+  
+  # Handle simple daily patterns (0 HH * * *)
+  if [[ "$minute" =~ ^[0-9]+$ ]] && [[ "$hour" =~ ^[0-9]+$ ]] && [[ "$day" == "*" ]] && [[ "$month" == "*" ]] && [[ "$weekday" == "*" ]]; then
+    local target_hour target_minute
+    target_hour=$((10#$hour))  # Force base 10 to handle leading zeros
+    target_minute=$((10#$minute))
+    
+    # Calculate today's run time using portable date format
+    local today_hour_24 today_minute_padded today_run
+    today_hour_24=$(printf "%02d" $target_hour)
+    today_minute_padded=$(printf "%02d" $target_minute)
+    
+    # Create timestamp for today at target time (portable approach)
+    local target_time_str="$current_date $today_hour_24:$today_minute_padded:00"
+    today_run=$(date -j -f "%Y-%m-%d %H:%M:%S" "$target_time_str" "+%s" 2>/dev/null || echo "0")
+    
+    # If today's run time has passed or is now, calculate tomorrow's run time
+    if [[ $today_run -le $now_epoch ]]; then
+      # Add 24 hours (86400 seconds) for tomorrow
+      local tomorrow_epoch=$((today_run + 86400))
+      local tomorrow_formatted
+      tomorrow_formatted=$(date -r $tomorrow_epoch "+%Y-%m-%d %H:%M:%S %Z" 2>/dev/null || echo "")
+      if [[ -n "$tomorrow_formatted" ]]; then
+        echo "$tomorrow_formatted"
+        return 0
+      fi
+    else
+      # Today's run time hasn't passed yet
+      local today_formatted
+      today_formatted=$(date -r $today_run "+%Y-%m-%d %H:%M:%S %Z" 2>/dev/null || echo "")
+      if [[ -n "$today_formatted" ]]; then
+        echo "$today_formatted"
+        return 0
+      fi
+    fi
+  fi
+  
+  # For complex patterns, return a generic message
+  return 1
+}
+
 service-cron-cmd() {
   #E manage automated DNS synchronization cron job
   #E dokku $PLUGIN_COMMAND_PREFIX:cron [--enable|--disable] [--schedule "CRON_SCHEDULE"]
@@ -165,6 +219,15 @@ service-cron-cmd() {
   if [[ "$cron_job_active" == "true" ]]; then
     dokku_log_info1 "Status: ✅ ENABLED"
     dokku_log_info1 "Active Job: $current_job"
+    
+    # Calculate and display next run time
+    if [[ "$schedule" != "N/A" ]]; then
+      local next_run
+      next_run=$(calculate_next_cron_run "$schedule" 2>/dev/null || echo "Unable to calculate")
+      if [[ "$next_run" != "Unable to calculate" ]]; then
+        dokku_log_info1 "Next Run: $next_run"
+      fi
+    fi
   else
     dokku_log_info1 "Status: ❌ DISABLED"
   fi
