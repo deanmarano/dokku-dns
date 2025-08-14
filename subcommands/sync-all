@@ -88,7 +88,7 @@ service-sync-all-cmd() {
     dokku_log_info2 "Using batch sync for AWS Route53 (more efficient)"
     
     # Load the provider functions
-    local PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/$PROVIDER"
+    local PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/providers/$PROVIDER"
     if [[ -f "$PROVIDER_SCRIPT" ]]; then
       source "$PROVIDER_SCRIPT"
       
