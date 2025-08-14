@@ -133,6 +133,12 @@ setup_test_environment() {
 cleanup_test_environment() {
     log_info "Cleaning up test environment..."
     
+    # Clean up any cron jobs that might have been created during testing
+    if crontab -l 2>/dev/null | grep -q "dokku dns:sync-all"; then
+        crontab -l 2>/dev/null | grep -v "dokku dns:sync-all" | crontab - 2>/dev/null || true
+        log_info "Cleaned up DNS cron jobs"
+    fi
+    
     # Remove from DNS management if added
     dokku dns:remove "$TEST_APP" >/dev/null 2>&1 || true
     
@@ -211,6 +217,76 @@ test_dns_app_management() {
     assert_output_contains "Can remove app from DNS" "removed from DNS" dokku dns:remove "$TEST_APP"
 }
 
+test_dns_cron() {
+    log_info "Testing DNS cron functionality..."
+    
+    # Ensure AWS provider is configured (required for cron operations)
+    dokku dns:configure aws >/dev/null 2>&1
+    
+    # First, determine the current state and adapt tests accordingly
+    local cron_status_output
+    cron_status_output=$(dokku dns:cron 2>&1)
+    
+    if echo "$cron_status_output" | grep -q "Status: ✅ ENABLED"; then
+        # Cron is currently enabled, start by testing disable functionality
+        log_info "Cron is currently enabled, testing disable first..."
+        
+        assert_output_contains "Cron shows enabled status" "Status: ✅ ENABLED" dokku dns:cron
+        assert_output_contains "Cron shows active job details" "Active Job:" dokku dns:cron
+        
+        # Test disabling cron
+        assert_output_contains "Can disable cron automation" "✅ DNS cron job disabled successfully!" dokku dns:cron --disable
+        
+        # Verify disabled state
+        assert_output_contains "Cron shows disabled status after disable" "Status: ❌ DISABLED" dokku dns:cron
+        assert_failure "Cron job removed from system crontab" bash -c "su - dokku -c 'crontab -l 2>/dev/null | grep -q \"dokku dns:sync-all\"'"
+        
+        # Now test enabling 
+        assert_output_contains "Can enable cron automation" "✅ DNS cron job enabled successfully!" dokku dns:cron --enable
+        assert_success "Cron job exists in system crontab" bash -c "su - dokku -c 'crontab -l 2>/dev/null | grep -q \"dokku dns:sync-all\"'"
+        
+    else
+        # Cron is currently disabled, start by testing enable functionality
+        log_info "Cron is currently disabled, testing enable first..."
+        
+        assert_output_contains "Cron shows disabled status initially" "Status: ❌ DISABLED" dokku dns:cron
+        assert_output_contains "Cron shows enable command when disabled" "Enable cron: dokku dns:cron --enable" dokku dns:cron
+        
+        # Test enabling cron
+        assert_output_contains "Can enable cron automation" "✅ DNS cron job enabled successfully!" dokku dns:cron --enable
+        assert_success "Cron job exists in system crontab" bash -c "su - dokku -c 'crontab -l 2>/dev/null | grep -q \"dokku dns:sync-all\"'"
+        
+        # Test enabled state
+        assert_output_contains "Cron shows enabled status" "Status: ✅ ENABLED" dokku dns:cron
+        assert_output_contains "Cron shows active job details" "Active Job:" dokku dns:cron
+        
+        # Now test disabling
+        assert_output_contains "Can disable cron automation" "✅ DNS cron job disabled successfully!" dokku dns:cron --disable
+        assert_failure "Cron job removed from system crontab" bash -c "su - dokku -c 'crontab -l 2>/dev/null | grep -q \"dokku dns:sync-all\"'"
+    fi
+    
+    # Test enabling when already exists (should show warning)
+    dokku dns:cron --enable >/dev/null 2>&1  # Ensure it's enabled
+    assert_output_contains "Enable shows warning when already exists" "DNS cron job already exists" dokku dns:cron --enable
+    
+    # Test that disabling again shows error
+    dokku dns:cron --disable >/dev/null 2>&1  # Disable it first
+    assert_failure "Disable shows error when not exists" dokku dns:cron --disable
+    
+    # Test cron flag validation
+    assert_failure "Invalid cron flag should fail" dokku dns:cron --invalid-flag
+    assert_output_contains_ignore_exit "Invalid flag shows helpful error" "Unknown option" dokku dns:cron --invalid-flag
+    
+    # Test metadata and file creation
+    dokku dns:cron --enable >/dev/null 2>&1
+    assert_success "Cron metadata files created" test -f /var/lib/dokku/services/dns/cron/status
+    assert_success "Cron log file created" test -f /var/lib/dokku/services/dns/cron/sync.log
+    assert_output_contains "Cron status file contains enabled" "enabled" cat /var/lib/dokku/services/dns/cron/status
+    
+    # Clean up - disable cron for other tests
+    dokku dns:cron --disable >/dev/null 2>&1 || true
+}
+
 test_error_conditions() {
     log_info "Testing error conditions..."
     
@@ -250,6 +326,7 @@ main() {
     test_dns_configuration  
     test_dns_verify
     test_dns_app_management
+    test_dns_cron
     test_error_conditions
     
     # Cleanup

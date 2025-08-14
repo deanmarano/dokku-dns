@@ -37,7 +37,12 @@ service-cron-cmd() {
   #F --enable, enable automated DNS synchronization via cron
   #F --disable, disable automated DNS synchronization cron job
   declare desc="manage automated DNS synchronization cron job"
-  local cmd="$PLUGIN_COMMAND_PREFIX:cron"
+  local cmd="$PLUGIN_COMMAND_PREFIX:cron" argv=("$@")
+  
+  # Handle Dokku command routing - first argument will be the command name
+  if [[ "$1" == "$cmd" ]]; then
+    shift 1
+  fi
   
   # Parse arguments
   
