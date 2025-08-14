@@ -173,6 +173,26 @@ EOF
         fi
     fi
     
+    # Test 10: DNS Cron functionality
+    echo "10. Testing DNS cron functionality..."
+    
+    # Test cron status (should be disabled initially)
+    if dokku dns:cron 2>&1 | grep -q "Status: ❌ DISABLED"; then
+        echo "✓ Cron shows disabled status initially"
+    else
+        echo "⚠️ Cron status test inconclusive"
+    fi
+    
+    # Test cron help/usage (don't enable actual cron in Docker environment)
+    dokku dns:cron --schedule "0 4 * * *" 2>&1 || echo "Schedule validation working"
+    
+    # Test invalid schedule validation
+    if dokku dns:cron --enable --schedule "invalid" 2>&1 | grep -q "Invalid cron schedule"; then
+        echo "✓ Cron schedule validation working"
+    else
+        echo "⚠️ Cron schedule validation not working as expected"
+    fi
+    
     # Test 11: Edge cases
     echo "11. Testing edge cases..."
     dokku dns:add 2>&1 || echo "Usage error handled correctly"

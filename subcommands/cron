@@ -251,13 +251,15 @@ cron_enable_functionality() {
   # Create cron data directory
   mkdir -p "$CRON_DATA_DIR"
   
-  # Check if cron job already exists
+  # Check if cron job already exists and remove it
   if crontab -l 2>/dev/null | grep -q "dokku dns:sync-all"; then
-    dokku_log_warn "DNS cron job already exists"
-    dokku_log_info1 "Current cron job:"
-    crontab -l 2>/dev/null | grep "dokku dns:sync-all" || true
-    dokku_log_info1 "To disable: dokku $PLUGIN_COMMAND_PREFIX:cron --disable"
-    return 0
+    local existing_job
+    existing_job=$(crontab -l 2>/dev/null | grep "dokku dns:sync-all" || echo "")
+    dokku_log_info1 "Updating existing DNS cron job..."
+    dokku_log_info2 "Previous: $existing_job"
+    
+    # Remove existing cron job
+    (crontab -l 2>/dev/null || echo "") | (grep -v "dokku dns:sync-all" || true) | crontab -
   fi
   
   # Create the cron job

@@ -62,7 +62,7 @@ teardown() {
     [[ "$(cat "$PLUGIN_DATA_ROOT/cron/status")" = "enabled" ]]
 }
 
-@test "(dns:cron --enable) shows warning when cron job already exists" {
+@test "(dns:cron --enable) overwrites existing cron job" {
     # Setup provider
     setup_mock_provider
     
@@ -71,8 +71,9 @@ teardown() {
     
     run dns_cmd cron --enable
     assert_success
-    assert_output_contains "DNS cron job already exists"
-    assert_output_contains "To disable: dokku dns:cron --disable"
+    assert_output_contains "Updating existing DNS cron job..."
+    assert_output_contains "Previous: 0 2 * * * dokku dns:sync-all"
+    assert_output_contains "✅ DNS cron job enabled successfully!"
 }
 
 @test "(dns:cron --disable) fails when no cron job exists" {
