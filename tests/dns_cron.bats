@@ -47,7 +47,7 @@ teardown() {
     assert_success
     assert_output_contains "✅ DNS cron job enabled successfully!"
     # Verify schedule appears in both setup and confirmation (2 times total)
-    output_count=$(echo "$output" | grep -c "Schedule: Daily at 2:00 AM" || echo "0")
+    output_count=$(echo "$output" | grep -c "Daily at 2:00 AM" || echo "0")
     assert_equal "2" "$output_count"
     # Verify command appears in both setup and confirmation (2 times total)
     command_count=$(echo "$output" | grep -c "Command: dokku dns:sync-all" || echo "0")
@@ -125,7 +125,7 @@ teardown() {
     run dns_cmd cron
     assert_success
     assert_output_contains "Status: ✅ ENABLED"
-    assert_output_contains "Schedule: 0 2 * * * (Daily at 2:00 AM)"
+    assert_output_contains "Schedule: 0 2 * * * (Daily at 2:00 AM - default)"
     assert_output_contains "Command: dokku dns:sync-all"
     assert_output_contains "Enabled At: 2025-08-12 10:00:00"
     assert_output_contains "Recent Log Entries"
@@ -246,6 +246,76 @@ else
 fi
 EOF
     chmod +x "$TEST_TMP_DIR/bin/crontab"
+}
+
+@test "(dns:cron --enable --schedule) creates cron job with custom schedule" {
+    # Setup provider
+    setup_mock_provider
+    
+    # Mock crontab commands
+    create_mock_crontab
+    
+    run dns_cmd cron --enable --schedule "0 4 * * *"
+    assert_success
+    assert_output_contains "✅ DNS cron job enabled successfully!"
+    assert_output_contains "0 4 * * * (custom)"
+    # Command appears twice in output (setup + confirmation), so check count
+    command_count=$(echo "$output" | grep -c "Command: dokku dns:sync-all" || echo "0")
+    assert_equal "2" "$command_count"
+    
+    # Check metadata files were created with custom schedule
+    [[ -f "$PLUGIN_DATA_ROOT/cron/schedule" ]]
+    [[ "$(cat "$PLUGIN_DATA_ROOT/cron/schedule")" = "0 4 * * *" ]]
+}
+
+@test "(dns:cron --enable --schedule) validates cron schedule format" {
+    # Setup provider
+    setup_mock_provider
+    
+    # Mock crontab commands  
+    create_mock_crontab
+    
+    # Test invalid schedule (too few fields)
+    run dns_cmd cron --enable --schedule "0 4 *"
+    assert_failure
+    assert_output_contains "Invalid cron schedule"
+    assert_output_contains "Must have 5 fields"
+}
+
+@test "(dns:cron --schedule) fails when used without --enable" {
+    run dns_cmd cron --schedule "0 4 * * *"
+    assert_failure
+    assert_output_contains "--schedule can only be used with --enable"
+}
+
+@test "(dns:cron --enable --schedule) fails when no schedule value provided" {
+    run dns_cmd cron --enable --schedule
+    assert_failure
+    assert_output_contains "--schedule requires a cron schedule argument"
+}
+
+@test "(dns:cron) shows custom schedule correctly in status" {
+    # Setup provider and existing cron job with custom schedule
+    setup_mock_provider
+    
+    # Create metadata with custom schedule
+    mkdir -p "$PLUGIN_DATA_ROOT/cron"
+    echo "enabled" > "$PLUGIN_DATA_ROOT/cron/status"
+    echo "*/30 * * * *" > "$PLUGIN_DATA_ROOT/cron/schedule"
+    echo "dokku dns:sync-all" > "$PLUGIN_DATA_ROOT/cron/command"
+    echo "$PLUGIN_DATA_ROOT/cron/sync.log" > "$PLUGIN_DATA_ROOT/cron/log_file"
+    
+    # Mock existing cron job with custom schedule
+    create_mock_crontab_with_existing_job
+    
+    # Update the mock crontab to have custom schedule instead of default
+    export MOCK_CRONTAB_FILE="$TEST_TMP_DIR/mock_crontab"
+    echo "*/30 * * * * dokku dns:sync-all >> /var/lib/dokku/services/dns/cron/sync.log 2>&1 # Dokku DNS auto-sync" > "$MOCK_CRONTAB_FILE"
+    
+    run dns_cmd cron
+    assert_success
+    assert_output_contains "Status: ✅ ENABLED"
+    assert_output_contains "*/30 * * * * (custom)"
 }
 
 # Command aliases for easier testing

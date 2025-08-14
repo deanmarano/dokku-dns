@@ -27,15 +27,54 @@ fi
 
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
 
+validate_cron_schedule() {
+  local schedule="$1"
+  
+  # Basic validation: check if it has 5 fields separated by spaces
+  local field_count
+  field_count=$(echo "$schedule" | wc -w)
+  
+  if [[ $field_count -ne 5 ]]; then
+    dokku_log_fail "Invalid cron schedule: '$schedule'. Must have 5 fields (minute hour day month weekday)"
+  fi
+  
+  # Extract fields
+  local minute hour day month weekday
+  read -r minute hour day month weekday <<< "$schedule"
+  
+  # Validate each field (basic checks)
+  validate_cron_field "$minute" "0-59" "minute" "*,0-59"
+  validate_cron_field "$hour" "0-23" "hour" "*,0-23"
+  validate_cron_field "$day" "1-31" "day" "*,1-31"
+  validate_cron_field "$month" "1-12" "month" "*,1-12"
+  validate_cron_field "$weekday" "0-7" "weekday" "*,0-7"
+}
+
+validate_cron_field() {
+  local field="$1"
+  local range="$2"
+  local field_name="$3"
+  local valid_pattern="$4"
+  
+  # Allow wildcards, numbers, ranges, and lists
+  if [[ "$field" =~ ^[\*0-9,/-]+$ ]]; then
+    return 0
+  else
+    dokku_log_fail "Invalid $field_name field: '$field'. Must match pattern: $valid_pattern"
+  fi
+}
+
 service-cron-cmd() {
   #E manage automated DNS synchronization cron job
-  #E dokku $PLUGIN_COMMAND_PREFIX:cron [--enable|--disable]
+  #E dokku $PLUGIN_COMMAND_PREFIX:cron [--enable|--disable] [--schedule "CRON_SCHEDULE"]
   #E without flags: displays current cron job status, schedule, last run time,
   #E and recent log entries from automated DNS synchronization.
-  #E --enable: creates a system cron job that runs dns:sync-all daily at 2:00 AM
+  #E --enable: creates a system cron job that runs dns:sync-all daily at 2:00 AM (default)
   #E --disable: removes the cron job while preserving logs and metadata
+  #E --schedule: specify custom cron schedule (e.g., "0 4 * * *" for 4 AM daily)
   #F --enable, enable automated DNS synchronization via cron
   #F --disable, disable automated DNS synchronization cron job
+  #F --schedule, specify custom cron schedule when enabling (e.g., "0 4 * * *")
   declare desc="manage automated DNS synchronization cron job"
   local cmd="$PLUGIN_COMMAND_PREFIX:cron" argv=("$@")
   
@@ -45,17 +84,49 @@ service-cron-cmd() {
   fi
   
   # Parse arguments
+  local enable_cron=false
+  local disable_cron=false
+  local custom_schedule=""
   
-  if [[ "$1" == "--enable" ]]; then
-    cron_enable_functionality
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      --enable)
+        enable_cron=true
+        shift
+        ;;
+      --disable)
+        disable_cron=true
+        shift
+        ;;
+      --schedule)
+        if [[ -z "$2" ]]; then
+          dokku_log_fail "--schedule requires a cron schedule argument (e.g., \"0 4 * * *\")"
+        fi
+        custom_schedule="$2"
+        shift 2
+        ;;
+      *)
+        dokku_log_fail "Unknown option: $1. Use --enable, --disable, --schedule, or no flags for status."
+        ;;
+    esac
+  done
+  
+  # Validate flag combinations
+  if [[ "$enable_cron" == "true" && "$disable_cron" == "true" ]]; then
+    dokku_log_fail "Cannot use both --enable and --disable flags together."
+  fi
+  
+  if [[ -n "$custom_schedule" && "$enable_cron" == "false" ]]; then
+    dokku_log_fail "--schedule can only be used with --enable"
+  fi
+  
+  # Execute actions
+  if [[ "$enable_cron" == "true" ]]; then
+    cron_enable_functionality "$custom_schedule"
     return $?
-  elif [[ "$1" == "--disable" ]]; then
+  elif [[ "$disable_cron" == "true" ]]; then
     cron_disable_functionality
     return $?
-  elif [[ "$1" == "--enable" && "$2" == "--disable" ]] || [[ "$1" == "--disable" && "$2" == "--enable" ]]; then
-    dokku_log_fail "Cannot use both --enable and --disable flags together."
-  elif [[ -n "$1" && "$1" != "--enable" && "$1" != "--disable" ]]; then
-    dokku_log_fail "Unknown option: $1. Use --enable or --disable, or no flags for status."
   fi
   
   # Default: show status (original functionality)
@@ -101,7 +172,11 @@ service-cron-cmd() {
   # Display configuration
   echo
   dokku_log_info2 "Configuration"
-  dokku_log_info1 "Schedule: $schedule (Daily at 2:00 AM)"
+  if [[ "$schedule" == "0 2 * * *" ]]; then
+    dokku_log_info1 "Schedule: $schedule (Daily at 2:00 AM - default)"
+  else
+    dokku_log_info1 "Schedule: $schedule (custom)"
+  fi
   dokku_log_info1 "Command: $command"
   dokku_log_info1 "Log File: $log_file"
   
@@ -154,12 +229,18 @@ service-cron-cmd() {
 }
 
 cron_enable_functionality() {
+  local custom_schedule="$1"
   local CRON_DATA_DIR="$PLUGIN_DATA_ROOT/cron"
-  local CRON_SCHEDULE="0 2 * * *"  # Daily at 2 AM
+  local CRON_SCHEDULE="${custom_schedule:-0 2 * * *}"  # Default to daily at 2 AM
   local CRON_COMMAND="dokku dns:sync-all"
   local CRON_LOG_FILE="$CRON_DATA_DIR/sync.log"
   local CRON_JOB_COMMENT="# Dokku DNS auto-sync"
   local CRON_ENTRY="$CRON_SCHEDULE $CRON_COMMAND >> $CRON_LOG_FILE 2>&1 $CRON_JOB_COMMENT"
+  
+  # Validate custom schedule if provided
+  if [[ -n "$custom_schedule" ]]; then
+    validate_cron_schedule "$custom_schedule"
+  fi
   
   # Check if DNS provider is configured
   local PROVIDER_FILE="$PLUGIN_DATA_ROOT/PROVIDER"
@@ -181,7 +262,11 @@ cron_enable_functionality() {
   
   # Create the cron job
   dokku_log_info1 "Creating DNS sync cron job..."
-  dokku_log_info2 "Schedule: Daily at 2:00 AM (0 2 * * *)"
+  if [[ "$CRON_SCHEDULE" == "0 2 * * *" ]]; then
+    dokku_log_info2 "Schedule: $CRON_SCHEDULE (Daily at 2:00 AM - default)"
+  else
+    dokku_log_info2 "Schedule: $CRON_SCHEDULE (custom)"
+  fi
   dokku_log_info2 "Command: $CRON_COMMAND"
   dokku_log_info2 "Log file: $CRON_LOG_FILE"
   
@@ -202,7 +287,11 @@ cron_enable_functionality() {
     dokku_log_info1 "✅ DNS cron job enabled successfully!"
     echo
     dokku_log_info2 "Automated DNS synchronization is now active"
-    dokku_log_info1 "• Schedule: Daily at 2:00 AM"
+    if [[ "$CRON_SCHEDULE" == "0 2 * * *" ]]; then
+      dokku_log_info1 "• Schedule: $CRON_SCHEDULE (Daily at 2:00 AM - default)"
+    else
+      dokku_log_info1 "• Schedule: $CRON_SCHEDULE (custom)"
+    fi
     dokku_log_info1 "• Command: $CRON_COMMAND"
     dokku_log_info1 "• Log file: $CRON_LOG_FILE"
     dokku_log_info1 "• Check status: dokku $PLUGIN_COMMAND_PREFIX:cron"

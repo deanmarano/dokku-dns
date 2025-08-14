@@ -43,7 +43,8 @@
       "Bash(./commands dns:sync-all)",
       "Bash(./commands dns:help sync-all)",
       "Bash(docker compose:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(./subcommands/cron:*)"
     ],
     "deny": []
   }
