@@ -67,14 +67,106 @@ run_readme_check() {
     fi
 }
 
+# Function to check and manage Docker state
+check_docker_state() {
+    local docker_was_running=false
+    
+    # Check if Docker daemon is running
+    if docker info >/dev/null 2>&1; then
+        docker_was_running=true
+        log "INFO" "Docker is already running"
+    else
+        log "INFO" "Docker is not running, attempting to start..."
+        
+        # Try to start Docker (this varies by platform)
+        if command -v open >/dev/null 2>&1 && [[ "$OSTYPE" == "darwin"* ]]; then
+            # macOS - start Docker Desktop
+            open -a Docker 2>/dev/null || true
+        elif command -v systemctl >/dev/null 2>&1; then
+            # Linux with systemd
+            sudo systemctl start docker 2>/dev/null || true
+        fi
+        
+        # Wait for Docker to start (up to 30 seconds)
+        local timeout=30
+        local count=0
+        while ! docker info >/dev/null 2>&1 && [[ $count -lt $timeout ]]; do
+            sleep 1
+            ((count++))
+        done
+        
+        if docker info >/dev/null 2>&1; then
+            log "SUCCESS" "Docker started successfully"
+        else
+            log "ERROR" "Failed to start Docker after ${timeout} seconds"
+            return 1
+        fi
+    fi
+    
+    # Store the initial state for restoration
+    echo "$docker_was_running"
+}
+
+# Function to restore Docker state
+restore_docker_state() {
+    local docker_was_running="$1"
+    
+    if [[ "$docker_was_running" == "false" ]]; then
+        log "INFO" "Restoring Docker state (stopping Docker)..."
+        
+        if command -v osascript >/dev/null 2>&1 && [[ "$OSTYPE" == "darwin"* ]]; then
+            # macOS - quit Docker Desktop
+            osascript -e 'quit app "Docker"' 2>/dev/null || true
+        elif command -v systemctl >/dev/null 2>&1; then
+            # Linux with systemd
+            sudo systemctl stop docker 2>/dev/null || true
+        fi
+        
+        log "INFO" "Docker state restored"
+    fi
+}
+
 # Function to run Docker integration tests (fast)
 run_docker_integration_tests_fast() {
     log "INFO" "Running Docker integration tests..."
+    
+    # Check if test containers are running, start them if not
+    local containers_running=false
+    if docker-compose -f tests/docker/docker-compose.yml ps | grep -q "Up"; then
+        containers_running=true
+        log "INFO" "Test containers already running"
+    else
+        log "INFO" "Starting test containers..."
+        if docker-compose -f tests/docker/docker-compose.yml up -d >/dev/null 2>&1; then
+            log "INFO" "Test containers started"
+            # Wait a moment for containers to be ready
+            sleep 2
+        else
+            log "ERROR" "Failed to start test containers"
+            return 1
+        fi
+    fi
+    
+    # Run the tests
     if make docker-test 2>/dev/null; then
         log "SUCCESS" "Docker integration tests passed"
+        
+        # Clean up containers if we started them
+        if [[ "$containers_running" == "false" ]]; then
+            log "INFO" "Cleaning up test containers..."
+            docker-compose -f tests/docker/docker-compose.yml down >/dev/null 2>&1 || true
+        fi
+        
         return 0
     else
         log "ERROR" "Docker integration tests failed"
+        
+        # Clean up containers if we started them
+        if [[ "$containers_running" == "false" ]]; then
+            log "INFO" "Cleaning up test containers..."
+            docker-compose -f tests/docker/docker-compose.yml down >/dev/null 2>&1 || true
+        fi
+        
         return 1
     fi
 }
@@ -128,6 +220,18 @@ fi
 
 # Check if Docker is available and user wants Docker tests
 if command -v docker >/dev/null 2>&1 && [[ "$CODE_CHANGES" == "true" ]]; then
+    # Check and manage Docker state
+    DOCKER_WAS_RUNNING=$(check_docker_state)
+    DOCKER_STATE_EXIT_CODE=$?
+    
+    if [[ $DOCKER_STATE_EXIT_CODE -ne 0 ]]; then
+        log "ERROR" "Failed to start Docker"
+        exit 1
+    fi
+    
+    # Set up trap to restore Docker state on exit
+    trap 'restore_docker_state "$DOCKER_WAS_RUNNING"' EXIT
+    
     # Default to fast integration tests, allow full integration tests with RUN_FULL_TESTS=1
     if [[ "${RUN_FULL_TESTS:-}" == "1" ]]; then
         log "INFO" "Running full Docker integration tests (RUN_FULL_TESTS=1)..."

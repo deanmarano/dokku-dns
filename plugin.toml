@@ -1,4 +1,4 @@
 [plugin]
-description = "dokku dns service plugin"
-version = "0.2.0"
+description = "DNS management plugin for Dokku with multi-cloud provider support (AWS Route53, Cloudflare)"
+version = "0.3.0"
 [plugin.config]

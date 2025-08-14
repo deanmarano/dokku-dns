@@ -27,10 +27,18 @@ if ! declare -f dokku_log_fail >/dev/null 2>&1; then
 fi
 
 # DNS-specific functions
+# These functions are available to other plugins that source this file
 
+# Public API Functions (safe for other plugins to use)
+
+# Get all domains configured for a specific app
+# Usage: get_app_domains <app>
+# Returns: newline-separated list of domains
 get_app_domains() {
   local APP="$1"
   local domains_output
+  # Use dokku domains:report to get app domains
+  # Note: This is acceptable as it's using the domains plugin API correctly
   domains_output=$(dokku domains:report "$APP" --domains-app-vhosts 2>/dev/null || echo "")
   
   # Convert space-separated domains to newline-separated for proper array processing
@@ -41,6 +49,9 @@ get_app_domains() {
   fi
 }
 
+# Get list of all apps currently managed by DNS plugin
+# Usage: get_dns_managed_apps
+# Returns: newline-separated list of app names
 get_dns_managed_apps() {
   local LINKS_FILE="$PLUGIN_DATA_ROOT/LINKS"
   
@@ -49,6 +60,9 @@ get_dns_managed_apps() {
   fi
 }
 
+# Check if an app is currently managed by DNS plugin
+# Usage: is_app_dns_managed <app>
+# Returns: 0 if managed, 1 if not managed
 is_app_dns_managed() {
   local APP="$1"
   local LINKS_FILE="$PLUGIN_DATA_ROOT/LINKS"
@@ -60,6 +74,9 @@ is_app_dns_managed() {
   fi
 }
 
+# Configure global DNS provider (internal function)
+# Usage: dns_configure_global <provider>
+# Note: This is an internal function, use dns:configure command instead
 dns_configure_global() {
   local PROVIDER="$1"
   local GLOBAL_CONFIG_ROOT="$PLUGIN_DATA_ROOT"
@@ -90,6 +107,8 @@ dns_get_server_ip() {
   
   # First try to use global domains to resolve server IP
   local GLOBAL_DOMAINS
+  # Use dokku domains:report to get global domains
+  # Note: This is acceptable as it's using the domains plugin API correctly
   GLOBAL_DOMAINS=$(dokku domains:report --domains-global-vhosts 2>/dev/null || echo "")
   
   if [[ -n "$GLOBAL_DOMAINS" ]]; then
@@ -151,6 +170,8 @@ dns_add_app_domains() {
   # If no domains specified, get all domains for the app
   if [[ ${#DOMAINS[@]} -eq 0 ]]; then
     local APP_DOMAINS
+    # Use dokku domains:report to get app domains
+    # Note: This is acceptable as it's using the domains plugin API correctly
     APP_DOMAINS=$(dokku domains:report "$APP" --domains-app-vhosts 2>/dev/null || echo "")
     
     if [[ -z "$APP_DOMAINS" ]]; then

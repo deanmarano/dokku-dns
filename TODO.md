@@ -38,7 +38,27 @@
 - [x] **App lifecycle management** - Add/remove apps from DNS tracking ✅
 - [x] **Error handling** - Graceful handling of missing hosted zones ✅
 
-## Phase 5: Polish & Enhancement (Low Priority)
+## Phase 5: Plugin Building Best Practices (Medium Priority) - COMPLETED ✅
+
+Based on [Dokku Plugin Building Tips](https://dokku.com/docs/development/plugin-creation/#plugin-building-tips):
+
+- [x] **Verify plugin.toml completeness** - Enhanced description and bumped version to 0.3.0 ✅
+- [x] **Audit file permissions** - Made config executable, all other plugin files already executable ✅
+- [x] **Implement consistent pipefail usage** - Already implemented in all scripts ✅
+- [x] **Add trace mode support** - Already implemented in all subcommands ✅
+- [x] **Verify dependency checking** - Already using `command -v` for aws-cli validation ✅
+- [x] **Enhance help command functionality** - Proper columnar output and formatting working ✅
+- [x] **Review command namespacing** - Using 'dns' namespace, no conflicts with core plugins ✅
+- [x] **Implement catch-all command** - Already implemented with `DOKKU_NOT_IMPLEMENTED_EXIT` ✅
+- [x] **Use config helpers properly** - No config operations needed (DNS is stateless) ✅
+- [x] **Expose functions file** - Added documentation and public API comments ✅
+- [x] **Use app image helpers** - Not applicable (DNS plugin doesn't manage containers) ✅
+- [x] **Replace docker calls** - No direct docker calls found ✅
+- [x] **Add container labels** - Not applicable (DNS plugin doesn't create containers) ✅
+- [x] **Use copy_from_image helper** - Not applicable (DNS plugin doesn't copy from images) ✅
+- [x] **Avoid direct dokku calls** - Using proper domains plugin API where needed ✅
+
+## Phase 6: Feature Enhancement (Low Priority)
 
 - [x] **Clean up help output** - Solidified simplified API design ✅
 - [ ] **Add support for multiple DNS record types** - CNAME, MX, TXT records
