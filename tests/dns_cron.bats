@@ -71,8 +71,11 @@ teardown() {
     
     run dns_cmd cron --enable
     assert_success
-    assert_output_contains "Updating existing DNS cron job..."
-    assert_output_contains "Previous: 0 2 * * * dokku dns:sync-all"
+    assert_output_contains "Existing DNS Cron Job Found"
+    assert_output_contains "Previous schedule: 0 2 * * *"
+    assert_output_contains "Previous timing: Daily at 2:00 AM (default)"
+    assert_output_contains "New schedule: 0 2 * * * (Daily at 2:00 AM - default)"
+    assert_output_contains "Updating DNS cron job..."
     assert_output_contains "✅ DNS cron job enabled successfully!"
 }
 

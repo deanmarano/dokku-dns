@@ -253,10 +253,26 @@ cron_enable_functionality() {
   
   # Check if cron job already exists and remove it
   if crontab -l 2>/dev/null | grep -q "dokku dns:sync-all"; then
-    local existing_job
+    local existing_job existing_schedule
     existing_job=$(crontab -l 2>/dev/null | grep "dokku dns:sync-all" || echo "")
-    dokku_log_info1 "Updating existing DNS cron job..."
-    dokku_log_info2 "Previous: $existing_job"
+    existing_schedule=$(echo "$existing_job" | awk '{print $1, $2, $3, $4, $5}')
+    
+    echo
+    dokku_log_info2 "Existing DNS Cron Job Found"
+    dokku_log_info1 "Previous schedule: $existing_schedule"
+    if [[ "$existing_schedule" == "0 2 * * *" ]]; then
+      dokku_log_info1 "Previous timing: Daily at 2:00 AM (default)"
+    else
+      dokku_log_info1 "Previous timing: Custom schedule"
+    fi
+    
+    if [[ "$CRON_SCHEDULE" == "0 2 * * *" ]]; then
+      dokku_log_info1 "New schedule: $CRON_SCHEDULE (Daily at 2:00 AM - default)"
+    else
+      dokku_log_info1 "New schedule: $CRON_SCHEDULE (custom)"
+    fi
+    echo
+    dokku_log_info1 "Updating DNS cron job..."
     
     # Remove existing cron job
     (crontab -l 2>/dev/null || echo "") | (grep -v "dokku dns:sync-all" || true) | crontab -
