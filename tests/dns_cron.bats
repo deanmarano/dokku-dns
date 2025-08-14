@@ -286,14 +286,26 @@ EOF
     assert_output_contains "Must have 5 fields"
 }
 
-@test "(dns:cron --schedule) fails when used without --enable" {
+@test "(dns:cron --schedule) automatically enables cron job" {
+    # Setup provider
+    setup_mock_provider
+    
+    # Mock crontab commands
+    create_mock_crontab
+    
     run dns_cmd cron --schedule "0 4 * * *"
-    assert_failure
-    assert_output_contains "--schedule can only be used with --enable"
+    assert_success
+    assert_output_contains "✅ DNS cron job enabled successfully!"
+    assert_output_contains "Schedule: 0 4 * * * (custom)"
+    
+    # Check metadata files were created with custom schedule
+    [[ -f "$PLUGIN_DATA_ROOT/cron/schedule" ]]
+    [[ "$(cat "$PLUGIN_DATA_ROOT/cron/schedule")" = "0 4 * * *" ]]
+    [[ "$(cat "$PLUGIN_DATA_ROOT/cron/status")" = "enabled" ]]
 }
 
-@test "(dns:cron --enable --schedule) fails when no schedule value provided" {
-    run dns_cmd cron --enable --schedule
+@test "(dns:cron --schedule) fails when no schedule value provided" {
+    run dns_cmd cron --schedule
     assert_failure
     assert_output_contains "--schedule requires a cron schedule argument"
 }
@@ -320,6 +332,46 @@ EOF
     assert_success
     assert_output_contains "Status: ✅ ENABLED"
     assert_output_contains "*/30 * * * * (custom)"
+}
+
+@test "(dns:cron --disable --schedule) fails with conflicting flags" {
+    run dns_cmd cron --disable --schedule "0 4 * * *"
+    assert_failure
+    assert_output_contains "Cannot use both --enable and --disable flags together"
+}
+
+@test "(dns:cron --schedule) overwrites existing cron job with new schedule" {
+    # Setup provider and existing cron job
+    setup_mock_provider
+    create_mock_crontab_with_existing_job
+    
+    # Create cron metadata for existing job
+    mkdir -p "$PLUGIN_DATA_ROOT/cron"
+    echo "enabled" > "$PLUGIN_DATA_ROOT/cron/status"
+    echo "0 2 * * *" > "$PLUGIN_DATA_ROOT/cron/schedule"
+    
+    run dns_cmd cron --schedule "0 6 * * *"
+    assert_success
+    assert_output_contains "Existing DNS Cron Job Found"
+    assert_output_contains "Previous schedule: 0 2 * * *"
+    assert_output_contains "New schedule: 0 6 * * * (custom)"
+    assert_output_contains "✅ DNS cron job enabled successfully!"
+    
+    # Verify new schedule was saved
+    [[ "$(cat "$PLUGIN_DATA_ROOT/cron/schedule")" = "0 6 * * *" ]]
+}
+
+@test "(dns:cron --schedule) validates schedule format properly" {
+    # Test invalid schedule (too many fields)
+    run dns_cmd cron --schedule "0 4 * * * 2024"
+    assert_failure
+    assert_output_contains "Invalid cron schedule:"
+    assert_output_contains "Must have 5 fields"
+    
+    # Test invalid schedule (non-numeric hour)
+    run dns_cmd cron --schedule "0 XX * * *"
+    assert_failure  
+    assert_output_contains "Invalid hour field:"
 }
 
 # Command aliases for easier testing

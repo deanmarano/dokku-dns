@@ -265,9 +265,9 @@ test_dns_cron() {
         assert_failure "Cron job removed from system crontab" bash -c "su - dokku -c 'crontab -l 2>/dev/null | grep -q \"dokku dns:sync-all\"'"
     fi
     
-    # Test enabling when already exists (should show warning)
+    # Test enabling when already exists (should show update message)
     dokku dns:cron --enable >/dev/null 2>&1  # Ensure it's enabled
-    assert_output_contains "Enable shows warning when already exists" "DNS cron job already exists" dokku dns:cron --enable
+    assert_output_contains "Enable shows update when already exists" "Existing DNS Cron Job Found" dokku dns:cron --enable
     
     # Test that disabling again shows error
     dokku dns:cron --disable >/dev/null 2>&1  # Disable it first

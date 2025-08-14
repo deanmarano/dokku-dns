@@ -120,15 +120,15 @@ calculate_next_cron_run() {
 
 service-cron-cmd() {
   #E manage automated DNS synchronization cron job
-  #E dokku $PLUGIN_COMMAND_PREFIX:cron [--enable|--disable] [--schedule "CRON_SCHEDULE"]
+  #E dokku $PLUGIN_COMMAND_PREFIX:cron [--enable|--disable|--schedule "CRON_SCHEDULE"]
   #E without flags: displays current cron job status, schedule, last run time,
   #E and recent log entries from automated DNS synchronization.
   #E --enable: creates a system cron job that runs dns:sync-all daily at 2:00 AM (default)
   #E --disable: removes the cron job while preserving logs and metadata
-  #E --schedule: specify custom cron schedule (e.g., "0 4 * * *" for 4 AM daily)
-  #F --enable, enable automated DNS synchronization via cron
+  #E --schedule: specify custom cron schedule and enable cron job (e.g., "0 4 * * *" for 4 AM daily)
+  #F --enable, enable automated DNS synchronization via cron (default: daily at 2:00 AM)
   #F --disable, disable automated DNS synchronization cron job
-  #F --schedule, specify custom cron schedule when enabling (e.g., "0 4 * * *")
+  #F --schedule, specify custom cron schedule and enable cron job (e.g., "0 4 * * *")
   declare desc="manage automated DNS synchronization cron job"
   local cmd="$PLUGIN_COMMAND_PREFIX:cron" argv=("$@")
   
@@ -165,13 +165,14 @@ service-cron-cmd() {
     esac
   done
   
+  # Auto-enable when schedule is provided
+  if [[ -n "$custom_schedule" ]]; then
+    enable_cron=true
+  fi
+  
   # Validate flag combinations
   if [[ "$enable_cron" == "true" && "$disable_cron" == "true" ]]; then
     dokku_log_fail "Cannot use both --enable and --disable flags together."
-  fi
-  
-  if [[ -n "$custom_schedule" && "$enable_cron" == "false" ]]; then
-    dokku_log_fail "--schedule can only be used with --enable"
   fi
   
   # Execute actions
