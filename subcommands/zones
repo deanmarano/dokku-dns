@@ -29,16 +29,18 @@ source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
 
 service-zones-cmd() {
   #E manage DNS zones for hosted domain management
-  #E dokku $PLUGIN_COMMAND_PREFIX:zones [<zone>|--enable <zone>|--disable <zone>|--enable-all]
+  #E dokku $PLUGIN_COMMAND_PREFIX:zones [<zone>|--enable <zone>|--disable <zone>|--enable-all|--disable-all]
   #E without flags: displays all available DNS zones and their management status
   #E <zone>: show detailed information about a specific zone
   #E --enable <zone>: enable DNS management for all domains in the specified zone
   #E --disable <zone>: disable DNS management for all domains in the specified zone
   #E --enable-all: enable DNS management for all domains in all available zones
+  #E --disable-all: disable DNS management for all domains in all available zones
   #A zone, zone name to show detailed information for (optional)
   #F --enable, enable DNS management for all domains in a specific zone
   #F --disable, disable DNS management for all domains in a specific zone
   #F --enable-all, enable DNS management for all domains in all available zones
+  #F --disable-all, disable DNS management for all domains in all available zones
   declare desc="manage DNS zones for hosted domain management"
   local cmd="$PLUGIN_COMMAND_PREFIX:zones" argv=("$@")
   
@@ -53,6 +55,7 @@ service-zones-cmd() {
   local enable_zone=""
   local disable_zone=""
   local enable_all=false
+  local disable_all=false
   local show_zone=""
   
   # Check if first argument is a zone name (no dashes) or a flag
@@ -81,8 +84,12 @@ service-zones-cmd() {
         enable_all=true
         shift
         ;;
+      --disable-all)
+        disable_all=true
+        shift
+        ;;
       *)
-        dokku_log_fail "Unknown option: $1. Use <zone>, --enable <zone>, --disable <zone>, --enable-all, or no flags for status."
+        dokku_log_fail "Unknown option: $1. Use <zone>, --enable <zone>, --disable <zone>, --enable-all, --disable-all, or no flags for status."
         ;;
     esac
   done
@@ -93,9 +100,10 @@ service-zones-cmd() {
   [[ -n "$enable_zone" ]] && action_count=$((action_count + 1))
   [[ -n "$disable_zone" ]] && action_count=$((action_count + 1))
   [[ "$enable_all" == "true" ]] && action_count=$((action_count + 1))
+  [[ "$disable_all" == "true" ]] && action_count=$((action_count + 1))
   
   if [[ $action_count -gt 1 ]]; then
-    dokku_log_fail "Cannot use multiple action flags together. Use only one of: <zone>, --enable, --disable, or --enable-all"
+    dokku_log_fail "Cannot use multiple action flags together. Use only one of: <zone>, --enable, --disable, --enable-all, or --disable-all"
   fi
   
   # Execute actions
@@ -110,6 +118,9 @@ service-zones-cmd() {
     return $?
   elif [[ "$enable_all" == "true" ]]; then
     zones_enable_all
+    return $?
+  elif [[ "$disable_all" == "true" ]]; then
+    zones_disable_all
     return $?
   fi
   
@@ -239,6 +250,7 @@ zones_list_aws_zones() {
   dokku_log_info1 "• Enable zone: dokku $PLUGIN_COMMAND_PREFIX:zones --enable <zone-name>"
   dokku_log_info1 "• Disable zone: dokku $PLUGIN_COMMAND_PREFIX:zones --disable <zone-name>"
   dokku_log_info1 "• Enable all zones: dokku $PLUGIN_COMMAND_PREFIX:zones --enable-all"
+  dokku_log_info1 "• Disable all zones: dokku $PLUGIN_COMMAND_PREFIX:zones --disable-all"
   dokku_log_info1 "• Show zone details: dokku $PLUGIN_COMMAND_PREFIX:report"
 }
 
@@ -523,6 +535,69 @@ zones_enable_all() {
     dokku_log_info2 "Next steps"
     dokku_log_info1 "• Sync all DNS records: dokku $PLUGIN_COMMAND_PREFIX:sync-all"
     dokku_log_info1 "• Check status: dokku $PLUGIN_COMMAND_PREFIX:report"
+  fi
+}
+
+zones_disable_all() {
+  dokku_log_info2 "Disabling DNS management for all zones"
+  
+  # Get all managed apps and their domains
+  local LINKS_FILE="$PLUGIN_DATA_ROOT/LINKS"
+  if [[ ! -f "$LINKS_FILE" ]] || [[ ! -s "$LINKS_FILE" ]]; then
+    dokku_log_info1 "No apps are currently managed by DNS"
+    return 0
+  fi
+  
+  local total_domains_removed=0
+  local apps_removed=0
+  local apps_processed=0
+  
+  # Create a temporary file to track which apps to keep
+  local TEMP_LINKS_FILE
+  TEMP_LINKS_FILE=$(mktemp)
+  
+  # Process each app
+  while IFS= read -r app; do
+    [[ -z "$app" ]] && continue
+    apps_processed=$((apps_processed + 1))
+    
+    local APP_DOMAINS_FILE="$PLUGIN_DATA_ROOT/$app/DOMAINS"
+    if [[ ! -f "$APP_DOMAINS_FILE" ]]; then
+      continue
+    fi
+    
+    # Count domains for this app
+    local app_domain_count
+    app_domain_count=$(grep -c "." "$APP_DOMAINS_FILE" 2>/dev/null || echo "0")
+    
+    if [[ $app_domain_count -gt 0 ]]; then
+      dokku_log_info1 "Removing app '$app' from DNS management ($app_domain_count domains)"
+      total_domains_removed=$((total_domains_removed + app_domain_count))
+      apps_removed=$((apps_removed + 1))
+      
+      # Remove the app's domains file and directory
+      rm -f "$APP_DOMAINS_FILE"
+      rmdir "$(dirname "$APP_DOMAINS_FILE")" 2>/dev/null || true
+    fi
+    
+  done < "$LINKS_FILE"
+  
+  # Clear the LINKS file since we're removing all apps
+  true > "$LINKS_FILE"
+  
+  # Clean up temp file
+  rm -f "$TEMP_LINKS_FILE"
+  
+  dokku_log_info2 "Disable-all complete"
+  dokku_log_info1 "Apps processed: $apps_processed"
+  dokku_log_info1 "Apps removed from DNS: $apps_removed"
+  dokku_log_info1 "Total domains removed: $total_domains_removed"
+  
+  if [[ $total_domains_removed -gt 0 ]]; then
+    echo
+    dokku_log_info2 "All DNS management has been disabled"
+    dokku_log_info1 "• To re-enable: dokku $PLUGIN_COMMAND_PREFIX:zones --enable-all"
+    dokku_log_info1 "• Or add apps individually: dokku $PLUGIN_COMMAND_PREFIX:add <app>"
   fi
 }
 

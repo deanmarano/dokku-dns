@@ -457,3 +457,64 @@ assert_file_contains() {
         return 1
     fi
 }
+
+@test "(dns:zones --disable-all) removes all apps from DNS management" {
+    setup_mock_provider "aws"
+    
+    # Setup some managed domains
+    mkdir -p "$PLUGIN_DATA_ROOT/testapp1" "$PLUGIN_DATA_ROOT/testapp2"
+    echo -e "example.com\napi.example.com" > "$PLUGIN_DATA_ROOT/testapp1/DOMAINS"
+    echo "test.org" > "$PLUGIN_DATA_ROOT/testapp2/DOMAINS"
+    echo -e "testapp1\ntestapp2" > "$PLUGIN_DATA_ROOT/LINKS"
+    
+    dns_zones --disable-all
+    assert_success
+    assert_output_contains "Disabling DNS management for all zones"
+    assert_output_contains "Removing app 'testapp1' from DNS management (2 domains)"
+    assert_output_contains "Removing app 'testapp2' from DNS management (1 domains)"
+    assert_output_contains "Apps removed from DNS: 2"
+    assert_output_contains "Total domains removed: 3"
+    
+    # Verify cleanup
+    assert_output_contains "All DNS management has been disabled"
+    run test -f "$PLUGIN_DATA_ROOT/testapp1/DOMAINS"
+    assert_failure
+    run test -f "$PLUGIN_DATA_ROOT/testapp2/DOMAINS"
+    assert_failure
+    
+    # LINKS file should be empty
+    run cat "$PLUGIN_DATA_ROOT/LINKS"
+    assert_success
+    assert_output ""
+}
+
+@test "(dns:zones --disable-all) handles no managed apps gracefully" {
+    setup_mock_provider "aws"
+    
+    dns_zones --disable-all
+    assert_success
+    assert_output_contains "Disabling DNS management for all zones"
+    assert_output_contains "No apps are currently managed by DNS"
+}
+
+@test "(dns:zones --disable-all --enable) fails with multiple actions" {
+    setup_mock_provider "aws"
+    
+    dns_zones --disable-all --enable example.com
+    assert_failure
+    assert_output_contains "Cannot use multiple action flags together"
+}
+
+@test "(dns:zones --disable-all) shows helpful next steps" {
+    setup_mock_provider "aws"
+    
+    # Setup some managed domains
+    mkdir -p "$PLUGIN_DATA_ROOT/testapp"
+    echo "example.com" > "$PLUGIN_DATA_ROOT/testapp/DOMAINS"
+    echo "testapp" > "$PLUGIN_DATA_ROOT/LINKS"
+    
+    dns_zones --disable-all
+    assert_success
+    assert_output_contains "To re-enable: dokku dns:zones --enable-all"
+    assert_output_contains "Or add apps individually: dokku dns:add <app>"
+}
