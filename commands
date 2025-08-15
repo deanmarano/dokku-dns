@@ -24,6 +24,18 @@ if [[ "$1" == "help" || "$1" == "$PLUGIN_COMMAND_PREFIX:help" ]]; then
   exit 0
 fi
 
+# For help commands and commands that should work without configuration, route directly
+if [[ "$1" == "$PLUGIN_COMMAND_PREFIX:"* ]]; then
+  # Extract subcommand name
+  SUBCOMMAND="${1#"$PLUGIN_COMMAND_PREFIX":}"
+  
+  # Route to subcommand if it exists
+  if [[ -f "$SUBCOMMAND_ROOT/$SUBCOMMAND" ]]; then
+    "$SUBCOMMAND_ROOT/$SUBCOMMAND" "$@"
+    exit $?
+  fi
+fi
+
 if [[ ! -d $PLUGIN_DATA_ROOT ]]; then
   dokku_log_fail "$PLUGIN_SERVICE: Plugin data directory not found. Run: dokku $PLUGIN_COMMAND_PREFIX:configure <provider>"
 fi
