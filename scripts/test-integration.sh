@@ -223,23 +223,18 @@ test_dns_cron() {
     # Ensure AWS provider is configured (required for cron operations)
     dokku dns:configure aws >/dev/null 2>&1
     
-    # In Docker environments, cron functionality may not work properly due to permissions
-    # Test basic command parsing but skip system cron operations
-    if [[ "${DOCKER_ENV:-}" == "true" ]] || [[ -f "/.dockerenv" ]] || ! command -v crontab >/dev/null 2>&1; then
-        log_info "Running in containerized environment, testing limited cron functionality..."
-        
-        # Test basic cron command parsing and validation only
-        assert_failure "Invalid cron flag should fail" dokku dns:cron --invalid-flag
-        assert_output_contains_ignore_exit "Invalid flag shows helpful error" "unknown flag.*invalid-flag" dokku dns:cron --invalid-flag
-        
-        # Test schedule validation
-        assert_failure "Invalid schedule should fail" dokku dns:cron --enable --schedule "invalid"
-        assert_output_contains_ignore_exit "Schedule validation works" "Invalid cron schedule" dokku dns:cron --enable --schedule "invalid"
-        
-        # Test basic status display (without trying to modify cron)
+    # Test cron command parsing and validation first
+    assert_failure "Invalid cron flag should fail" dokku dns:cron --invalid-flag
+    assert_output_contains_ignore_exit "Invalid flag shows helpful error" "unknown flag.*invalid-flag" dokku dns:cron --invalid-flag
+    
+    # Test schedule validation
+    assert_failure "Invalid schedule should fail" dokku dns:cron --enable --schedule "invalid"
+    assert_output_contains_ignore_exit "Schedule validation works" "Invalid cron schedule" dokku dns:cron --enable --schedule "invalid"
+    
+    # Check if cron is available for full testing
+    if ! command -v crontab >/dev/null 2>&1; then
+        log_warning "crontab not available, skipping cron system integration tests"
         assert_output_contains_ignore_exit "Cron status shows provider info" "DNS Cron Status" dokku dns:cron
-        
-        log_info "Limited cron tests completed (full cron functionality requires system access)"
         return 0
     fi
     
@@ -254,9 +249,23 @@ test_dns_cron() {
         assert_output_contains "Cron shows enabled status" "Status: ✅ ENABLED" dokku dns:cron
         assert_output_contains "Cron shows active job details" "Active Job:" dokku dns:cron
         
-        # Test disabling cron
-        assert_output_contains "Can disable cron automation" "Disabling DNS Cron Job" dokku dns:cron --disable
-        assert_output_contains "Shows current schedule when disabling" "Current:.*default.*2:00 AM" dokku dns:cron --disable
+        # Test disabling cron (shows schedule before removing)
+        output=$(dokku dns:cron --disable 2>&1)
+        if echo "$output" | grep -q "Disabling DNS Cron Job"; then
+            log_success "Can disable cron automation"
+            TESTS_PASSED=$((TESTS_PASSED + 1))
+        else
+            log_error "Can disable cron automation"
+            TESTS_FAILED=$((TESTS_FAILED + 1))
+        fi
+        if echo "$output" | grep -q "Current:.*default.*2:00 AM"; then
+            log_success "Shows current schedule when disabling" 
+            TESTS_PASSED=$((TESTS_PASSED + 1))
+        else
+            log_error "Shows current schedule when disabling"
+            TESTS_FAILED=$((TESTS_FAILED + 1))
+        fi
+        TESTS_TOTAL=$((TESTS_TOTAL + 2))
         
         # Verify disabled state
         assert_output_contains "Cron shows disabled status after disable" "Status: ❌ DISABLED" dokku dns:cron
@@ -298,7 +307,6 @@ test_dns_cron() {
         
         # Now test disabling
         assert_output_contains "Can disable cron automation" "Disabling DNS Cron Job" dokku dns:cron --disable
-        assert_output_contains "Shows current schedule when disabling" "Current:.*default.*2:00 AM" dokku dns:cron --disable
         # Only test crontab removal if we're in an environment that supports it
         if command -v crontab >/dev/null 2>&1 && su - dokku -c 'crontab -l >/dev/null 2>&1' 2>/dev/null; then
             assert_failure "Cron job removed from system crontab" bash -c "su - dokku -c 'crontab -l 2>/dev/null | grep -q \"dokku dns:sync-all\"'"

@@ -12,6 +12,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - dokku_data:/var/lib/dokku
       - ../../:/tmp/dokku-dns:ro
+      - ./init-cron.sh:/usr/local/bin/init-cron.sh:ro
     environment:
       - DOKKU_HOSTNAME=localhost
       - DOKKU_SSH_PORT=2224
@@ -19,7 +20,7 @@ services:
     container_name: dokku-local
     networks:
       - dokku-net
-# Use default Dokku command - DH generation is acceptable for CI
+# Use custom command to ensure cron is available for DNS plugin testing
 
   test-runner:
     build:
