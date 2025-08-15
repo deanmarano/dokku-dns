@@ -58,13 +58,13 @@ ZONES_DATA
         echo ""
         ;;
     "route53 list-hosted-zones --query HostedZones[].Name --output text")
-        echo "example.com. test.org."
+        echo -e "example.com.\ttest.org."
         ;;
     "route53 list-resource-record-sets --hosted-zone-id Z123456789ABCDEF --query ResourceRecordSets[?Type==\`A\`].Name --output text")
-        echo "app1.example.com. api.example.com. www.example.com."
+        echo -e "app1.example.com.\tapi.example.com.\twww.example.com."
         ;;
     "route53 list-resource-record-sets --hosted-zone-id Z987654321ZYXWVU --query ResourceRecordSets[?Type==\`A\`].Name --output text")
-        echo "staging.test.org. demo.test.org."
+        echo -e "staging.test.org.\tdemo.test.org."
         ;;
     "route53 get-hosted-zone --id Z123456789ABCDEF --query HostedZone.ResourceRecordSetCount --output text")
         echo "5"
