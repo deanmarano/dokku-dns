@@ -1,4 +1,4 @@
-/tmp
+tmp/
 .vagrant
 bootstrap.sh
 test-server-*.log
