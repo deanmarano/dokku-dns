@@ -46,12 +46,9 @@ teardown() {
     run dns_cmd cron --enable
     assert_success
     assert_output_contains "✅ DNS cron job enabled successfully!"
-    # Verify schedule appears in both setup and confirmation (2 times total)
-    output_count=$(echo "$output" | grep -c "Daily at 2:00 AM" || echo "0")
-    assert_equal "2" "$output_count"
-    # Verify command appears in both setup and confirmation (2 times total)
-    command_count=$(echo "$output" | grep -c "Command: dokku dns:sync-all" || echo "0")
-    assert_equal "2" "$command_count"
+    assert_output_contains "Creating DNS Cron Job"
+    assert_output_contains "Daily at 2:00 AM - default"
+    assert_output_contains "Next Steps"
     
     # Check metadata files were created
     [[ -f "$PLUGIN_DATA_ROOT/cron/status" ]]
@@ -71,12 +68,10 @@ teardown() {
     
     run dns_cmd cron --enable
     assert_success
-    assert_output_contains "Existing DNS Cron Job Found"
-    assert_output_contains "Previous schedule: 0 2 * * *"
-    assert_output_contains "Previous timing: Daily at 2:00 AM (default)"
-    assert_output_contains "New schedule: 0 2 * * * (Daily at 2:00 AM - default)"
-    assert_output_contains "Updating DNS cron job..."
-    assert_output_contains "✅ DNS cron job enabled successfully!"
+    assert_output_contains "Updating DNS Cron Job"
+    assert_output_contains "Previous: 0 2 * * *"
+    assert_output_contains "New: 0 2 * * * (Daily at 2:00 AM - default)"
+    assert_output_contains "✅ DNS cron job updated successfully!"
 }
 
 @test "(dns:cron --disable) fails when no cron job exists" {
@@ -262,10 +257,9 @@ EOF
     run dns_cmd cron --enable --schedule "0 4 * * *"
     assert_success
     assert_output_contains "✅ DNS cron job enabled successfully!"
+    assert_output_contains "Creating DNS Cron Job"
     assert_output_contains "0 4 * * * (custom)"
-    # Command appears twice in output (setup + confirmation), so check count
-    command_count=$(echo "$output" | grep -c "Command: dokku dns:sync-all" || echo "0")
-    assert_equal "2" "$command_count"
+    assert_output_contains "Next Steps"
     
     # Check metadata files were created with custom schedule
     [[ -f "$PLUGIN_DATA_ROOT/cron/schedule" ]]
@@ -352,10 +346,10 @@ EOF
     
     run dns_cmd cron --schedule "0 6 * * *"
     assert_success
-    assert_output_contains "Existing DNS Cron Job Found"
-    assert_output_contains "Previous schedule: 0 2 * * *"
-    assert_output_contains "New schedule: 0 6 * * * (custom)"
-    assert_output_contains "✅ DNS cron job enabled successfully!"
+    assert_output_contains "Updating DNS Cron Job"
+    assert_output_contains "Previous: 0 2 * * *"
+    assert_output_contains "New: 0 6 * * * (custom)"
+    assert_output_contains "✅ DNS cron job updated successfully!"
     
     # Verify new schedule was saved
     [[ "$(cat "$PLUGIN_DATA_ROOT/cron/schedule")" = "0 6 * * *" ]]

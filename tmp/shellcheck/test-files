@@ -8,6 +8,7 @@
 ./subcommands/version
 ./subcommands/report
 ./subcommands/sync
+./subcommands/cron
 ./providers/aws
 ./tests/setup.sh
 ./tests/bin/dokku

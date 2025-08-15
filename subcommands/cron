@@ -160,7 +160,10 @@ service-cron-cmd() {
         shift 2
         ;;
       *)
-        dokku_log_fail "Unknown option: $1. Use --enable, --disable, --schedule, or no flags for status."
+        echo "unknown flag: $1" >&2
+        echo "Usage of $PLUGIN_COMMAND_PREFIX:cron:" >&2
+        echo "  dokku $PLUGIN_COMMAND_PREFIX:cron [--enable|--disable|--schedule \"SCHEDULE\"]" >&2
+        exit 2
         ;;
     esac
   done
@@ -316,41 +319,33 @@ cron_enable_functionality() {
   mkdir -p "$CRON_DATA_DIR"
   
   # Check if cron job already exists and remove it
+  local is_update=false
   if crontab -l 2>/dev/null | grep -q "dokku dns:sync-all"; then
     local existing_job existing_schedule
     existing_job=$(crontab -l 2>/dev/null | grep "dokku dns:sync-all" || echo "")
     existing_schedule=$(echo "$existing_job" | awk '{print $1, $2, $3, $4, $5}')
+    is_update=true
     
     echo
-    dokku_log_info2 "Existing DNS Cron Job Found"
-    dokku_log_info1 "Previous schedule: $existing_schedule"
-    if [[ "$existing_schedule" == "0 2 * * *" ]]; then
-      dokku_log_info1 "Previous timing: Daily at 2:00 AM (default)"
-    else
-      dokku_log_info1 "Previous timing: Custom schedule"
-    fi
-    
+    dokku_log_info2 "Updating DNS Cron Job"
+    dokku_log_info1 "Previous: $existing_schedule"
     if [[ "$CRON_SCHEDULE" == "0 2 * * *" ]]; then
-      dokku_log_info1 "New schedule: $CRON_SCHEDULE (Daily at 2:00 AM - default)"
+      dokku_log_info1 "New: $CRON_SCHEDULE (Daily at 2:00 AM - default)"
     else
-      dokku_log_info1 "New schedule: $CRON_SCHEDULE (custom)"
+      dokku_log_info1 "New: $CRON_SCHEDULE (custom)"
     fi
-    echo
-    dokku_log_info1 "Updating DNS cron job..."
     
     # Remove existing cron job
     (crontab -l 2>/dev/null || echo "") | (grep -v "dokku dns:sync-all" || true) | crontab -
-  fi
-  
-  # Create the cron job
-  dokku_log_info1 "Creating DNS sync cron job..."
-  if [[ "$CRON_SCHEDULE" == "0 2 * * *" ]]; then
-    dokku_log_info2 "Schedule: $CRON_SCHEDULE (Daily at 2:00 AM - default)"
   else
-    dokku_log_info2 "Schedule: $CRON_SCHEDULE (custom)"
+    echo
+    dokku_log_info2 "Creating DNS Cron Job"
+    if [[ "$CRON_SCHEDULE" == "0 2 * * *" ]]; then
+      dokku_log_info1 "Schedule: $CRON_SCHEDULE (Daily at 2:00 AM - default)"
+    else
+      dokku_log_info1 "Schedule: $CRON_SCHEDULE (custom)"
+    fi
   fi
-  dokku_log_info2 "Command: $CRON_COMMAND"
-  dokku_log_info2 "Log file: $CRON_LOG_FILE"
   
   # Add cron job to crontab
   (crontab -l 2>/dev/null || echo "") | { cat; echo "$CRON_ENTRY"; } | crontab -
@@ -366,17 +361,15 @@ cron_enable_functionality() {
     # Initialize log file
     echo "$(date): DNS cron job enabled" > "$CRON_LOG_FILE"
     
-    dokku_log_info1 "✅ DNS cron job enabled successfully!"
-    echo
-    dokku_log_info2 "Automated DNS synchronization is now active"
-    if [[ "$CRON_SCHEDULE" == "0 2 * * *" ]]; then
-      dokku_log_info1 "• Schedule: $CRON_SCHEDULE (Daily at 2:00 AM - default)"
+    if [[ "$is_update" == "true" ]]; then
+      dokku_log_info1 "✅ DNS cron job updated successfully!"
     else
-      dokku_log_info1 "• Schedule: $CRON_SCHEDULE (custom)"
+      dokku_log_info1 "✅ DNS cron job enabled successfully!"
     fi
-    dokku_log_info1 "• Command: $CRON_COMMAND"
-    dokku_log_info1 "• Log file: $CRON_LOG_FILE"
+    echo
+    dokku_log_info2 "Next Steps"
     dokku_log_info1 "• Check status: dokku $PLUGIN_COMMAND_PREFIX:cron"
+    dokku_log_info1 "• Manual sync: dokku $PLUGIN_COMMAND_PREFIX:sync-all"
     dokku_log_info1 "• Disable: dokku $PLUGIN_COMMAND_PREFIX:cron --disable"
   else
     dokku_log_fail "Failed to create DNS cron job. Check system permissions."
