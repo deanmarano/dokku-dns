@@ -4,27 +4,6 @@
 set -eo pipefail
 [[ $DOKKU_TRACE ]] && set -x
 
-case "$DOKKU_DISTRO" in
-  ubuntu|debian)
-    export DEBIAN_FRONTEND=noninteractive
-    apt-get update -qq >/dev/null
-    apt-get install -qq -y jq >/dev/null
-    ;;
-  centos|rhel|fedora)
-    if command -v dnf &>/dev/null; then
-      dnf install -y jq >/dev/null
-    else
-      yum install -y jq >/dev/null
-    fi
-    ;;
-  alpine)
-    apk add --no-cache jq >/dev/null
-    ;;
-  *)
-    # For other distributions, try to install jq if not available
-    if ! command -v jq >/dev/null 2>&1; then
-      echo "Warning: jq is required for DNS zones functionality but could not be automatically installed on $DOKKU_DISTRO"
-      echo "Please install jq manually: https://stedolan.github.io/jq/download/"
-    fi
-    ;;
-esac
+# DNS plugin now uses AWS CLI native JSON parsing instead of jq
+# No additional dependencies required beyond AWS CLI and standard shell tools
+echo "DNS plugin dependencies: Using AWS CLI native JSON parsing"

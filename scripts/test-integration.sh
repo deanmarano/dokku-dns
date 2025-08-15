@@ -403,7 +403,7 @@ test_dns_zones() {
     else
         assert_output_contains_ignore_exit "Enable zone shows AWS CLI requirement" "AWS CLI is not installed" dokku dns:zones --enable example.com
         assert_output_contains "Disable zone works without AWS CLI" "No apps are currently managed by DNS" dokku dns:zones --disable example.com
-        assert_output_contains_ignore_exit "Enable-all shows AWS CLI requirement" "AWS CLI is not installed\|jq is not installed" dokku dns:zones --enable-all
+        assert_output_contains_ignore_exit "Enable-all shows AWS CLI requirement" "AWS CLI is not installed" dokku dns:zones --enable-all
         
         # Test disable-all (should work without AWS CLI)
         assert_output_contains "Disable-all works without AWS CLI" "No apps are currently managed by DNS" dokku dns:zones --disable-all

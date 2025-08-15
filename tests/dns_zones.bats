@@ -39,23 +39,14 @@ case "$*" in
     "sts get-caller-identity"*)
         echo '{"UserId":"AIDAEXAMPLE","Account":"123456789012","Arn":"arn:aws:iam::123456789012:user/test"}'
         ;;
-    "route53 list-hosted-zones --query HostedZones[].{Id:Id,Name:Name,RecordCount:ResourceRecordSetCount,Comment:Config.Comment} --output json")
-        cat << 'ZONES_JSON'
-[
-  {
-    "Id": "/hostedzone/Z123456789ABCDEF",
-    "Name": "example.com.",
-    "RecordCount": 5,
-    "Comment": "Primary domain zone"
-  },
-  {
-    "Id": "/hostedzone/Z987654321ZYXWVU",
-    "Name": "test.org.",
-    "RecordCount": 3,
-    "Comment": null
-  }
-]
-ZONES_JSON
+    "route53 list-hosted-zones --query length(HostedZones) --output text")
+        echo "2"
+        ;;
+    "route53 list-hosted-zones --query HostedZones[].[Id,Name,ResourceRecordSetCount,Config.Comment] --output text")
+        cat << 'ZONES_DATA'
+/hostedzone/Z123456789ABCDEF	example.com.	5	Primary domain zone
+/hostedzone/Z987654321ZYXWVU	test.org.	3	None
+ZONES_DATA
         ;;
     "route53 list-hosted-zones --query HostedZones[?Name=='example.com.'].Id --output text")
         echo "/hostedzone/Z123456789ABCDEF"
@@ -74,6 +65,33 @@ ZONES_JSON
         ;;
     "route53 list-resource-record-sets --hosted-zone-id Z987654321ZYXWVU --query ResourceRecordSets[?Type==\`A\`].Name --output text")
         echo "staging.test.org. demo.test.org."
+        ;;
+    "route53 get-hosted-zone --id Z123456789ABCDEF --query HostedZone.ResourceRecordSetCount --output text")
+        echo "5"
+        ;;
+    "route53 get-hosted-zone --id Z123456789ABCDEF --query HostedZone.Config.Comment --output text")
+        echo "Primary domain zone"
+        ;;
+    "route53 get-hosted-zone --id Z123456789ABCDEF --query HostedZone.Config.PrivateZone --output text")
+        echo "false"
+        ;;
+    "route53 get-hosted-zone --id Z123456789ABCDEF --query DelegationSet.NameServers --output text")
+        echo "ns1.example.com	ns2.example.com"
+        ;;
+    "route53 list-resource-record-sets --hosted-zone-id Z123456789ABCDEF --query ResourceRecordSets[?Type==\`A\`].[Name,ResourceRecords[0].Value] --output text")
+        cat << 'A_RECORDS'
+example.com.	1.2.3.4
+www.example.com.	1.2.3.4
+api.example.com.	1.2.3.5
+A_RECORDS
+        ;;
+    "route53 list-resource-record-sets --hosted-zone-id Z123456789ABCDEF --query ResourceRecordSets[?Type!=\`A\`].[Type,Name] --output text")
+        cat << 'OTHER_RECORDS'
+CNAME	mail.example.com.
+MX	example.com.
+NS	example.com.
+SOA	example.com.
+OTHER_RECORDS
         ;;
     "route53 get-hosted-zone --id Z123456789ABCDEF --output json")
         cat << 'ZONE_DETAILS'
@@ -161,42 +179,6 @@ EOF
     export PATH="$BIN_DIR:$PATH"
 }
 
-# Don't mock jq - use the real one if available, or skip jq tests
-create_mock_jq() {
-    # Only mock jq if the system doesn't have it
-    if ! command -v jq >/dev/null 2>&1; then
-        local BIN_DIR="$PLUGIN_DATA_ROOT/bin"
-        mkdir -p "$BIN_DIR"
-        cat > "$BIN_DIR/jq" << 'EOF'
-#!/bin/bash
-# Basic jq mock that handles simple cases
-case "$*" in
-    "-r" ".[] | @base64")
-        # Return base64 encoded zone data for each zone
-        echo "ewogICJJZCI6ICIvaG9zdGVkem9uZS9aMTIzNDU2Nzg5QUJDREVGIiwKICAiTmFtZSI6ICJleGFtcGxlLmNvbS4iLAogICJSZWNvcmRDb3VudCI6IDUsCiAgIkNvbW1lbnQiOiAiUHJpbWFyeSBkb21haW4gem9uZSIKfQ=="
-        echo "ewogICJJZCI6ICIvaG9zdGVkem9uZS9aOTg3NjU0MzIxWllYV1ZVIiwKICAiTmFtZSI6ICJ0ZXN0Lm9yZy4iLAogICJSZWNvcmRDb3VudCI6IDMsCiAgIkNvbW1lbnQiOiBudWxsCn0="
-        ;;
-    "-r" ".Id")
-        echo "/hostedzone/Z123456789ABCDEF"
-        ;;
-    "-r" ".Name")
-        echo "example.com."
-        ;;
-    "-r" ".RecordCount")
-        echo "5"
-        ;;
-    "-r" ".Comment // \"\"")
-        echo "Primary domain zone"
-        ;;
-    *)
-        echo ""
-        ;;
-esac
-EOF
-        chmod +x "$BIN_DIR/jq"
-        export PATH="$BIN_DIR:$PATH"
-    fi
-}
 
 @test "(dns:zones) fails when no provider configured" {
     dns_zones
@@ -207,7 +189,6 @@ EOF
 @test "(dns:zones) lists AWS zones when provider configured" {
     setup_mock_provider "aws"
     create_mock_aws
-    create_mock_jq
     
     dns_zones
     assert_success
@@ -315,7 +296,6 @@ EOF
 @test "(dns:zones) shows management commands" {
     setup_mock_provider "aws"
     create_mock_aws
-    create_mock_jq
     
     dns_zones
     assert_success
@@ -328,7 +308,6 @@ EOF
 @test "(dns:zones) handles zones with managed domains" {
     setup_mock_provider "aws"
     create_mock_aws
-    create_mock_jq
     
     # Setup some managed domains
     mkdir -p "$PLUGIN_DATA_ROOT/app1"

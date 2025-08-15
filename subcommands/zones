@@ -156,19 +156,15 @@ zones_list_aws_zones() {
     dokku_log_fail "AWS CLI is not installed. Please install aws-cli to use AWS Route53 provider."
   fi
   
-  if ! command -v jq >/dev/null 2>&1; then
-    dokku_log_fail "jq is not installed. Please install jq to use zones functionality."
-  fi
-  
   if ! aws sts get-caller-identity >/dev/null 2>&1; then
     dokku_log_fail "AWS CLI is not configured or credentials are invalid."
   fi
   
-  # Get all hosted zones
-  local ZONES_JSON
-  ZONES_JSON=$(aws route53 list-hosted-zones --query 'HostedZones[].{Id:Id,Name:Name,RecordCount:ResourceRecordSetCount,Comment:Config.Comment}' --output json 2>/dev/null)
+  # Check if any zones exist
+  local zone_count
+  zone_count=$(aws route53 list-hosted-zones --query 'length(HostedZones)' --output text 2>/dev/null)
   
-  if [[ -z "$ZONES_JSON" ]] || [[ "$ZONES_JSON" == "[]" ]]; then
+  if [[ -z "$zone_count" ]] || [[ "$zone_count" == "0" ]]; then
     dokku_log_info1 "No hosted zones found in Route53"
     echo
     dokku_log_info2 "Management Commands"
@@ -198,19 +194,21 @@ zones_list_aws_zones() {
     done <<< "$MANAGED_APPS"
   fi
   
+  # Get zone information using AWS CLI queries
+  local zones_data
+  zones_data=$(aws route53 list-hosted-zones --query 'HostedZones[].[Id,Name,ResourceRecordSetCount,Config.Comment]' --output text 2>/dev/null)
+  
   # Parse and display zones
-  local zone_count=0
-  echo "$ZONES_JSON" | jq -r '.[] | @base64' | while IFS= read -r zone_data; do
-    local zone_info
-    zone_info=$(echo "$zone_data" | base64 --decode)
+  local zone_num=0
+  while IFS=$'\t' read -r zone_id zone_name record_count comment; do
+    [[ -z "$zone_id" ]] && continue
     
-    local zone_id zone_name record_count comment
-    zone_id=$(echo "$zone_info" | jq -r '.Id' | sed 's|/hostedzone/||')
-    zone_name=$(echo "$zone_info" | jq -r '.Name' | sed 's/\.$//')
-    record_count=$(echo "$zone_info" | jq -r '.RecordCount')
-    comment=$(echo "$zone_info" | jq -r '.Comment // ""')
+    # Clean up the data
+    zone_id=${zone_id#/hostedzone/}
+    zone_name=${zone_name%.}
+    [[ "$comment" == "None" ]] && comment=""
     
-    zone_count=$((zone_count + 1))
+    zone_num=$((zone_num + 1))
     
     # Check if any managed domains belong to this zone
     local managed_in_zone=0
@@ -242,7 +240,7 @@ zones_list_aws_zones() {
     if [[ -n "$comment" ]] && [[ "$comment" != "null" ]]; then
       dokku_log_info1 "   Comment: $comment"
     fi
-  done
+  done <<< "$zones_data"
   
   # Show summary and management commands
   echo
@@ -280,9 +278,6 @@ zones_enable_zone() {
     dokku_log_fail "AWS CLI is not installed. Please install aws-cli to use AWS Route53 provider."
   fi
   
-  if ! command -v jq >/dev/null 2>&1; then
-    dokku_log_fail "jq is not installed. Please install jq to use zones functionality."
-  fi
   
   if ! aws sts get-caller-identity >/dev/null 2>&1; then
     dokku_log_fail "AWS CLI is not configured or credentials are invalid."
@@ -485,9 +480,6 @@ zones_enable_all() {
     dokku_log_fail "AWS CLI is not installed. Please install aws-cli to use AWS Route53 provider."
   fi
   
-  if ! command -v jq >/dev/null 2>&1; then
-    dokku_log_fail "jq is not installed. Please install jq to use zones functionality."
-  fi
   
   if ! aws sts get-caller-identity >/dev/null 2>&1; then
     dokku_log_fail "AWS CLI is not configured or credentials are invalid."
@@ -645,9 +637,6 @@ zones_show_zone() {
     dokku_log_fail "AWS CLI is not installed. Please install aws-cli to use AWS Route53 provider."
   fi
   
-  if ! command -v jq >/dev/null 2>&1; then
-    dokku_log_fail "jq is not installed. Please install jq to use zones functionality."
-  fi
   
   if ! aws sts get-caller-identity >/dev/null 2>&1; then
     dokku_log_fail "AWS CLI is not configured or credentials are invalid."
@@ -668,14 +657,16 @@ zones_show_zone() {
     return 1
   fi
   
-  # Get zone details
-  local zone_info
-  zone_info=$(aws route53 get-hosted-zone --id "$ZONE_ID" --output json 2>/dev/null)
-  
+  # Get zone details using AWS CLI queries  
   local record_count comment private_zone
-  record_count=$(echo "$zone_info" | jq -r '.HostedZone.ResourceRecordSetCount // "N/A"')
-  comment=$(echo "$zone_info" | jq -r '.HostedZone.Config.Comment // ""')
-  private_zone=$(echo "$zone_info" | jq -r '.HostedZone.Config.PrivateZone // false')
+  record_count=$(aws route53 get-hosted-zone --id "$ZONE_ID" --query 'HostedZone.ResourceRecordSetCount' --output text 2>/dev/null)
+  comment=$(aws route53 get-hosted-zone --id "$ZONE_ID" --query 'HostedZone.Config.Comment' --output text 2>/dev/null)
+  private_zone=$(aws route53 get-hosted-zone --id "$ZONE_ID" --query 'HostedZone.Config.PrivateZone' --output text 2>/dev/null)
+  
+  # Handle None values
+  [[ "$record_count" == "None" ]] && record_count="N/A"
+  [[ "$comment" == "None" ]] && comment=""
+  [[ "$private_zone" == "None" ]] && private_zone="false"
   
   echo
   dokku_log_info2 "AWS Route53 Information"
@@ -693,38 +684,40 @@ zones_show_zone() {
   
   # Get nameservers
   local nameservers
-  nameservers=$(echo "$zone_info" | jq -r '.DelegationSet.NameServers[]? // empty' | tr '\n' ' ')
-  if [[ -n "$nameservers" ]]; then
+  nameservers=$(aws route53 get-hosted-zone --id "$ZONE_ID" --query 'DelegationSet.NameServers' --output text 2>/dev/null)
+  if [[ -n "$nameservers" && "$nameservers" != "None" ]]; then
     dokku_log_info1 "Name Servers: $nameservers"
   fi
   
-  # Get all records in the zone
+  # Get DNS records in the zone
   echo
   dokku_log_info2 "DNS Records"
-  local all_records
-  all_records=$(aws route53 list-resource-record-sets --hosted-zone-id "$ZONE_ID" --output json 2>/dev/null)
   
-  # Show A records specifically
+  # Show A records
   local a_records
-  a_records=$(echo "$all_records" | jq -r '.ResourceRecordSets[] | select(.Type == "A") | "\(.Name | rtrimstr(".")) -> \(.ResourceRecords[0].Value // .AliasTarget.DNSName // "N/A")"' 2>/dev/null)
+  a_records=$(aws route53 list-resource-record-sets --hosted-zone-id "$ZONE_ID" --query 'ResourceRecordSets[?Type==`A`].[Name,ResourceRecords[0].Value]' --output text 2>/dev/null)
   
   if [[ -n "$a_records" ]]; then
     dokku_log_info1 "A Records:"
-    echo "$a_records" | while IFS= read -r record; do
-      echo "  $record"
-    done
+    while IFS=$'\t' read -r name value; do
+      [[ -z "$name" ]] && continue
+      name=${name%.}  # Remove trailing dot
+      echo "  $name -> $value"
+    done <<< "$a_records"
   fi
   
-  # Show other record types
+  # Show other record types (simplified)
   local other_records
-  other_records=$(echo "$all_records" | jq -r '.ResourceRecordSets[] | select(.Type != "A") | "\(.Type): \(.Name | rtrimstr(".")) -> \(.ResourceRecords[0].Value // .AliasTarget.DNSName // "N/A")"' 2>/dev/null)
+  other_records=$(aws route53 list-resource-record-sets --hosted-zone-id "$ZONE_ID" --query 'ResourceRecordSets[?Type!=`A`].[Type,Name]' --output text 2>/dev/null)
   
   if [[ -n "$other_records" ]]; then
     echo
     dokku_log_info1 "Other Records:"
-    echo "$other_records" | while IFS= read -r record; do
-      echo "  $record"
-    done
+    while IFS=$'\t' read -r type name; do
+      [[ -z "$type" ]] && continue
+      name=${name%.}  # Remove trailing dot
+      echo "  $type: $name"
+    done <<< "$other_records"
   fi
   
   # Get Dokku app associations

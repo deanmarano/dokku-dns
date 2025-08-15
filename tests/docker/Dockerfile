@@ -12,7 +12,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     openssh-client \
     awscli \
-    jq \
     dnsutils \
     netcat-openbsd \
     ca-certificates \
