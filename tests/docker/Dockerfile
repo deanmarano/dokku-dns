@@ -8,16 +8,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     bash \
     curl \
     git \
-    netcat-openbsd \
-    openssh-client \
     sudo \
+    wget \
+    openssh-client \
+    awscli \
+    jq \
+    dnsutils \
+    netcat-openbsd \
     ca-certificates \
     unzip \
     xz-utils \
-    dnsutils \
     docker.io \
     shellcheck \
-    awscli \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
 # Install BATS efficiently

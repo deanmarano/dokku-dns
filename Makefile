@@ -51,7 +51,16 @@ endif
 	ln -nfs `which greadlink` tests/bin/readlink
 endif
 
-ci-dependencies: shellcheck bats readlink
+jq:
+ifneq ($(shell jq --version >/dev/null 2>&1 ; echo $$?),0)
+ifeq ($(SYSTEM_NAME),darwin)
+	brew install jq
+else
+	sudo apt-get update -qq && sudo apt-get install -qq -y jq
+endif
+endif
+
+ci-dependencies: shellcheck bats readlink jq
 
 lint-setup:
 	@mkdir -p tmp/test-results/shellcheck tmp/shellcheck

@@ -54,6 +54,7 @@
       "Bash(add_test_domains:*)",
       "Bash(/dev/null)"
     ],
-    "deny": []
+    "deny": [],
+    "defaultMode": "acceptEdits"
   }
 }

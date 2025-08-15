@@ -81,6 +81,14 @@ detect_and_configure_provider() {
 plugin-install() {
   echo "-----> Installing $PLUGIN_SERVICE plugin"
   
+  # Install dependencies if dependencies script exists
+  local PLUGIN_ROOT
+  PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if [[ -x "$PLUGIN_ROOT/dependencies" ]]; then
+    echo "-----> Installing plugin dependencies..."
+    DOKKU_DISTRO="${DOKKU_DISTRO:-$(lsb_release -is 2>/dev/null | tr '[:upper:]' '[:lower:]' || echo 'unknown')}" "$PLUGIN_ROOT/dependencies" || echo "Dependencies script completed with warnings"
+  fi
+  
   # Set up plugin properties
   fn-plugin-property-setup "$PLUGIN_COMMAND_PREFIX"
 
