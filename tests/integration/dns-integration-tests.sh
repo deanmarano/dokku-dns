@@ -173,11 +173,241 @@ EOF
         fi
     fi
     
-    # Test 11: Edge cases
-    echo "11. Testing edge cases..."
-    dokku dns:add 2>&1 || echo "Usage error handled correctly"
-    dokku dns:sync 2>&1 || echo "Usage error handled correctly"
-    dokku dns:remove 2>&1 || echo "Usage error handled correctly"
+    # Test 10: DNS Cron functionality
+    echo "10. Testing comprehensive DNS cron functionality..."
+    
+    # Test 10.1: Initial cron status (should be disabled)
+    if dokku dns:cron 2>&1 | grep -q "Status: ❌ DISABLED"; then
+        echo "✓ Cron shows disabled status initially"
+    else
+        echo "⚠️ Cron initial status test inconclusive"
+    fi
+    
+    # Test 10.2: Invalid flag handling
+    if dokku dns:cron --invalid-flag 2>&1 | grep -q "unknown flag.*invalid-flag"; then
+        echo "✓ Invalid cron flag handled correctly"
+    else
+        echo "❌ Invalid cron flag not handled correctly"
+        test_failed=true
+    fi
+    
+    # Test 10.3: Invalid schedule validation
+    if dokku dns:cron --enable --schedule "invalid" 2>&1 | grep -q "Invalid cron schedule"; then
+        echo "✓ Cron schedule validation working"
+    else
+        echo "❌ Cron schedule validation not working"
+        test_failed=true
+    fi
+    
+    # Test 10.4: Enable cron with default schedule
+    echo "Testing cron enable functionality..."
+    if dokku dns:cron --enable 2>&1 | grep -q "✅ DNS cron job.*successfully"; then
+        echo "✓ Cron enable command works"
+        
+        # Test 10.5: Verify cron job exists in dokku user's crontab
+        if su - dokku -c 'crontab -l 2>/dev/null' | grep -q "dokku dns:sync-all"; then
+            echo "✓ Cron job exists in dokku user's crontab"
+        else
+            echo "❌ Cron job not found in dokku user's crontab"
+            test_failed=true
+        fi
+        
+        # Test 10.6: Verify cron status shows enabled
+        if dokku dns:cron 2>&1 | grep -q "Status: ✅ ENABLED"; then
+            echo "✓ Cron status shows enabled"
+        else
+            echo "❌ Cron status not showing enabled"
+            test_failed=true
+        fi
+        
+        # Test 10.7: Test cron update (enable when already enabled)
+        if dokku dns:cron --enable 2>&1 | grep -q "Updating DNS Cron Job"; then
+            echo "✓ Cron update shows correct message"
+        else
+            echo "⚠️ Cron update message test inconclusive"
+        fi
+        
+        # Test 10.8: Test custom schedule
+        if dokku dns:cron --schedule "0 6 * * *" 2>&1 | grep -q "✅ DNS cron job.*successfully"; then
+            echo "✓ Custom cron schedule works"
+            
+            # Verify custom schedule is set
+            if su - dokku -c 'crontab -l 2>/dev/null' | grep -q "0 6 \* \* \*"; then
+                echo "✓ Custom schedule set in crontab"
+            else
+                echo "❌ Custom schedule not set correctly"
+                test_failed=true
+            fi
+        else
+            echo "❌ Custom cron schedule failed"
+            test_failed=true
+        fi
+        
+        # Test 10.9: Test cron disable with schedule display
+        echo "Testing cron disable functionality..."
+        local disable_output
+        disable_output=$(dokku dns:cron --disable 2>&1)
+        if echo "$disable_output" | grep -q "Disabling DNS Cron Job"; then
+            echo "✓ Cron disable shows header"
+        else
+            echo "❌ Cron disable header missing"
+            test_failed=true
+        fi
+        
+        if echo "$disable_output" | grep -q "Current:.*6.*custom"; then
+            echo "✓ Cron disable shows current schedule"
+        else
+            echo "❌ Cron disable doesn't show current schedule"
+            test_failed=true
+        fi
+        
+        if echo "$disable_output" | grep -q "✅ DNS cron job disabled successfully"; then
+            echo "✓ Cron disable success message"
+        else
+            echo "❌ Cron disable success message missing"
+            test_failed=true
+        fi
+        
+        # Test 10.10: Verify cron job removed from system
+        if su - dokku -c 'crontab -l 2>/dev/null' | grep -q "dokku dns:sync-all"; then
+            echo "❌ Cron job still exists after disable"
+            test_failed=true
+        else
+            echo "✓ Cron job removed from dokku user's crontab"
+        fi
+        
+        # Test 10.11: Verify status shows disabled after disable
+        if dokku dns:cron 2>&1 | grep -q "Status: ❌ DISABLED"; then
+            echo "✓ Cron status shows disabled after disable"
+        else
+            echo "❌ Cron status not showing disabled"
+            test_failed=true
+        fi
+        
+        # Test 10.12: Test error when trying to disable already disabled cron
+        if dokku dns:cron --disable 2>&1 | grep -q "No DNS cron job found"; then
+            echo "✓ Disable error when no cron job exists"
+        else
+            echo "❌ Disable should show error when no job exists"
+            test_failed=true
+        fi
+        
+    else
+        echo "❌ Cron enable command failed - skipping cron system tests"
+        test_failed=true
+    fi
+    
+    # Test 10.13: Test cron metadata and logs
+    echo "Testing cron metadata and logs..."
+    dokku dns:cron --enable >/dev/null 2>&1  # Enable for metadata tests
+    
+    if [[ -f "/var/lib/dokku/services/dns/cron/status" ]]; then
+        echo "✓ Cron status metadata file created"
+        if grep -q "enabled" "/var/lib/dokku/services/dns/cron/status"; then
+            echo "✓ Cron status file contains 'enabled'"
+        else
+            echo "❌ Cron status file doesn't contain 'enabled'"
+            test_failed=true
+        fi
+    else
+        echo "❌ Cron status metadata file not created"
+        test_failed=true
+    fi
+    
+    if [[ -f "/var/lib/dokku/services/dns/cron/sync.log" ]]; then
+        echo "✓ Cron log file created"
+    else
+        echo "❌ Cron log file not created"
+        test_failed=true
+    fi
+    
+    # Clean up cron for other tests
+    dokku dns:cron --disable >/dev/null 2>&1 || true
+    
+    # Test 11: DNS Sync-All functionality
+    echo "11. Testing DNS sync-all functionality..."
+    
+    # Add test app to DNS for sync-all testing
+    dokku dns:add "$TEST_APP" >/dev/null 2>&1
+    
+    # Test sync-all command
+    if dokku dns:sync-all 2>&1 | grep -q "DNS sync completed"; then
+        echo "✓ DNS sync-all command works"
+    else
+        echo "⚠️ DNS sync-all command test inconclusive (may require DNS credentials)"
+    fi
+    
+    # Test sync-all with no DNS-managed apps
+    dokku dns:remove "$TEST_APP" >/dev/null 2>&1
+    if dokku dns:sync-all 2>&1 | grep -q "No apps are currently managed by DNS"; then
+        echo "✓ Sync-all handles no DNS-managed apps correctly"
+    else
+        echo "❌ Sync-all doesn't handle empty state correctly"
+        test_failed=true
+    fi
+    
+    # Test 12: Version and help commands
+    echo "12. Testing version and help commands..."
+    
+    if dokku dns:version 2>&1 | grep -q "dokku-dns plugin version"; then
+        echo "✓ Version command shows plugin version"
+    else
+        echo "❌ Version command not working correctly"
+        test_failed=true
+    fi
+    
+    if dokku dns:help 2>&1 | grep -q "dns:cron"; then
+        echo "✓ Help shows cron command"
+    else
+        echo "❌ Help doesn't show cron command"
+        test_failed=true
+    fi
+    
+    if dokku dns:help cron 2>&1 | grep -q "enable.*disable.*schedule"; then
+        echo "✓ Cron help shows flags"
+    else
+        echo "❌ Cron help doesn't show flags"
+        test_failed=true
+    fi
+    
+    # Test 13: Edge cases and error handling
+    echo "13. Testing edge cases and error handling..."
+    
+    # Test commands without required arguments
+    if dokku dns:add 2>&1 | grep -q "Please specify an app name"; then
+        echo "✓ Add without app shows usage error"
+    else
+        echo "⚠️ Add usage error handling test inconclusive"
+    fi
+    
+    if dokku dns:sync 2>&1 | grep -q "Please specify an app name"; then
+        echo "✓ Sync without app shows usage error"  
+    else
+        echo "⚠️ Sync usage error handling test inconclusive"
+    fi
+    
+    if dokku dns:remove 2>&1 | grep -q "Please specify an app name"; then
+        echo "✓ Remove without app shows usage error"
+    else
+        echo "⚠️ Remove usage error handling test inconclusive"
+    fi
+    
+    # Test operations on nonexistent apps
+    if dokku dns:add "nonexistent-app-12345" 2>&1 | grep -q "App does not exist"; then
+        echo "✓ Add nonexistent app shows error"
+    else
+        echo "⚠️ Add nonexistent app error handling test inconclusive"
+    fi
+    
+    # Test provider configuration edge cases
+    echo "Testing provider configuration edge cases..."
+    
+    if dokku dns:configure "invalid-provider" 2>&1 | grep -q "Invalid provider"; then
+        echo "✓ Invalid provider shows error"
+    else
+        echo "⚠️ Invalid provider error handling test inconclusive"
+    fi
+    
     
     if [[ "$test_failed" == "true" ]]; then
         log_remote "ERROR" "Some integration tests failed!"

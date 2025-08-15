@@ -469,8 +469,12 @@ def command_data(command, service, variable, alias, image, scheme, ports):
 
             if "declare desc" in line:
                 description = re.search('"(.+)"', line).group(1)
-            elif "$1" in line:
-                arguments_string = parse_args(line)
+            elif "$1" in line and ("=" in line or "declare" in line):
+                # Only parse lines that are actually declaring arguments, not conditional statements or awk commands
+                if not line.strip().startswith("#") and not "awk" in line and not "echo" in line and not "if [" in line:
+                    # Look for patterns like: SERVICE_ARG="$1" or similar argument declarations
+                    if re.search(r'\b[A-Z_]+\s*=\s*["\']?\$1["\']?', line):
+                        arguments_string = parse_args(line)
             elif line.startswith("#A "):
                 argument = line.replace("#A ", "")
                 parts = [a.strip() for a in argument.split(",", 1)]
@@ -481,6 +485,11 @@ def command_data(command, service, variable, alias, image, scheme, ports):
                 flags.append(f"`{parts[0]}`: {parts[1]}")
             elif line.startswith("#E "):
                 example_lines.append(line.replace("#E ", ""))
+
+    # Special handling for commands with flags but no positional arguments
+    if not arguments_string and flags and command == "cron":
+        # For cron command, show the simplified usage pattern
+        arguments_string = "[--enable|--disable|--schedule \"CRON_SCHEDULE\"]"
 
     examples = []
     sentence_lines = []

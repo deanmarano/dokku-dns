@@ -99,6 +99,12 @@ run_direct_tests() {
         return 1
     fi
     
+    # Initialize cron for DNS plugin testing
+    log "INFO" "Installing and configuring cron service..."
+    if ! docker exec "$DOKKU_CONTAINER" bash -c "/usr/local/bin/init-cron.sh"; then
+        log "WARNING" "Failed to initialize cron service, DNS cron functionality may not work"
+    fi
+    
     # Fix permissions after installation
     log "INFO" "Fixing DNS plugin data directory permissions..."
     docker exec "$DOKKU_CONTAINER" bash -c "mkdir -p /var/lib/dokku/services/dns && chown -R dokku:dokku /var/lib/dokku/services/dns 2>/dev/null || true"
