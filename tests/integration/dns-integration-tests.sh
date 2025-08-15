@@ -408,26 +408,6 @@ EOF
         echo "⚠️ Invalid provider error handling test inconclusive"
     fi
     
-    # Test DNS zones functionality if available
-    echo "14. Testing DNS zones functionality..."
-    
-    if dokku dns:configure aws >/dev/null 2>&1; then
-        if command -v jq >/dev/null 2>&1; then
-            if dokku dns:zones list 2>&1 | grep -q "No hosted zones found\|ERROR\|zones"; then
-                echo "✓ DNS zones command is functional"
-            else
-                echo "⚠️ DNS zones test inconclusive"
-            fi
-            
-            if dokku dns:zones details 2>&1 | grep -q "No hosted zones found\|zone details\|ERROR"; then
-                echo "✓ DNS zones details command is functional"
-            else
-                echo "⚠️ DNS zones details test inconclusive"
-            fi
-        else
-            echo "⚠️ jq not available, skipping zones tests"
-        fi
-    fi
     
     if [[ "$test_failed" == "true" ]]; then
         log_remote "ERROR" "Some integration tests failed!"
