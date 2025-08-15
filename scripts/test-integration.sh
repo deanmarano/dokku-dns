@@ -255,7 +255,8 @@ test_dns_cron() {
         assert_output_contains "Cron shows active job details" "Active Job:" dokku dns:cron
         
         # Test disabling cron
-        assert_output_contains "Can disable cron automation" "✅ DNS cron job disabled successfully!" dokku dns:cron --disable
+        assert_output_contains "Can disable cron automation" "Disabling DNS Cron Job" dokku dns:cron --disable
+        assert_output_contains "Shows current schedule when disabling" "Current:.*default.*2:00 AM" dokku dns:cron --disable
         
         # Verify disabled state
         assert_output_contains "Cron shows disabled status after disable" "Status: ❌ DISABLED" dokku dns:cron
@@ -296,7 +297,8 @@ test_dns_cron() {
         assert_output_contains "Cron shows active job details" "Active Job:" dokku dns:cron
         
         # Now test disabling
-        assert_output_contains "Can disable cron automation" "✅ DNS cron job disabled successfully!" dokku dns:cron --disable
+        assert_output_contains "Can disable cron automation" "Disabling DNS Cron Job" dokku dns:cron --disable
+        assert_output_contains "Shows current schedule when disabling" "Current:.*default.*2:00 AM" dokku dns:cron --disable
         # Only test crontab removal if we're in an environment that supports it
         if command -v crontab >/dev/null 2>&1 && su - dokku -c 'crontab -l >/dev/null 2>&1' 2>/dev/null; then
             assert_failure "Cron job removed from system crontab" bash -c "su - dokku -c 'crontab -l 2>/dev/null | grep -q \"dokku dns:sync-all\"'"

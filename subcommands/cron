@@ -384,13 +384,19 @@ cron_disable_functionality() {
     dokku_log_fail "No DNS cron job found. Enable with: dokku $PLUGIN_COMMAND_PREFIX:cron --enable"
   fi
   
-  dokku_log_info1 "Disabling DNS sync cron job..."
+  echo
+  dokku_log_info2 "Disabling DNS Cron Job"
   
-  # Show current job before removing
-  local current_job
+  # Show current schedule before removing
+  local current_job current_schedule
   current_job=$(crontab -l 2>/dev/null | grep "dokku dns:sync-all" || echo "")
   if [[ -n "$current_job" ]]; then
-    dokku_log_info2 "Removing job: $current_job"
+    current_schedule=$(echo "$current_job" | awk '{print $1, $2, $3, $4, $5}')
+    if [[ "$current_schedule" == "0 2 * * *" ]]; then
+      dokku_log_info1 "Current: $current_schedule (Daily at 2:00 AM - default)"
+    else
+      dokku_log_info1 "Current: $current_schedule (custom)"
+    fi
   fi
   
   # Remove the cron job from crontab

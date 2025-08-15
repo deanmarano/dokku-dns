@@ -96,6 +96,8 @@ teardown() {
     
     run dns_cmd cron --disable
     assert_success
+    assert_output_contains "Disabling DNS Cron Job"
+    assert_output_contains "Current: 0 2 * * * (Daily at 2:00 AM - default)"
     assert_output_contains "✅ DNS cron job disabled successfully!"
     assert_output_contains "Automated DNS synchronization is now inactive"
     
