@@ -52,7 +52,8 @@
       "Bash(setup_dns_provider aws)",
       "Bash(create_test_app:*)",
       "Bash(add_test_domains:*)",
-      "Bash(/dev/null)"
+      "Bash(/dev/null)",
+      "Bash(./debug_aws_mock.sh:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"
