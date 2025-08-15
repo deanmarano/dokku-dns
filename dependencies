@@ -1,9 +1,0 @@
-#!/usr/bin/env bash
-# Install dependencies for the DNS plugin
-
-set -eo pipefail
-[[ $DOKKU_TRACE ]] && set -x
-
-# DNS plugin now uses AWS CLI native JSON parsing instead of jq
-# No additional dependencies required beyond AWS CLI and standard shell tools
-echo "DNS plugin dependencies: Using AWS CLI native JSON parsing"
