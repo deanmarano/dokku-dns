@@ -336,6 +336,9 @@ zones_enable_zone() {
   
   local domains_added=0
   local domains_skipped=0
+  local system_domains=()
+  local orphaned_domains=()
+  local added_domains=()
   
   # Process each A record
   while IFS= read -r domain_with_dot; do
@@ -344,7 +347,7 @@ zones_enable_zone() {
     
     # Skip root domain records and common subdomains that aren't typically apps
     if [[ "$domain" == "$ZONE" ]] || [[ "$domain" == "www.$ZONE" ]] || [[ "$domain" == "mail.$ZONE" ]] || [[ "$domain" == "ftp.$ZONE" ]]; then
-      dokku_log_info1 "  Skipping: $domain (system domain)"
+      system_domains+=("$domain")
       domains_skipped=$((domains_skipped + 1))
       continue
     fi
@@ -364,22 +367,70 @@ zones_enable_zone() {
     
     if [[ -n "$matching_app" ]]; then
       # Add to DNS management
-      dokku_log_info1 "  Adding: $domain (app: $matching_app)"
       if zones_add_domain_to_dns "$matching_app" "$domain"; then
+        added_domains+=("$matching_app: $domain")
         domains_added=$((domains_added + 1))
       else
         domains_skipped=$((domains_skipped + 1))
       fi
     else
-      dokku_log_info1 "  Skipping: $domain (no matching Dokku app found)"
+      orphaned_domains+=("$domain")
       domains_skipped=$((domains_skipped + 1))
     fi
   done <<< "$A_RECORDS"
   
+  # Show organized results
+  if [[ ${#added_domains[@]} -gt 0 ]]; then
+    echo
+    dokku_log_info1 "Added to DNS management:"
+    for domain_info in "${added_domains[@]}"; do
+      local app="${domain_info%%:*}"
+      local domain="${domain_info#*: }"
+      dokku_log_info1 "• $app: $domain"
+    done
+  fi
+  
+  if [[ ${#orphaned_domains[@]} -gt 0 ]]; then
+    echo
+    dokku_log_info1 "Skipped (no matching Dokku app):"
+    for domain in "${orphaned_domains[@]}"; do
+      dokku_log_info1 "• $domain"
+    done
+  fi
+  
+  if [[ ${#system_domains[@]} -gt 0 ]]; then
+    echo
+    dokku_log_info1 "Skipped (system domains):"
+    for domain in "${system_domains[@]}"; do
+      dokku_log_info1 "• $domain"
+    done
+  fi
+  
   echo
   dokku_log_info2 "Zone enablement complete"
-  dokku_log_info1 "Domains added to DNS management: $domains_added"
-  dokku_log_info1 "Domains skipped: $domains_skipped"
+  
+  # Create intelligent summary
+  local summary_msg="Added $domains_added"
+  [[ $domains_added -eq 1 ]] && summary_msg="$summary_msg domain" || summary_msg="$summary_msg domains"
+  summary_msg="$summary_msg to DNS management"
+  
+  if [[ $domains_skipped -gt 0 ]]; then
+    summary_msg="$summary_msg, skipped $domains_skipped"
+    [[ $domains_skipped -eq 1 ]] && summary_msg="$summary_msg domain" || summary_msg="$summary_msg domains"
+    
+    # Add breakdown of skipped domains
+    local skip_details=""
+    if [[ ${#orphaned_domains[@]} -gt 0 && ${#system_domains[@]} -gt 0 ]]; then
+      skip_details=" (${#orphaned_domains[@]} orphaned, ${#system_domains[@]} system)"
+    elif [[ ${#orphaned_domains[@]} -gt 0 ]]; then
+      skip_details=" (${#orphaned_domains[@]} orphaned)"
+    elif [[ ${#system_domains[@]} -gt 0 ]]; then
+      skip_details=" (${#system_domains[@]} system)"
+    fi
+    summary_msg="$summary_msg$skip_details"
+  fi
+  
+  dokku_log_info1 "$summary_msg"
   
   if [[ $domains_added -gt 0 ]]; then
     echo
