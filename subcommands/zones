@@ -323,7 +323,7 @@ zones_enable_zone() {
   local domains_skipped=0
   
   # Process each A record
-  echo "$A_RECORDS" | while IFS= read -r domain_with_dot; do
+  while IFS= read -r domain_with_dot; do
     [[ -z "$domain_with_dot" ]] && continue
     local domain="${domain_with_dot%.}"  # Remove trailing dot
     
@@ -359,7 +359,7 @@ zones_enable_zone() {
       dokku_log_info1 "  Skipping: $domain (no matching Dokku app found)"
       domains_skipped=$((domains_skipped + 1))
     fi
-  done
+  done <<< "$A_RECORDS"
   
   echo
   dokku_log_info2 "Zone enablement complete"
