@@ -672,39 +672,7 @@ zones_show_zone() {
     return 1
   fi
   
-  # Get zone details using AWS CLI queries  
-  local record_count comment private_zone
-  record_count=$(aws route53 get-hosted-zone --id "$ZONE_ID" --query 'HostedZone.ResourceRecordSetCount' --output text 2>/dev/null)
-  comment=$(aws route53 get-hosted-zone --id "$ZONE_ID" --query 'HostedZone.Config.Comment' --output text 2>/dev/null)
-  private_zone=$(aws route53 get-hosted-zone --id "$ZONE_ID" --query 'HostedZone.Config.PrivateZone' --output text 2>/dev/null)
-  
-  # Handle None values
-  [[ "$record_count" == "None" ]] && record_count="N/A"
-  [[ "$comment" == "None" ]] && comment=""
-  [[ "$private_zone" == "None" ]] && private_zone="false"
-  
-  echo
-  dokku_log_info2 "AWS Route53 Information"
-  dokku_log_info1 "Zone ID: $ZONE_ID"
-  dokku_log_info1 "Zone Name: $ZONE"
-  dokku_log_info1 "Record Count: $record_count"
-  if [[ "$private_zone" == "true" ]]; then
-    dokku_log_info1 "Type: Private Zone"
-  else
-    dokku_log_info1 "Type: Public Zone"
-  fi
-  if [[ -n "$comment" && "$comment" != "null" ]]; then
-    dokku_log_info1 "Comment: $comment"
-  fi
-  
-  # Get nameservers
-  local nameservers
-  nameservers=$(aws route53 get-hosted-zone --id "$ZONE_ID" --query 'DelegationSet.NameServers' --output text 2>/dev/null)
-  if [[ -n "$nameservers" && "$nameservers" != "None" ]]; then
-    dokku_log_info1 "Name Servers: $nameservers"
-  fi
-  
-  # Get Dokku app associations
+  # Get Dokku app associations first
   echo
   dokku_log_info2 "Dokku Integration"
   
@@ -795,6 +763,39 @@ zones_show_zone() {
     dokku_log_info1 "All potential domains for this zone are already managed"
   fi
   
+  # Show AWS Route53 technical details
+  echo
+  dokku_log_info2 "AWS Route53 Information"
+  
+  # Get zone details using AWS CLI queries  
+  local record_count comment private_zone
+  record_count=$(aws route53 get-hosted-zone --id "$ZONE_ID" --query 'HostedZone.ResourceRecordSetCount' --output text 2>/dev/null)
+  comment=$(aws route53 get-hosted-zone --id "$ZONE_ID" --query 'HostedZone.Config.Comment' --output text 2>/dev/null)
+  private_zone=$(aws route53 get-hosted-zone --id "$ZONE_ID" --query 'HostedZone.Config.PrivateZone' --output text 2>/dev/null)
+  
+  # Handle None values
+  [[ "$record_count" == "None" ]] && record_count="N/A"
+  [[ "$comment" == "None" ]] && comment=""
+  [[ "$private_zone" == "None" ]] && private_zone="false"
+  
+  dokku_log_info1 "Zone ID: $ZONE_ID"
+  dokku_log_info1 "Zone Name: $ZONE"
+  dokku_log_info1 "Record Count: $record_count"
+  if [[ "$private_zone" == "true" ]]; then
+    dokku_log_info1 "Type: Private Zone"
+  else
+    dokku_log_info1 "Type: Public Zone"
+  fi
+  if [[ -n "$comment" && "$comment" != "null" ]]; then
+    dokku_log_info1 "Comment: $comment"
+  fi
+  
+  # Get nameservers
+  local nameservers
+  nameservers=$(aws route53 get-hosted-zone --id "$ZONE_ID" --query 'DelegationSet.NameServers' --output text 2>/dev/null)
+  if [[ -n "$nameservers" && "$nameservers" != "None" ]]; then
+    dokku_log_info1 "Name Servers: $nameservers"
+  fi
   
   # Show management commands
   echo
