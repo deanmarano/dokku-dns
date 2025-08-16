@@ -704,38 +704,7 @@ zones_show_zone() {
     dokku_log_info1 "Name Servers: $nameservers"
   fi
   
-  # Get DNS records in the zone
-  echo
-  dokku_log_info2 "DNS Records"
-  
-  # Show A records
-  local a_records
-  a_records=$(aws route53 list-resource-record-sets --hosted-zone-id "$ZONE_ID" --query 'ResourceRecordSets[?Type==`A`].[Name,ResourceRecords[0].Value]' --output text 2>/dev/null)
-  
-  if [[ -n "$a_records" ]]; then
-    dokku_log_info1 "A Records:"
-    while IFS=$'\t' read -r name value; do
-      [[ -z "$name" ]] && continue
-      name=${name%.}  # Remove trailing dot
-      echo "  $name -> $value"
-    done <<< "$a_records"
-  fi
-  
-  # Show other record types (simplified)
-  local other_records
-  other_records=$(aws route53 list-resource-record-sets --hosted-zone-id "$ZONE_ID" --query 'ResourceRecordSets[?Type!=`A`].[Type,Name]' --output text 2>/dev/null)
-  
-  if [[ -n "$other_records" ]]; then
-    echo
-    dokku_log_info1 "Other Records:"
-    while IFS=$'\t' read -r type name; do
-      [[ -z "$type" ]] && continue
-      name=${name%.}  # Remove trailing dot
-      echo "  $type: $name"
-    done <<< "$other_records"
-  fi
-  
-  # Get Dokku app associations
+  # Get Dokku app associations first
   echo
   dokku_log_info2 "Dokku Integration"
   
@@ -824,6 +793,83 @@ zones_show_zone() {
     dokku_log_info1 "• All in zone: dokku $PLUGIN_COMMAND_PREFIX:zones --enable $ZONE"
   else
     dokku_log_info1 "All potential domains for this zone are already managed"
+  fi
+  
+  # Show orphaned DNS records (records that don't correspond to current Dokku apps)
+  echo
+  dokku_log_info2 "Other DNS Records"
+  
+  # Get all A records and categorize them
+  local a_records
+  a_records=$(aws route53 list-resource-record-sets --hosted-zone-id "$ZONE_ID" --query 'ResourceRecordSets[?Type==`A`].[Name,ResourceRecords[0].Value]' --output text 2>/dev/null)
+  
+  local orphaned_records=()
+  local non_dokku_records=()
+  
+  if [[ -n "$a_records" ]]; then
+    while IFS=$'\t' read -r name value; do
+      [[ -z "$name" ]] && continue
+      name=${name%.}  # Remove trailing dot
+      
+      # Check if this domain is currently managed by Dokku DNS
+      local is_managed=false
+      for managed_domain in "${zone_domains[@]}"; do
+        if [[ "$name" == "$managed_domain" ]]; then
+          is_managed=true
+          break
+        fi
+      done
+      
+      # Check if this domain is available as a potential Dokku domain
+      local is_potential=false
+      for domain_app in "${potential_domains[@]}"; do
+        local potential_domain="${domain_app%:*}"
+        if [[ "$name" == "$potential_domain" ]]; then
+          is_potential=true
+          break
+        fi
+      done
+      
+      # If not managed and not potential, it could be orphaned or non-Dokku
+      if [[ "$is_managed" == "false" && "$is_potential" == "false" ]]; then
+        # Check if it looks like a Dokku subdomain pattern
+        if [[ "$name" == *".$ZONE" && "$name" != "www.$ZONE" && "$name" != "mail.$ZONE" && "$name" != "ftp.$ZONE" ]]; then
+          orphaned_records+=("$name -> $value")
+        else
+          non_dokku_records+=("$name -> $value")
+        fi
+      fi
+    done <<< "$a_records"
+  fi
+  
+  if [[ ${#orphaned_records[@]} -gt 0 ]]; then
+    dokku_log_info1 "Orphaned Records (no corresponding Dokku app):"
+    for record in "${orphaned_records[@]}"; do
+      echo "  $record"
+    done
+    echo
+  fi
+  
+  if [[ ${#non_dokku_records[@]} -gt 0 ]]; then
+    dokku_log_info1 "Non-Dokku A Records:"
+    for record in "${non_dokku_records[@]}"; do
+      echo "  $record"
+    done
+    echo
+  fi
+  
+  # Show other record types (simplified)
+  local other_records
+  other_records=$(aws route53 list-resource-record-sets --hosted-zone-id "$ZONE_ID" --query 'ResourceRecordSets[?Type!=`A`].[Type,Name]' --output text 2>/dev/null)
+  
+  if [[ -n "$other_records" ]]; then
+    echo
+    dokku_log_info1 "Other Records:"
+    while IFS=$'\t' read -r type name; do
+      [[ -z "$type" ]] && continue
+      name=${name%.}  # Remove trailing dot
+      echo "  $type: $name"
+    done <<< "$other_records"
   fi
   
   # Show management commands
