@@ -432,13 +432,16 @@ zones_disable_zone() {
     
     # Update the domains file and create summary
     if [[ ${#app_domains_removed[@]} -gt 0 ]]; then
+      local domain_text="domain"
+      [[ ${#app_domains_removed[@]} -gt 1 ]] && domain_text="domains"
+      
       if [[ -n "$remaining_domains" ]]; then
         echo -n "$remaining_domains" | grep -v "^$" > "$APP_DOMAINS_FILE"
-        app_summaries+=("$app: ${app_domains_removed[*]} (${#app_domains_removed[@]} domains)")
+        app_summaries+=("$app: ${app_domains_removed[*]}")
       else
         rm -f "$APP_DOMAINS_FILE"
         apps_to_remove+=("$app")
-        app_summaries+=("$app: ${app_domains_removed[*]} (${#app_domains_removed[@]} domains, app removed)")
+        app_summaries+=("$app: ${app_domains_removed[*]}")
       fi
     fi
     
@@ -476,17 +479,31 @@ zones_disable_zone() {
   
   echo
   dokku_log_info2 "Zone disablement complete"
-  dokku_log_info1 "• Apps affected: ${#app_summaries[@]}"
-  dokku_log_info1 "• Domains removed: $domains_removed"
-  if [[ ${#apps_to_remove[@]} -gt 0 ]]; then
-    dokku_log_info1 "• Apps removed from DNS: ${#apps_to_remove[@]}"
+  
+  # Create better summary message
+  local summary_msg="Removed $domains_removed"
+  [[ $domains_removed -eq 1 ]] && summary_msg="$summary_msg domain" || summary_msg="$summary_msg domains"
+  summary_msg="$summary_msg from ${#app_summaries[@]}"
+  [[ ${#app_summaries[@]} -eq 1 ]] && summary_msg="$summary_msg app" || summary_msg="$summary_msg apps"
+  
+  if [[ ${#apps_to_remove[@]} -eq ${#app_summaries[@]} ]]; then
+    summary_msg="$summary_msg (all apps removed from DNS management)"
+  elif [[ ${#apps_to_remove[@]} -gt 0 ]]; then
+    summary_msg="$summary_msg (${#apps_to_remove[@]} apps removed from DNS management)"
   fi
+  
+  dokku_log_info1 "$summary_msg"
   
   if [[ $domains_removed -gt 0 ]]; then
     echo
     dokku_log_info2 "Note"
-    dokku_log_info1 "DNS records were not deleted from the provider."
-    dokku_log_info1 "Run manual cleanup if needed: dokku $PLUGIN_COMMAND_PREFIX:sync <app>"
+    dokku_log_info1 "DNS records remain in Route53 but are no longer managed by Dokku."
+    if [[ ${#apps_to_remove[@]} -eq ${#app_summaries[@]} ]]; then
+      dokku_log_info1 "To clean up: manually delete records in AWS Console or use AWS CLI."
+    else
+      dokku_log_info1 "For remaining apps: dokku $PLUGIN_COMMAND_PREFIX:sync <app>"
+      dokku_log_info1 "For removed records: manually delete in AWS Console or use AWS CLI."
+    fi
   fi
 }
 
