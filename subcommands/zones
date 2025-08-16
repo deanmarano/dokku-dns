@@ -403,6 +403,7 @@ zones_disable_zone() {
   
   local domains_removed=0
   local apps_to_remove=()
+  local app_summaries=()
   
   # First pass: read all apps and collect domains to remove
   while IFS= read -r app; do
@@ -415,34 +416,43 @@ zones_disable_zone() {
     
     # Check each domain to see if it belongs to this zone
     local remaining_domains=""
-    local app_has_removals=false
+    local app_domains_removed=()
     while IFS= read -r domain; do
       [[ -z "$domain" ]] && continue
       
       # Check if domain belongs to this zone
       if [[ "$domain" == "$ZONE" ]] || [[ "$domain" == *".$ZONE" ]]; then
-        dokku_log_info1 "  Removing: $domain (app: $app)"
+        app_domains_removed+=("$domain")
         domains_removed=$((domains_removed + 1))
-        app_has_removals=true
       else
         remaining_domains="$remaining_domains$domain
 "
       fi
     done < "$APP_DOMAINS_FILE"
     
-    # Update the domains file
-    if [[ "$app_has_removals" == "true" ]]; then
+    # Update the domains file and create summary
+    if [[ ${#app_domains_removed[@]} -gt 0 ]]; then
       if [[ -n "$remaining_domains" ]]; then
         echo -n "$remaining_domains" | grep -v "^$" > "$APP_DOMAINS_FILE"
+        app_summaries+=("$app: ${app_domains_removed[*]} (${#app_domains_removed[@]} domains)")
       else
         rm -f "$APP_DOMAINS_FILE"
-        # Mark app for removal from LINKS
         apps_to_remove+=("$app")
-        dokku_log_info1 "  App '$app' removed from DNS management (no domains left)"
+        app_summaries+=("$app: ${app_domains_removed[*]} (${#app_domains_removed[@]} domains, app removed)")
       fi
     fi
     
   done < "$LINKS_FILE"
+  
+  # Show organized summary
+  if [[ ${#app_summaries[@]} -gt 0 ]]; then
+    echo
+    for summary in "${app_summaries[@]}"; do
+      local app_name="${summary%%:*}"
+      local app_details="${summary#*: }"
+      dokku_log_info1 "• $app_name: $app_details"
+    done
+  fi
   
   # Second pass: remove apps from LINKS file if needed
   if [[ ${#apps_to_remove[@]} -gt 0 ]]; then
@@ -466,7 +476,11 @@ zones_disable_zone() {
   
   echo
   dokku_log_info2 "Zone disablement complete"
-  dokku_log_info1 "Domains removed from DNS management: $domains_removed"
+  dokku_log_info1 "• Apps affected: ${#app_summaries[@]}"
+  dokku_log_info1 "• Domains removed: $domains_removed"
+  if [[ ${#apps_to_remove[@]} -gt 0 ]]; then
+    dokku_log_info1 "• Apps removed from DNS: ${#apps_to_remove[@]}"
+  fi
   
   if [[ $domains_removed -gt 0 ]]; then
     echo
