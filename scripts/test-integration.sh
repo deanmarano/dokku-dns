@@ -384,10 +384,10 @@ test_dns_zones() {
     fi
     
     # Test zones flag validation (these should work regardless of AWS availability)
-    assert_failure "Enable zone requires argument" dokku dns:zones --enable
-    assert_failure "Disable zone requires argument" dokku dns:zones --disable
-    assert_failure "Multiple flags not allowed" dokku dns:zones --enable example.com --disable test.com
-    assert_failure "Disable-all conflicts with other flags" dokku dns:zones --disable-all --enable-all
+    assert_failure "Enable zone requires argument or --all" dokku dns:zones --enable
+    assert_failure "Disable zone requires argument or --all" dokku dns:zones --disable
+    assert_failure "All flag requires action" dokku dns:zones --all
+    assert_failure "Zone name conflicts with action flags" dokku dns:zones example.com --enable test.com
     
     # Test enable/disable zone functionality
     if [[ "$aws_available" == "true" && -n "$test_zone" ]]; then
@@ -396,17 +396,17 @@ test_dns_zones() {
         assert_output_contains "Disable zone works with real zone" "Disabling DNS management for zone: $test_zone" dokku dns:zones --disable "$test_zone"
         
         # Test enable-all
-        assert_output_contains_ignore_exit "Enable-all processes real zones" "Enabling DNS management for all zones" dokku dns:zones --enable-all
+        assert_output_contains_ignore_exit "Enable-all processes real zones" "Enabling DNS management for all zones" dokku dns:zones --enable --all
         
         # Test disable-all
-        assert_output_contains "Disable-all works with AWS CLI" "Disabling DNS management for all zones" dokku dns:zones --disable-all
+        assert_output_contains "Disable-all works with AWS CLI" "Disabling DNS management for all zones" dokku dns:zones --disable --all
     else
         assert_output_contains_ignore_exit "Enable zone shows AWS CLI requirement" "AWS CLI is not installed" dokku dns:zones --enable example.com
         assert_output_contains "Disable zone works without AWS CLI" "No apps are currently managed by DNS" dokku dns:zones --disable example.com
-        assert_output_contains_ignore_exit "Enable-all shows AWS CLI requirement" "AWS CLI is not installed" dokku dns:zones --enable-all
+        assert_output_contains_ignore_exit "Enable-all shows AWS CLI requirement" "AWS CLI is not installed" dokku dns:zones --enable --all
         
         # Test disable-all (should work without AWS CLI)
-        assert_output_contains "Disable-all works without AWS CLI" "No apps are currently managed by DNS" dokku dns:zones --disable-all
+        assert_output_contains "Disable-all works without AWS CLI" "No apps are currently managed by DNS" dokku dns:zones --disable --all
     fi
     
     # Test unknown flag (should work regardless of AWS availability)

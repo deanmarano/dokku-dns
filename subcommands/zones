@@ -29,18 +29,16 @@ source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
 
 service-zones-cmd() {
   #E manage DNS zones for hosted domain management
-  #E dokku $PLUGIN_COMMAND_PREFIX:zones [<zone>|--enable <zone>|--disable <zone>|--enable-all|--disable-all]
+  #E dokku $PLUGIN_COMMAND_PREFIX:zones [<zone>] [--enable [<zone>]] [--disable [<zone>]] [--all]
   #E without flags: displays all available DNS zones and their management status
   #E <zone>: show detailed information about a specific zone
-  #E --enable <zone>: enable DNS management for all domains in the specified zone
-  #E --disable <zone>: disable DNS management for all domains in the specified zone
-  #E --enable-all: enable DNS management for all domains in all available zones
-  #E --disable-all: disable DNS management for all domains in all available zones
+  #E --enable [<zone>]: enable DNS management for domains in the specified zone (or all zones with --all)
+  #E --disable [<zone>]: disable DNS management for domains in the specified zone (or all zones with --all)
+  #E --all: modify --enable/--disable to affect all zones
   #A zone, zone name to show detailed information for (optional)
-  #F --enable, enable DNS management for all domains in a specific zone
-  #F --disable, disable DNS management for all domains in a specific zone
-  #F --enable-all, enable DNS management for all domains in all available zones
-  #F --disable-all, disable DNS management for all domains in all available zones
+  #F --enable, enable DNS management for domains in a zone
+  #F --disable, disable DNS management for domains in a zone
+  #F --all, modify --enable/--disable to affect all zones
   declare desc="manage DNS zones for hosted domain management"
   local cmd="$PLUGIN_COMMAND_PREFIX:zones" argv=("$@")
   
@@ -54,9 +52,9 @@ service-zones-cmd() {
   # Parse arguments
   local enable_zone=""
   local disable_zone=""
-  local enable_all=false
-  local disable_all=false
+  local all_zones=false
   local show_zone=""
+  local action=""
   
   # Check if first argument is a zone name (no dashes) or a flag
   if [[ -n "$1" && "$1" != --* ]]; then
@@ -67,60 +65,77 @@ service-zones-cmd() {
   while [[ $# -gt 0 ]]; do
     case $1 in
       --enable)
-        if [[ -z "$2" ]]; then
-          dokku_log_fail "--enable requires a zone name argument"
+        if [[ "$action" == "disable" ]]; then
+          dokku_log_fail "Cannot use both --enable and --disable flags together"
         fi
-        enable_zone="$2"
-        shift 2
+        action="enable"
+        # Check if next argument is a zone name (not a flag)
+        if [[ -n "$2" && "$2" != --* ]]; then
+          enable_zone="$2"
+          shift 2
+        else
+          shift 1
+        fi
         ;;
       --disable)
-        if [[ -z "$2" ]]; then
-          dokku_log_fail "--disable requires a zone name argument"
+        if [[ "$action" == "enable" ]]; then
+          dokku_log_fail "Cannot use both --enable and --disable flags together"
         fi
-        disable_zone="$2"
-        shift 2
+        action="disable"
+        # Check if next argument is a zone name (not a flag)
+        if [[ -n "$2" && "$2" != --* ]]; then
+          disable_zone="$2"
+          shift 2
+        else
+          shift 1
+        fi
         ;;
-      --enable-all)
-        enable_all=true
-        shift
-        ;;
-      --disable-all)
-        disable_all=true
+      --all)
+        all_zones=true
         shift
         ;;
       *)
-        dokku_log_fail "Unknown option: $1. Use <zone>, --enable <zone>, --disable <zone>, --enable-all, --disable-all, or no flags for status."
+        dokku_log_fail "Unknown option: $1. Use <zone>, --enable [<zone>], --disable [<zone>], --all, or no flags for status."
         ;;
     esac
   done
   
   # Validate flag combinations
-  local action_count=0
-  [[ -n "$show_zone" ]] && action_count=$((action_count + 1))
-  [[ -n "$enable_zone" ]] && action_count=$((action_count + 1))
-  [[ -n "$disable_zone" ]] && action_count=$((action_count + 1))
-  [[ "$enable_all" == "true" ]] && action_count=$((action_count + 1))
-  [[ "$disable_all" == "true" ]] && action_count=$((action_count + 1))
+  if [[ -n "$show_zone" && -n "$action" ]]; then
+    dokku_log_fail "Cannot specify zone name and action flags together. Use either <zone> or --enable/--disable."
+  fi
   
-  if [[ $action_count -gt 1 ]]; then
-    dokku_log_fail "Cannot use multiple action flags together. Use only one of: <zone>, --enable, --disable, --enable-all, or --disable-all"
+  if [[ "$action" == "enable" && -z "$enable_zone" && "$all_zones" == "false" ]]; then
+    dokku_log_fail "--enable requires either a zone name or --all flag"
+  fi
+  
+  if [[ "$action" == "disable" && -z "$disable_zone" && "$all_zones" == "false" ]]; then
+    dokku_log_fail "--disable requires either a zone name or --all flag"
+  fi
+  
+  # --all by itself is equivalent to no flags (show all zones status)
+  if [[ "$all_zones" == "true" && -z "$action" ]]; then
+    zones_list_status
+    return $?
   fi
   
   # Execute actions
   if [[ -n "$show_zone" ]]; then
     zones_show_zone "$show_zone"
     return $?
-  elif [[ -n "$enable_zone" ]]; then
-    zones_enable_zone "$enable_zone"
+  elif [[ "$action" == "enable" ]]; then
+    if [[ "$all_zones" == "true" ]]; then
+      zones_enable_all
+    else
+      zones_enable_zone "$enable_zone"
+    fi
     return $?
-  elif [[ -n "$disable_zone" ]]; then
-    zones_disable_zone "$disable_zone"
-    return $?
-  elif [[ "$enable_all" == "true" ]]; then
-    zones_enable_all
-    return $?
-  elif [[ "$disable_all" == "true" ]]; then
-    zones_disable_all
+  elif [[ "$action" == "disable" ]]; then
+    if [[ "$all_zones" == "true" ]]; then
+      zones_disable_all
+    else
+      zones_disable_zone "$disable_zone"
+    fi
     return $?
   fi
   
@@ -247,8 +262,8 @@ zones_list_aws_zones() {
   dokku_log_info2 "Management Commands"
   dokku_log_info1 "• Enable zone: dokku $PLUGIN_COMMAND_PREFIX:zones --enable <zone-name>"
   dokku_log_info1 "• Disable zone: dokku $PLUGIN_COMMAND_PREFIX:zones --disable <zone-name>"
-  dokku_log_info1 "• Enable all zones: dokku $PLUGIN_COMMAND_PREFIX:zones --enable-all"
-  dokku_log_info1 "• Disable all zones: dokku $PLUGIN_COMMAND_PREFIX:zones --disable-all"
+  dokku_log_info1 "• Enable all zones: dokku $PLUGIN_COMMAND_PREFIX:zones --enable --all"
+  dokku_log_info1 "• Disable all zones: dokku $PLUGIN_COMMAND_PREFIX:zones --disable --all"
   dokku_log_info1 "• Show zone details: dokku $PLUGIN_COMMAND_PREFIX:report"
 }
 
@@ -588,7 +603,7 @@ zones_disable_all() {
   if [[ $total_domains_removed -gt 0 ]]; then
     echo
     dokku_log_info2 "All DNS management has been disabled"
-    dokku_log_info1 "• To re-enable: dokku $PLUGIN_COMMAND_PREFIX:zones --enable-all"
+    dokku_log_info1 "• To re-enable: dokku $PLUGIN_COMMAND_PREFIX:zones --enable --all"
     dokku_log_info1 "• Or add apps individually: dokku $PLUGIN_COMMAND_PREFIX:add <app>"
   fi
 }
