@@ -277,8 +277,9 @@ EOF
     dns_zones --disable "example.com"
     assert_success
     assert_output_contains "Disabling DNS management for zone: example.com"
-    assert_output_contains "Removing: app1.example.com"
-    assert_output_contains "Removing: api.example.com"
+    assert_output_contains "• app1: app1.example.com api.example.com"
+    assert_output_contains "Zone disablement complete"
+    assert_output_contains "Removed 2 domains from 1 app"
 }
 
 @test "(dns:zones --enable --all) processes all zones" {
