@@ -53,7 +53,10 @@
       "Bash(create_test_app:*)",
       "Bash(add_test_domains:*)",
       "Bash(/dev/null)",
-      "Bash(./debug_aws_mock.sh:*)"
+      "Bash(./debug_aws_mock.sh:*)",
+      "Bash(gh pr view:*)",
+      "Bash(dokku dns:zones:*)",
+      "Bash(dokku plugin:reload:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"
