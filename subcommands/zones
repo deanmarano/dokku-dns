@@ -339,6 +339,12 @@ zones_enable_zone() {
   local system_domains=()
   local orphaned_domains=()
   local added_domains=()
+  local incorrect_ip_domains=()
+  
+  # Get server IP for checking
+  local SERVER_IP
+  SERVER_IP=$(get_server_ip)
+  dokku_log_info1 "Server IP: $SERVER_IP"
   
   # Process each A record
   while IFS= read -r domain_with_dot; do
@@ -366,11 +372,18 @@ zones_enable_zone() {
     done <<< "$APPS_LIST"
     
     if [[ -n "$matching_app" ]]; then
-      # Add to DNS management
-      if zones_add_domain_to_dns "$matching_app" "$domain"; then
-        added_domains+=("$matching_app: $domain")
-        domains_added=$((domains_added + 1))
+      # Check if domain points to the correct server IP before adding
+      if domain_points_to_server "$domain"; then
+        # Safe to add - domain points to this server
+        if zones_add_domain_to_dns "$matching_app" "$domain"; then
+          added_domains+=("$matching_app: $domain")
+          domains_added=$((domains_added + 1))
+        else
+          domains_skipped=$((domains_skipped + 1))
+        fi
       else
+        # Domain has incorrect IP - don't add automatically
+        incorrect_ip_domains+=("$matching_app: $domain")
         domains_skipped=$((domains_skipped + 1))
       fi
     else
@@ -387,6 +400,25 @@ zones_enable_zone() {
       local app="${domain_info%%:*}"
       local domain="${domain_info#*: }"
       dokku_log_info1 "• $app: $domain"
+    done
+  fi
+  
+  if [[ ${#incorrect_ip_domains[@]} -gt 0 ]]; then
+    echo
+    dokku_log_warn "Skipped (incorrect IP - not pointing to server):"
+    for domain_info in "${incorrect_ip_domains[@]}"; do
+      local app="${domain_info%%:*}"
+      local domain="${domain_info#*: }"
+      local current_ip
+      current_ip=$(dig +short "$domain" A 2>/dev/null | tail -n1 || echo "unknown")
+      dokku_log_info1 "• $domain → $current_ip (expected: $SERVER_IP)"
+    done
+    echo
+    dokku_log_info2 "To add these domains after fixing their DNS records:"
+    for domain_info in "${incorrect_ip_domains[@]}"; do
+      local app="${domain_info%%:*}"
+      local domain="${domain_info#*: }"
+      dokku_log_info1 "dokku $PLUGIN_COMMAND_PREFIX:add $app $domain"
     done
   fi
   
@@ -420,14 +452,22 @@ zones_enable_zone() {
     
     # Add breakdown of skipped domains
     local skip_details=""
-    if [[ ${#orphaned_domains[@]} -gt 0 && ${#system_domains[@]} -gt 0 ]]; then
-      skip_details=" (${#orphaned_domains[@]} orphaned, ${#system_domains[@]} system)"
-    elif [[ ${#orphaned_domains[@]} -gt 0 ]]; then
-      skip_details=" (${#orphaned_domains[@]} orphaned)"
-    elif [[ ${#system_domains[@]} -gt 0 ]]; then
-      skip_details=" (${#system_domains[@]} system)"
+    local skip_parts=()
+    
+    if [[ ${#incorrect_ip_domains[@]} -gt 0 ]]; then
+      skip_parts+=("${#incorrect_ip_domains[@]} wrong IP")
     fi
-    summary_msg="$summary_msg$skip_details"
+    if [[ ${#orphaned_domains[@]} -gt 0 ]]; then
+      skip_parts+=("${#orphaned_domains[@]} orphaned")
+    fi
+    if [[ ${#system_domains[@]} -gt 0 ]]; then
+      skip_parts+=("${#system_domains[@]} system")
+    fi
+    
+    if [[ ${#skip_parts[@]} -gt 0 ]]; then
+      skip_details=" ($(IFS=', '; echo "${skip_parts[*]}"))"
+      summary_msg="$summary_msg$skip_details"
+    fi
   fi
   
   dokku_log_info1 "$summary_msg"

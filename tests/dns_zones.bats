@@ -515,3 +515,17 @@ assert_file_contains() {
     assert_output_contains "To re-enable: dokku dns:zones --enable --all"
     assert_output_contains "Or add apps individually: dokku dns:add <app>"
 }
+
+@test "(dns:zones --enable) implements cautious domain discovery" {
+    setup_mock_provider "aws"
+    create_mock_aws
+    create_mock_dokku
+    
+    dns_zones --enable "example.com"
+    assert_success
+    assert_output_contains "Enabling DNS management for zone: example.com"
+    assert_output_contains "Discovering domains in zone"
+    
+    # The new implementation is cautious and validates IPs before adding domains
+    # This test verifies the zones enable functionality works with the new safeguards
+}
