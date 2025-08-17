@@ -344,6 +344,14 @@ zones_enable_zone() {
   # Get server IP for checking
   local SERVER_IP
   SERVER_IP=$(get_server_ip)
+  
+  if [[ -z "$SERVER_IP" ]] || [[ "$SERVER_IP" == "Unknown" ]]; then
+    dokku_log_fail "Cannot detect server IP address. Please ensure either:
+1. Global domains are configured: dokku domains:add-global <domain>
+2. External IP services are accessible (ifconfig.me, ipecho.net, icanhazip.com)
+3. dig command is available for DNS resolution"
+  fi
+  
   dokku_log_info1 "Server IP: $SERVER_IP"
   
   # Process each A record

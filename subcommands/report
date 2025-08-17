@@ -59,35 +59,15 @@ dns_global_report() {
   dokku_log_info2 "$(printf "%-50s" "==================================")"
   
   # Get server's public IP first (handle failure gracefully)
-  local SERVER_IP="127.0.0.1"  # Default fallback
-  local GLOBAL_DOMAINS=""
-  
-  if command -v dokku >/dev/null 2>&1; then
-    GLOBAL_DOMAINS=$(dokku domains:report --domains-global-vhosts 2>/dev/null || echo "")
-  fi
-  
-  if [[ -n "$GLOBAL_DOMAINS" ]] && command -v dig >/dev/null 2>&1; then
-    # Use the first global domain to resolve server IP
-    local FIRST_GLOBAL_DOMAIN
-    FIRST_GLOBAL_DOMAIN=$(echo "$GLOBAL_DOMAINS" | head -n1)
-    local RESOLVED_IP
-    RESOLVED_IP=$(dig +short "$FIRST_GLOBAL_DOMAIN" 2>/dev/null | tail -n1 || echo "")
-    if [[ -n "$RESOLVED_IP" ]]; then
-      SERVER_IP="$RESOLVED_IP"
-    fi
-  fi
-  
-  # If no global domains or couldn't resolve, try to get server IP another way
-  if [[ "$SERVER_IP" == "127.0.0.1" ]] && command -v curl >/dev/null 2>&1; then
-    # Try to get the server's public IP
-    local PUBLIC_IP
-    PUBLIC_IP=$(curl -s --max-time 3 ifconfig.me 2>/dev/null || curl -s --max-time 3 ipecho.net/plain 2>/dev/null || curl -s --max-time 3 icanhazip.com 2>/dev/null || echo "")
-    if [[ -n "$PUBLIC_IP" ]]; then
-      SERVER_IP="$PUBLIC_IP"
-    fi
-  fi
+  local SERVER_IP
+  SERVER_IP=$(get_server_ip)
   
   dokku_log_info1 "Server Public IP: $SERVER_IP"
+  
+  if [[ "$SERVER_IP" == "Unknown" ]]; then
+    dokku_log_warn "Cannot detect server IP for DNS validation"
+    dokku_log_info1 "Consider configuring global domains: dokku domains:add-global <domain>"
+  fi
   
   # Check global DNS configuration
   local PROVIDER="None"
@@ -210,10 +190,13 @@ dns_global_report() {
         # Determine DNS status emoji
         local DNS_EMOJI="❌"
         if [[ -n "$CURRENT_IP" ]]; then
-          if [[ "$CURRENT_IP" == "$SERVER_IP" ]]; then
+          if [[ -n "$SERVER_IP" ]] && [[ "$SERVER_IP" != "Unknown" ]] && [[ "$CURRENT_IP" == "$SERVER_IP" ]]; then
             DNS_EMOJI="✅"
-          else
+          elif [[ -n "$SERVER_IP" ]] && [[ "$SERVER_IP" != "Unknown" ]]; then
             DNS_EMOJI="⚠️"
+          else
+            # Server IP unknown, can't validate
+            DNS_EMOJI="❓"
           fi
         fi
         
@@ -279,8 +262,12 @@ dns_global_report() {
   
   echo
   dokku_log_info2 "DNS Status Legend:"
-  dokku_log_info1 "✅ Points to server IP ($SERVER_IP)"
-  dokku_log_info1 "⚠️  Points to different IP"
+  if [[ -n "$SERVER_IP" ]] && [[ "$SERVER_IP" != "Unknown" ]]; then
+    dokku_log_info1 "✅ Points to server IP ($SERVER_IP)"
+    dokku_log_info1 "⚠️  Points to different IP"
+  else
+    dokku_log_info1 "❓ Server IP unknown - cannot validate"
+  fi
   dokku_log_info1 "❌ No DNS record found"
   dokku_log_info1 "➖ No domains configured"
   
@@ -321,23 +308,14 @@ dns_report() {
   
   # Get server's public IP first
   local SERVER_IP
-  local GLOBAL_DOMAINS
-  GLOBAL_DOMAINS=$(dokku domains:report --domains-global-vhosts 2>/dev/null || echo "")
-  
-  if [[ -n "$GLOBAL_DOMAINS" ]]; then
-    # Use the first global domain to resolve server IP
-    local FIRST_GLOBAL_DOMAIN
-    FIRST_GLOBAL_DOMAIN=$(echo "$GLOBAL_DOMAINS" | head -n1)
-    SERVER_IP=$(dig +short "$FIRST_GLOBAL_DOMAIN" | tail -n1 2>/dev/null || echo "")
-  fi
-  
-  # If no global domains or couldn't resolve, try to get server IP another way
-  if [[ -z "$SERVER_IP" ]]; then
-    # Try to get the server's public IP
-    SERVER_IP=$(curl -s --max-time 3 ifconfig.me 2>/dev/null || curl -s --max-time 3 ipecho.net/plain 2>/dev/null || curl -s --max-time 3 icanhazip.com 2>/dev/null || echo "Unknown")
-  fi
+  SERVER_IP=$(get_server_ip)
   
   dokku_log_info1 "Server Public IP: $SERVER_IP"
+  
+  if [[ "$SERVER_IP" == "Unknown" ]]; then
+    dokku_log_warn "Cannot detect server IP for DNS validation"
+    dokku_log_info1 "Consider configuring global domains: dokku domains:add-global <domain>"
+  fi
   
   # Get app domains
   local APP_DOMAINS
@@ -427,10 +405,13 @@ dns_report() {
     # Determine DNS status emoji
     local DNS_EMOJI="❌"
     if [[ -n "$CURRENT_IP" ]]; then
-      if [[ "$CURRENT_IP" == "$SERVER_IP" ]]; then
+      if [[ -n "$SERVER_IP" ]] && [[ "$SERVER_IP" != "Unknown" ]] && [[ "$CURRENT_IP" == "$SERVER_IP" ]]; then
         DNS_EMOJI="✅"
-      else
+      elif [[ -n "$SERVER_IP" ]] && [[ "$SERVER_IP" != "Unknown" ]]; then
         DNS_EMOJI="⚠️"
+      else
+        # Server IP unknown, can't validate
+        DNS_EMOJI="❓"
       fi
     fi
     
@@ -478,8 +459,12 @@ dns_report() {
   
   echo
   dokku_log_info2 "DNS Status Legend:"
-  dokku_log_info1 "✅ Points to server IP ($SERVER_IP)"
-  dokku_log_info1 "⚠️  Points to different IP"
+  if [[ -n "$SERVER_IP" ]] && [[ "$SERVER_IP" != "Unknown" ]]; then
+    dokku_log_info1 "✅ Points to server IP ($SERVER_IP)"
+    dokku_log_info1 "⚠️  Points to different IP"
+  else
+    dokku_log_info1 "❓ Server IP unknown - cannot validate"
+  fi
   dokku_log_info1 "❌ No DNS record found"
   
   echo

@@ -7,7 +7,6 @@
       "Bash(git restore:*)",
       "Bash(grep:*)",
       "Bash(source:*)",
-      "Bash(dokku dns:configure:*)",
       "Bash(docker build:*)",
       "Bash(bash:*)",
       "Bash(chmod:*)",
