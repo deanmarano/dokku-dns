@@ -50,15 +50,23 @@ jobs:
           # Install bats if not available (much faster than full Dokku)
           if ! command -v bats >/dev/null 2>&1; then
             echo "Installing BATS..."
-            git clone --depth=1 https://github.com/bats-core/bats-core.git /tmp/bats
-            sudo /tmp/bats/install.sh /usr/local
-            rm -rf /tmp/bats
+            git clone --depth=1 https://github.com/bats-core/bats-core.git /tmp/bats-core
+            cd /tmp/bats-core
+            sudo ./install.sh /usr/local
+            cd -
+            rm -rf /tmp/bats-core
             echo "BATS installation completed"
+            
+            # Ensure bats is in PATH
+            export PATH="/usr/local/bin:$PATH"
+            echo "PATH updated: $PATH"
           fi
           
           # Verify BATS is available
           echo "Verifying BATS installation..."
           which bats || echo "BATS not in PATH"
+          ls -la /usr/local/bin/bats || echo "BATS binary not found"
+          ls -la /usr/local/libexec/bats-core/ || echo "BATS libexec not found"  
           bats --version || echo "BATS version check failed"
 
       - name: Setup minimal Dokku environment for testing
