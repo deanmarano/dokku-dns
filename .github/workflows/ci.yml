@@ -41,32 +41,15 @@ jobs:
 
       - name: Install dependencies (optimized)
         run: |
-          # Install system dependencies in parallel
+          # Install system dependencies including BATS
           sudo apt-get update -qq
-          sudo apt-get install -qq -y shellcheck nginx curl wget &
+          sudo apt-get install -qq -y shellcheck nginx curl wget bats &
           sudo sysctl -w vm.max_map_count=262144 &
           wait
           
-          # Install bats if not available (much faster than full Dokku)
-          if ! command -v bats >/dev/null 2>&1; then
-            echo "Installing BATS..."
-            git clone --depth=1 https://github.com/bats-core/bats-core.git /tmp/bats-core
-            cd /tmp/bats-core
-            sudo ./install.sh /usr/local
-            cd -
-            rm -rf /tmp/bats-core
-            echo "BATS installation completed"
-            
-            # Ensure bats is in PATH
-            export PATH="/usr/local/bin:$PATH"
-            echo "PATH updated: $PATH"
-          fi
-          
-          # Verify BATS is available
+          # Verify BATS is available  
           echo "Verifying BATS installation..."
           which bats || echo "BATS not in PATH"
-          ls -la /usr/local/bin/bats || echo "BATS binary not found"
-          ls -la /usr/local/libexec/bats-core/ || echo "BATS libexec not found"  
           bats --version || echo "BATS version check failed"
 
       - name: Setup minimal Dokku environment for testing
