@@ -74,11 +74,38 @@ jobs:
         sudo chmod +x /usr/local/bin/docker-compose
         docker-compose --version
         
-    - name: Build Docker images
+    - name: Cache Docker layers
+      uses: actions/cache@v4
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-
+        
+    - name: Build Docker images with caching
       run: |
-        echo "🏗️ Building Docker test images..."
-        docker-compose -f tests/docker/docker-compose.yml build
-        echo "✅ Docker images built successfully"
+        echo "🏗️ Building Docker test images with layer caching..."
+        # Export cache location for buildx
+        export BUILDX_CACHE_FROM="type=local,src=/tmp/.buildx-cache"
+        export BUILDX_CACHE_TO="type=local,dest=/tmp/.buildx-cache-new,mode=max"
+        
+        # Use buildx for better caching
+        docker buildx create --use --name builder || true
+        docker buildx build \
+          --cache-from="$BUILDX_CACHE_FROM" \
+          --cache-to="$BUILDX_CACHE_TO" \
+          --load \
+          --tag dokku-dns-test:latest \
+          -f tests/docker/Dockerfile .
+          
+        # Tag for docker-compose
+        docker tag dokku-dns-test:latest tests-docker-test-runner:latest
+        
+        # Move cache to preserve for next build
+        rm -rf /tmp/.buildx-cache
+        mv /tmp/.buildx-cache-new /tmp/.buildx-cache || true
+        
+        echo "✅ Docker images built successfully with caching"
         
     - name: Run integration tests
       run: |

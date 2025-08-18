@@ -1,0 +1,52 @@
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+docs/
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Local development
+.env
+.env.local
+node_modules/
+npm-debug.log*
+
+# Build artifacts
+dist/
+build/
+*.log
+
+# Test artifacts
+test-results/
+coverage/
+*.tmp
+
+# Backup files
+*-backup
+domains-remove-backup
+
+# Local configuration
+.claude/settings.local.json
+
+# Temporary files
+*.pid
+*.seed
+*.tmp
+*.temp
