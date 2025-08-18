@@ -41,10 +41,13 @@ jobs:
       - name: Install dependencies (optimized)
         run: |
           # Install system dependencies including BATS and AWS CLI
-          sudo apt-get update -qq &&
-          sudo apt-get install -qq -y shellcheck nginx curl wget bats awscli &
+          sudo apt-get update -qq
+          sudo apt-get install -qq -y shellcheck nginx curl wget bats &
           sudo sysctl -w vm.max_map_count=262144 &
           wait
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" 
+          unzip -q awscliv2.zip
+          sudo ./aws/install --update
           
           # Clean up any conflicting manual BATS installations
           sudo rm -f /usr/local/bin/bats /usr/local/libexec/bats-core/bats
