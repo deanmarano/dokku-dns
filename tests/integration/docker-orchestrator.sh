@@ -198,16 +198,18 @@ run_orchestrated_tests() {
     echo "$start_message"
     
     # Add CI-specific resource handling
-    local compose_quiet=""
     if [[ "${CI:-}" == "true" || "${GITHUB_ACTIONS:-}" == "true" ]]; then
-        echo "🔍 CI environment detected - using reduced output"
-        # Reduce Docker Compose output in CI to focus on test results  
-        if [[ "$build_flag" != "--build" ]]; then
-            compose_quiet="--quiet-pull"
-        fi
+        echo "🔍 CI environment detected - using CI optimizations"
     fi
     
-    if docker-compose -f "$compose_file" up "$build_flag" "$compose_quiet" --abort-on-container-exit; then
+    # Build the docker-compose command properly
+    local compose_cmd="docker-compose -f $compose_file up"
+    if [[ -n "$build_flag" ]]; then
+        compose_cmd="$compose_cmd $build_flag"
+    fi
+    compose_cmd="$compose_cmd --abort-on-container-exit"
+    
+    if eval "$compose_cmd"; then
         echo ""
         echo "✅ Tests completed successfully!"
         
