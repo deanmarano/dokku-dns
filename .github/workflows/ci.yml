@@ -114,12 +114,17 @@ jobs:
     - name: Run integration tests
       run: |
         echo "🧪 Running integration tests..."
-        # Execute the actual tests in the running container
-        docker-compose -f tests/docker/docker-compose.yml exec -T test-runner bash -c "
-          # Copy test script to writable location and make executable
-          cp /plugin/scripts/test-integration.sh /tmp/test-integration.sh &&
+        # Execute the tests in the Dokku container where dokku command is available
+        docker exec -i dokku-local bash -c "
+          # Copy plugin to Dokku container and run tests there
+          cp -r /tmp/dokku-dns /var/lib/dokku/plugins/available/dns &&
+          dokku plugin:enable dns &&
+          cd /var/lib/dokku/plugins/available/dns &&
+          ./install &&
+          # Copy test script to writable location and run it
+          cp scripts/test-integration.sh /tmp/test-integration.sh &&
           chmod +x /tmp/test-integration.sh &&
-          cd /plugin &&
+          cd /var/lib/dokku/plugins/available/dns &&
           /tmp/test-integration.sh
         "
       
