@@ -47,9 +47,14 @@ jobs:
           sudo sysctl -w vm.max_map_count=262144 &
           wait
           
-          # Verify BATS is available  
+          # Clean up any conflicting manual BATS installations
+          sudo rm -f /usr/local/bin/bats /usr/local/libexec/bats-core/bats
+          sudo rm -rf /usr/local/libexec/bats-core/
+          
+          # Verify BATS is available (should be in /usr/bin/bats from apt package)
           echo "Verifying BATS installation..."
           which bats || echo "BATS not in PATH"
+          ls -la /usr/bin/bats || echo "System BATS not found"
           bats --version || echo "BATS version check failed"
 
       - name: Setup minimal Dokku environment for testing
