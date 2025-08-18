@@ -62,7 +62,14 @@ lint: lint-setup
 	# these are disabled due to their expansive existence in the codebase. we should clean it up though
 	@cat tests/shellcheck-exclude | sed -n -e '/^# SC/p'
 	@echo linting...
-	@cat tmp/shellcheck/test-files | xargs shellcheck -e $(shell cat tmp/shellcheck/exclude) | tests/shellcheck-to-junit --output tmp/test-results/shellcheck/results.xml --files tmp/shellcheck/test-files --exclude $(shell cat tmp/shellcheck/exclude)
+	@cat tmp/shellcheck/test-files | xargs shellcheck -e $(shell cat tmp/shellcheck/exclude) > tmp/shellcheck-output.log 2>&1; \
+	EXIT_CODE=$$?; \
+	tests/shellcheck-to-junit --output tmp/test-results/shellcheck/results.xml --files tmp/shellcheck/test-files --exclude $(shell cat tmp/shellcheck/exclude) < tmp/shellcheck-output.log; \
+	if [ $$EXIT_CODE -ne 0 ]; then \
+		echo "❌ Shellcheck found violations"; \
+		cat tmp/shellcheck-output.log; \
+		exit $$EXIT_CODE; \
+	fi
 
 unit-tests:
 	@echo running integration tests...
