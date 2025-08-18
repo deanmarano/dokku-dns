@@ -74,18 +74,17 @@ jobs:
         sudo chmod +x /usr/local/bin/docker-compose
         docker-compose --version
         
-    - name: Build Docker images with caching
-      run: |
-        echo "🏗️ Building Docker test images..."
-        # Export Docker cache variables for buildx
-        export DOCKER_BUILDKIT=1
-        export BUILDX_CACHE_DIR=/tmp/.buildx-cache
-        
-        # Build with docker-compose but enable BuildKit caching
-        COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 \
-        docker-compose -f tests/docker/docker-compose.yml build test-runner
-        
-        echo "✅ Docker images built successfully"
+    - name: Build Docker images with registry caching
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./tests/docker/Dockerfile
+        push: false
+        load: true
+        tags: |
+          tests-docker-test-runner:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
         
     - name: Start test containers
       run: |
