@@ -197,19 +197,17 @@ run_orchestrated_tests() {
     fi
     echo "$start_message"
     
-    # Add CI-specific timeout and resource handling
-    local compose_timeout=""
+    # Add CI-specific resource handling
     local compose_quiet=""
     if [[ "${CI:-}" == "true" || "${GITHUB_ACTIONS:-}" == "true" ]]; then
-        echo "🔍 CI environment detected - using extended timeouts and reduced output"
-        compose_timeout="--timeout 600"
+        echo "🔍 CI environment detected - using reduced output"
         # Reduce Docker Compose output in CI to focus on test results  
         if [[ "$build_flag" != "--build" ]]; then
             compose_quiet="--quiet-pull"
         fi
     fi
     
-    if docker-compose -f "$compose_file" up "$build_flag" "$compose_timeout" "$compose_quiet" --abort-on-container-exit; then
+    if docker-compose -f "$compose_file" up "$build_flag" "$compose_quiet" --abort-on-container-exit; then
         echo ""
         echo "✅ Tests completed successfully!"
         
