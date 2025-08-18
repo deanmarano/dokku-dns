@@ -84,9 +84,11 @@ unit-tests:
 		fi; \
 		echo "✅ Unit tests passed"; \
 	else \
-		echo "BATS not found - unit tests skipped"; \
+		echo "❌ BATS not found - unit tests cannot run"; \
 		echo "Install BATS to run unit tests: https://github.com/bats-core/bats-core"; \
 		echo "For integration tests use: make docker-test"; \
+		echo "CI environments must have BATS installed for unit tests"; \
+		exit 1; \
 	fi
 
 integration-tests:

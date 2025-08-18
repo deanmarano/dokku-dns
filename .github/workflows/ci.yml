@@ -53,7 +53,13 @@ jobs:
             git clone --depth=1 https://github.com/bats-core/bats-core.git /tmp/bats
             sudo /tmp/bats/install.sh /usr/local
             rm -rf /tmp/bats
+            echo "BATS installation completed"
           fi
+          
+          # Verify BATS is available
+          echo "Verifying BATS installation..."
+          which bats || echo "BATS not in PATH"
+          bats --version || echo "BATS version check failed"
 
       - name: Setup minimal Dokku environment for testing
         run: |
