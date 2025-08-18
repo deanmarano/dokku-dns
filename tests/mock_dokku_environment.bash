@@ -32,7 +32,8 @@ create_mock_dokku() {
   echo "nextcloud" >> "$DOKKU_APPS_FILE"
   
   # Use the existing test bin/dokku if available, otherwise create a basic mock
-  local test_bin_dir="$(dirname "${BASH_SOURCE[0]}")/bin"
+  local test_bin_dir
+  test_bin_dir="$(dirname "${BASH_SOURCE[0]}")/bin"
   if [[ -f "$test_bin_dir/dokku" ]]; then
     # Copy our DNS-aware test mock instead of creating a basic one
     cp "$test_bin_dir/dokku" "$mock_dir/dokku"

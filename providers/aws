@@ -480,7 +480,8 @@ EOF
 )
     
     local domain_list="${zone_domains[$zone_id]}"
-    local domain_count=$(echo "$domain_list" | wc -w)
+    local domain_count
+    domain_count=$(echo "$domain_list" | wc -w)
     dokku_log_info1 "Updating hosted zone $zone_id ($domain_count domains: $domain_list)"
     
     local change_id

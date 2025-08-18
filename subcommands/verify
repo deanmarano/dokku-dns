@@ -51,7 +51,8 @@ service-verify-cmd() {
   fi
   
   # Load the provider functions
-  local PROVIDER_SCRIPT="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/providers/$PROVIDER"
+  local PROVIDER_SCRIPT
+  PROVIDER_SCRIPT="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/providers/$PROVIDER"
   if [[ ! -f "$PROVIDER_SCRIPT" ]]; then
     dokku_log_fail "Provider '$PROVIDER' not found. Available providers: aws, cloudflare"
   fi
