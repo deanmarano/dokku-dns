@@ -121,6 +121,9 @@ jobs:
           dokku plugin:enable dns &&
           cd /var/lib/dokku/plugins/available/dns &&
           ./install &&
+          # Ensure plugin data directory exists and is writable
+          mkdir -p /var/lib/dokku/services/dns &&
+          chown -R dokku:dokku /var/lib/dokku/services/dns 2>/dev/null || true &&
           # Copy test script to writable location and run it
           cp scripts/test-integration.sh /tmp/test-integration.sh &&
           chmod +x /tmp/test-integration.sh &&
