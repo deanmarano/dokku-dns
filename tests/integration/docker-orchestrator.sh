@@ -184,9 +184,32 @@ run_orchestrated_tests() {
     echo "🧹 Cleaning up existing containers..."
     docker-compose -f "$compose_file" down -v 2>/dev/null || true
     
-    # Build and start the containers
-    echo "🏗️  Building and starting containers..."
-    if docker-compose -f "$compose_file" up "$build_flag" --abort-on-container-exit; then
+    # In CI, give containers more time to stop cleanly
+    if [[ "${CI:-}" == "true" || "${GITHUB_ACTIONS:-}" == "true" ]]; then
+        echo "⏱️  Waiting for clean container shutdown in CI..."
+        sleep 3
+    fi
+    
+    # Start the containers (build step now separate in CI)
+    local start_message="🚀 Starting containers and running tests..."
+    if [[ "$build_flag" == "--build" ]]; then
+        start_message="🏗️  Building and starting containers..."
+    fi
+    echo "$start_message"
+    
+    # Add CI-specific timeout and resource handling
+    local compose_timeout=""
+    local compose_quiet=""
+    if [[ "${CI:-}" == "true" || "${GITHUB_ACTIONS:-}" == "true" ]]; then
+        echo "🔍 CI environment detected - using extended timeouts and reduced output"
+        compose_timeout="--timeout 600"
+        # Reduce Docker Compose output in CI to focus on test results  
+        if [[ "$build_flag" != "--build" ]]; then
+            compose_quiet="--quiet-pull"
+        fi
+    fi
+    
+    if docker-compose -f "$compose_file" up "$build_flag" "$compose_timeout" "$compose_quiet" --abort-on-container-exit; then
         echo ""
         echo "✅ Tests completed successfully!"
         
@@ -214,6 +237,19 @@ run_orchestrated_tests() {
         echo "📋 Container logs for debugging:"
         echo "================================"
         docker-compose -f "$compose_file" logs
+        
+        # In CI environments, show additional debugging info
+        if [[ "${CI:-}" == "true" || "${GITHUB_ACTIONS:-}" == "true" ]]; then
+            echo ""
+            echo "🔍 Container status for CI debugging:"
+            echo "===================================="
+            docker-compose -f "$compose_file" ps -a || true
+            
+            echo ""
+            echo "🐳 Docker system info:"
+            echo "====================="
+            docker system df || true
+        fi
         
         # Clean up
         docker-compose -f "$compose_file" down -v 2>/dev/null || true

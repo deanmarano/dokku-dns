@@ -74,10 +74,17 @@ jobs:
         sudo chmod +x /usr/local/bin/docker-compose
         docker-compose --version
         
-    - name: Run Docker integration tests
+    - name: Build Docker images
+      run: |
+        echo "🏗️ Building Docker test images..."
+        docker-compose -f tests/docker/docker-compose.yml build
+        echo "✅ Docker images built successfully"
+        
+    - name: Run integration tests
       run: |
         chmod +x ./scripts/test-docker.sh
-        ./scripts/test-docker.sh --build
+        echo "🧪 Running Docker integration tests..."
+        ./scripts/test-docker.sh
       
     - name: Upload test logs on failure
       if: failure()
