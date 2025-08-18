@@ -69,7 +69,14 @@ unit-tests:
 	@mkdir -p tmp/test-results
 	@if command -v dokku >/dev/null 2>&1; then \
 		echo "Running integration tests against local Dokku..."; \
-		scripts/test-integration.sh || echo "Integration tests completed with some failures"; \
+		if scripts/test-integration.sh; then \
+			echo "✅ Integration tests passed"; \
+		else \
+			echo "❌ Integration tests failed"; \
+			echo "💡 Tip: For reliable testing, use: make docker-test"; \
+			echo "💡 Local testing requires full Dokku installation with proper permissions"; \
+			exit 1; \
+		fi; \
 	else \
 		echo "No local Dokku found - integration tests skipped"; \
 		echo "This is normal for CI environments without Dokku installed"; \
