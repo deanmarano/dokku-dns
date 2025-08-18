@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+# DNS Plugin - Post-Domains-Update Trigger  
+# Automatically adds new domains to DNS management when they're added to an app
+
+# Source plugin configuration
+PLUGIN_BASE_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$PLUGIN_BASE_PATH/config"
+
+# Load functions if available
+if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
+  source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
+fi
+
+# Define missing functions if needed
+if ! declare -f dokku_log_info1 >/dev/null 2>&1; then
+  dokku_log_info1() { echo "-----> $*"; }
+fi
+
+if ! declare -f dokku_log_info2 >/dev/null 2>&1; then
+  dokku_log_info2() { echo "=====> $*"; }
+fi
+
+if ! declare -f dokku_log_warn >/dev/null 2>&1; then
+  dokku_log_warn() { echo " !     $*"; }
+fi
+
+# Load plugin functions
+TRIGGER_BASE_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$TRIGGER_BASE_PATH/functions"
+
+# Main trigger logic
+main() {
+  local APP="$1"
+  local ACTION="$2"
+  local DOMAIN="$3"
+  
+  # Skip if no app provided
+  [[ -z "$APP" ]] && return 0
+  
+  # Process both 'add' and 'remove' actions
+  [[ "$ACTION" != "add" && "$ACTION" != "remove" ]] && return 0
+  
+  # Skip if no domain provided
+  [[ -z "$DOMAIN" ]] && return 0
+  
+  # Check if DNS provider is configured
+  local PROVIDER_FILE="$PLUGIN_DATA_ROOT/PROVIDER"
+  if [[ ! -f "$PROVIDER_FILE" ]]; then
+    # DNS not configured globally, skip automatic setup
+    return 0
+  fi
+  
+  local PROVIDER
+  PROVIDER=$(cat "$PROVIDER_FILE" 2>/dev/null || echo "")
+  if [[ -z "$PROVIDER" ]] || [[ "$PROVIDER" == "None" ]]; then
+    # No valid provider configured, skip
+    return 0
+  fi
+  
+  if [[ "$ACTION" == "add" ]]; then
+    handle_domain_add "$APP" "$DOMAIN"
+  elif [[ "$ACTION" == "remove" ]]; then
+    handle_domain_remove "$APP" "$DOMAIN"
+  fi
+}
+
+# Handle domain addition
+handle_domain_add() {
+  local APP="$1"
+  local DOMAIN="$2"
+  
+  dokku_log_info1 "DNS: Domain '$DOMAIN' added to app '$APP', checking DNS setup..."
+  
+  # Check if app is already managed by DNS
+  local app_was_managed=false
+  if is_app_dns_managed "$APP"; then
+    app_was_managed=true
+  fi
+  
+  # Add the new domain to DNS management
+  if dns_add_app_domains "$APP" "$DOMAIN"; then
+    if [[ "$app_was_managed" == "false" ]]; then
+      dokku_log_info1 "DNS: App '$APP' added to DNS management"
+    fi
+    dokku_log_info1 "DNS: Domain '$DOMAIN' added to DNS tracking"
+    
+    # Automatically sync the domain to make DNS records active
+    dokku_log_info1 "DNS: Syncing DNS records for '$APP'..."
+    if command -v dokku >/dev/null 2>&1; then
+      if dokku "$PLUGIN_COMMAND_PREFIX:sync" "$APP" >/dev/null 2>&1; then
+        dokku_log_info1 "DNS: Domain '$DOMAIN' DNS records synced successfully"
+      else
+        dokku_log_warn "DNS: Failed to sync DNS records automatically"
+        dokku_log_info1 "DNS: Manual sync with: dokku $PLUGIN_COMMAND_PREFIX:sync $APP"
+      fi
+    else
+      dokku_log_info1 "DNS: Manual sync with: dokku $PLUGIN_COMMAND_PREFIX:sync $APP"
+    fi
+  else
+    dokku_log_warn "DNS: Failed to add domain '$DOMAIN' to DNS management"
+  fi
+}
+
+# Handle domain removal
+handle_domain_remove() {
+  local APP="$1"
+  local DOMAIN="$2"
+  
+  dokku_log_info1 "DNS: Domain '$DOMAIN' removed from app '$APP', updating DNS tracking..."
+  
+  # Skip if app is not managed by DNS
+  if ! is_app_dns_managed "$APP"; then
+    return 0
+  fi
+  
+  local APP_DOMAINS_FILE="$PLUGIN_DATA_ROOT/$APP/DOMAINS"
+  if [[ -f "$APP_DOMAINS_FILE" ]]; then
+    # Remove the domain from the app's domain list
+    local TEMP_DOMAINS_FILE="$APP_DOMAINS_FILE.tmp"
+    grep -v "^$DOMAIN$" "$APP_DOMAINS_FILE" > "$TEMP_DOMAINS_FILE" 2>/dev/null || true
+    mv "$TEMP_DOMAINS_FILE" "$APP_DOMAINS_FILE"
+    
+    dokku_log_info1 "DNS: Domain '$DOMAIN' removed from DNS tracking"
+    
+    # Check if app still has any domains
+    if [[ ! -s "$APP_DOMAINS_FILE" ]]; then
+      dokku_log_info1 "DNS: App '$APP' has no domains left, removing from DNS management"
+      rm -rf "$PLUGIN_DATA_ROOT/$APP"
+      
+      # Remove app from LINKS file
+      local LINKS_FILE="$PLUGIN_DATA_ROOT/LINKS"
+      if [[ -f "$LINKS_FILE" ]]; then
+        local TEMP_LINKS_FILE="$LINKS_FILE.tmp"
+        grep -v "^$APP$" "$LINKS_FILE" > "$TEMP_LINKS_FILE" 2>/dev/null || true
+        mv "$TEMP_LINKS_FILE" "$LINKS_FILE"
+      fi
+    fi
+  fi
+}
+
+# Run if called directly (not sourced)
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi
