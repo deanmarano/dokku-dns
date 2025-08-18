@@ -106,7 +106,7 @@ calculate_next_cron_run() {
     else
       # Today's run time hasn't passed yet
       local today_formatted
-      today_formatted=$(date -r $today_run "+%Y-%m-%d %H:%M:%S %Z" 2>/dev/null || echo "")
+      today_formatted=$(date -r "$today_run" "+%Y-%m-%d %H:%M:%S %Z" 2>/dev/null || echo "")
       if [[ -n "$today_formatted" ]]; then
         echo "$today_formatted"
         return 0
