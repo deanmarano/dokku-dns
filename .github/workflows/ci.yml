@@ -87,12 +87,42 @@ jobs:
         
         echo "✅ Docker images built successfully"
         
+    - name: Start test containers
+      run: |
+        echo "🚀 Starting test containers and waiting for readiness..."
+        chmod +x ./scripts/test-docker.sh
+        # Start containers in detached mode and wait for readiness
+        docker-compose -f tests/docker/docker-compose.yml up -d
+        
+        # Wait for Dokku container to be ready
+        echo "⏳ Waiting for Dokku container to be ready..."
+        timeout 300 bash -c '
+          while true; do
+            if docker-compose -f tests/docker/docker-compose.yml logs test-runner 2>/dev/null | grep -q "\[SUCCESS\] Dokku container is ready!"; then
+              echo "✅ Test containers are ready!"
+              break
+            fi
+            echo "🔄 Still waiting for containers to be ready..."
+            sleep 5
+          done
+        '
+        
     - name: Run integration tests
       run: |
-        chmod +x ./scripts/test-docker.sh
-        echo "🧪 Running Docker integration tests..."
-        ./scripts/test-docker.sh
+        echo "🧪 Running integration tests..."
+        # Execute the actual tests in the running container
+        docker-compose -f tests/docker/docker-compose.yml exec -T test-runner bash -c "
+          cd /plugin && 
+          chmod +x scripts/test-integration.sh &&
+          scripts/test-integration.sh
+        "
       
+    - name: Stop test containers
+      if: always()
+      run: |
+        echo "🧹 Cleaning up test containers..."
+        docker-compose -f tests/docker/docker-compose.yml down -v || true
+        
     - name: Upload test logs on failure
       if: failure()
       uses: actions/upload-artifact@v4
