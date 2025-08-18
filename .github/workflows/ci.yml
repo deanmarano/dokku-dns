@@ -41,7 +41,7 @@ jobs:
       - name: Install dependencies (optimized)
         run: |
           # Install system dependencies including BATS and AWS CLI
-          sudo apt-get update -qq
+          sudo apt-get update -qq &&
           sudo apt-get install -qq -y shellcheck nginx curl wget bats awscli &
           sudo sysctl -w vm.max_map_count=262144 &
           wait
