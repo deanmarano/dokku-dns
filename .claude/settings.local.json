@@ -56,6 +56,8 @@
       "Bash(gh pr view:*)",
       "Bash(dokku dns:zones:*)",
       "Bash(dokku plugin:reload:*)",
+      "WebFetch(domain:dokku.com)",
+      "Bash(docker cp:*)",
       "Bash(printf:*)"
     ],
     "deny": [],
