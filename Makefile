@@ -72,6 +72,24 @@ lint: lint-setup
 	fi
 
 unit-tests:
+	@echo running unit tests...
+	@mkdir -p tmp/test-results
+	@if command -v bats >/dev/null 2>&1; then \
+		echo "Running bats unit tests..."; \
+		set -e; \
+		if ! bats tests/*.bats; then \
+			echo "❌ Unit tests failed"; \
+			echo "💡 Tip: For integration tests, use: make docker-test"; \
+			exit 1; \
+		fi; \
+		echo "✅ Unit tests passed"; \
+	else \
+		echo "BATS not found - unit tests skipped"; \
+		echo "Install BATS to run unit tests: https://github.com/bats-core/bats-core"; \
+		echo "For integration tests use: make docker-test"; \
+	fi
+
+integration-tests:
 	@echo running integration tests...
 	@mkdir -p tmp/test-results
 	@if command -v dokku >/dev/null 2>&1; then \
