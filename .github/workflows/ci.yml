@@ -94,18 +94,23 @@ jobs:
         # Start containers in detached mode and wait for readiness
         docker-compose -f tests/docker/docker-compose.yml up -d
         
-        # Wait for Dokku container to be ready
+        # Wait for Dokku container to be accessible
         echo "⏳ Waiting for Dokku container to be ready..."
         timeout 300 bash -c '
           while true; do
-            if docker-compose -f tests/docker/docker-compose.yml logs test-runner 2>/dev/null | grep -q "\[SUCCESS\] Dokku container is ready!"; then
-              echo "✅ Test containers are ready!"
+            # Check if Dokku container is responding
+            if docker exec dokku-local dokku help >/dev/null 2>&1; then
+              echo "✅ Dokku container is ready!"
               break
             fi
-            echo "🔄 Still waiting for containers to be ready..."
+            echo "🔄 Still waiting for Dokku to be ready..."
             sleep 5
           done
         '
+        
+        # Give test-runner a moment to initialize
+        echo "⏳ Initializing test environment..."
+        sleep 10
         
     - name: Run integration tests
       run: |
