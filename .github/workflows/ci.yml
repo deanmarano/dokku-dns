@@ -35,9 +35,8 @@ jobs:
         with:
           path: |
             /usr/local/bin/shellcheck
-            /usr/local/bin/bats
             /tmp/dokku-mock
-          key: ${{ runner.os }}-test-deps-v2
+          key: ${{ runner.os }}-test-deps-v3
 
       - name: Install dependencies (optimized)
         run: |
