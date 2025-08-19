@@ -46,7 +46,13 @@
       "Bash(git checkout:*)",
       "Bash(./subcommands/cron:*)",
       "Bash(cat:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(dokku dns:add:*)",
+      "Bash(dokku dns:report:*)",
+      "Bash(setup_dns_provider aws)",
+      "Bash(create_test_app:*)",
+      "Bash(add_test_domains:*)",
+      "Bash(/dev/null)"
     ],
     "deny": []
   }
