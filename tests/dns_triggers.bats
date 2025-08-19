@@ -31,6 +31,16 @@ teardown() {
     assert_file_executable "$PLUGIN_ROOT/post-domains-update"
 }
 
+@test "(triggers) domains-add trigger exists and is executable" {
+    assert_file_exists "$PLUGIN_ROOT/domains-add"
+    assert_file_executable "$PLUGIN_ROOT/domains-add"
+}
+
+@test "(triggers) domains-remove trigger exists and is executable" {
+    assert_file_exists "$PLUGIN_ROOT/domains-remove"
+    assert_file_executable "$PLUGIN_ROOT/domains-remove"
+}
+
 @test "(triggers) post-create works with no DNS provider configured" {
     # Should not fail even if no provider is configured
     run "$PLUGIN_ROOT/post-create" "test-app"
@@ -120,6 +130,65 @@ teardown() {
     echo "example.com" > "$PLUGIN_DATA_ROOT/test-app/DOMAINS"
     
     run "$PLUGIN_ROOT/post-domains-update" "test-app" "remove" "example.com"
+    assert_success
+    assert_output_contains "DNS: App 'test-app' has no domains left, removing from DNS management"
+    
+    # Check app was completely removed
+    assert_file_not_exists "$PLUGIN_DATA_ROOT/test-app"
+    if [[ -f "$PLUGIN_DATA_ROOT/LINKS" ]]; then
+        refute_line_in_file "test-app" "$PLUGIN_DATA_ROOT/LINKS"
+    fi
+}
+
+@test "(triggers) domains-add works with no DNS provider configured" {
+    # Should not fail even if no provider is configured
+    run "$PLUGIN_ROOT/domains-add" "test-app" "example.com"
+    assert_success
+}
+
+@test "(triggers) domains-add adds domain to DNS management" {
+    setup_dns_provider "aws"
+    
+    run "$PLUGIN_ROOT/domains-add" "test-app" "example.com"
+    assert_success
+    assert_output_contains "DNS: Domain 'example.com' added to app 'test-app'"
+    assert_output_contains "DNS: Domain 'example.com' added to DNS tracking"
+    assert_output_contains "DNS: Syncing DNS records for 'test-app'"
+}
+
+@test "(triggers) domains-remove works with no DNS provider configured" {
+    # Should not fail even if no provider is configured
+    run "$PLUGIN_ROOT/domains-remove" "test-app" "example.com"
+    assert_success
+}
+
+@test "(triggers) domains-remove removes domain from DNS management" {
+    setup_dns_provider "aws"
+    
+    # Setup app with domains
+    echo "test-app" > "$PLUGIN_DATA_ROOT/LINKS"
+    mkdir -p "$PLUGIN_DATA_ROOT/test-app"
+    echo -e "example.com\napi.example.com" > "$PLUGIN_DATA_ROOT/test-app/DOMAINS"
+    
+    run "$PLUGIN_ROOT/domains-remove" "test-app" "example.com"
+    assert_success
+    assert_output_contains "DNS: Domain 'example.com' removed from DNS tracking"
+    
+    # Check domain was removed but app still managed
+    assert_file_exists "$PLUGIN_DATA_ROOT/test-app/DOMAINS"
+    refute_line_in_file "example.com" "$PLUGIN_DATA_ROOT/test-app/DOMAINS"
+    assert_line_in_file "api.example.com" "$PLUGIN_DATA_ROOT/test-app/DOMAINS"
+}
+
+@test "(triggers) domains-remove removes app when last domain is removed" {
+    setup_dns_provider "aws"
+    
+    # Setup app with single domain
+    echo "test-app" > "$PLUGIN_DATA_ROOT/LINKS"
+    mkdir -p "$PLUGIN_DATA_ROOT/test-app"
+    echo "example.com" > "$PLUGIN_DATA_ROOT/test-app/DOMAINS"
+    
+    run "$PLUGIN_ROOT/domains-remove" "test-app" "example.com"
     assert_success
     assert_output_contains "DNS: App 'test-app' has no domains left, removing from DNS management"
     

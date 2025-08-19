@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+# DNS Plugin - Domains-Add Trigger  
+# Automatically adds new domains to DNS management when they're added to an app
+
+# Source plugin configuration
+PLUGIN_BASE_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$PLUGIN_BASE_PATH/config"
+
+# Load functions if available
+if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
+  source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
+fi
+
+# Define missing functions if needed
+if ! declare -f dokku_log_info1 >/dev/null 2>&1; then
+  dokku_log_info1() { echo "-----> $*"; }
+fi
+
+if ! declare -f dokku_log_info2 >/dev/null 2>&1; then
+  dokku_log_info2() { echo "=====> $*"; }
+fi
+
+if ! declare -f dokku_log_warn >/dev/null 2>&1; then
+  dokku_log_warn() { echo " !     $*"; }
+fi
+
+# Load plugin functions
+source "$PLUGIN_BASE_PATH/functions"
+
+# Main trigger logic
+main() {
+  local APP="$1"
+  local DOMAIN="$2"
+  
+  # Skip if no app or domain provided
+  [[ -z "$APP" ]] && return 0
+  [[ -z "$DOMAIN" ]] && return 0
+  
+  # Check if DNS provider is configured
+  local PROVIDER_FILE="$PLUGIN_DATA_ROOT/PROVIDER"
+  if [[ ! -f "$PROVIDER_FILE" ]]; then
+    # DNS not configured globally, skip automatic setup
+    return 0
+  fi
+  
+  local PROVIDER
+  PROVIDER=$(cat "$PROVIDER_FILE" 2>/dev/null || echo "")
+  if [[ -z "$PROVIDER" ]] || [[ "$PROVIDER" == "None" ]]; then
+    # No valid provider configured, skip
+    return 0
+  fi
+  
+  dokku_log_info1 "DNS: Domain '$DOMAIN' added to app '$APP', checking DNS setup..."
+  
+  # Check if app is already managed by DNS
+  local app_was_managed=false
+  if is_app_dns_managed "$APP"; then
+    app_was_managed=true
+  fi
+  
+  # Add the new domain to DNS management
+  if dns_add_app_domains "$APP" "$DOMAIN"; then
+    if [[ "$app_was_managed" == "false" ]]; then
+      dokku_log_info1 "DNS: App '$APP' added to DNS management"
+    fi
+    dokku_log_info1 "DNS: Domain '$DOMAIN' added to DNS tracking"
+    
+    # Automatically sync the domain to make DNS records active
+    dokku_log_info1 "DNS: Syncing DNS records for '$APP'..."
+    if command -v dokku >/dev/null 2>&1; then
+      if dokku "$PLUGIN_COMMAND_PREFIX:sync" "$APP" >/dev/null 2>&1; then
+        dokku_log_info1 "DNS: Domain '$DOMAIN' DNS records synced successfully"
+      else
+        dokku_log_warn "DNS: Failed to sync DNS records automatically"
+        dokku_log_info1 "DNS: Manual sync with: dokku $PLUGIN_COMMAND_PREFIX:sync $APP"
+      fi
+    else
+      dokku_log_info1 "DNS: Manual sync with: dokku $PLUGIN_COMMAND_PREFIX:sync $APP"
+    fi
+  else
+    dokku_log_warn "DNS: Failed to add domain '$DOMAIN' to DNS management"
+  fi
+}
+
+# Run if called directly (not sourced)
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi
