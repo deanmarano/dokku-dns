@@ -492,7 +492,8 @@ test_dns_triggers() {
     # Ensure AWS provider is configured for trigger tests
     dokku dns:configure aws >/dev/null 2>&1
     
-    local TRIGGER_TEST_APP="trigger-test-app-$(date +%s)"
+    local TRIGGER_TEST_APP
+    TRIGGER_TEST_APP="trigger-test-app-$(date +%s)"
     local TRIGGER_DOMAIN="trigger.example.com"
     local TRIGGER_DOMAIN2="api.trigger.example.com"
     
@@ -542,7 +543,7 @@ test_dns_triggers() {
     
     # Verify domains-remove trigger removed domain from DNS tracking
     trigger_report_output=$(dokku dns:report "$TRIGGER_TEST_APP" 2>&1)
-    if ! echo "$trigger_report_output" | grep -E "^$TRIGGER_DOMAIN[[:space:]]|[[:space:]]$TRIGGER_DOMAIN[[:space:]]" && echo "$trigger_report_output" | grep -q "$TRIGGER_DOMAIN2"; then
+    if ! echo "$trigger_report_output" | grep -E "^${TRIGGER_DOMAIN}[[:space:]]|[[:space:]]${TRIGGER_DOMAIN}[[:space:]]" && echo "$trigger_report_output" | grep -q "$TRIGGER_DOMAIN2"; then
         log_success "Domains-remove trigger successfully removed domain while keeping others"
         TESTS_PASSED=$((TESTS_PASSED + 1))
     else

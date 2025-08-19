@@ -74,7 +74,7 @@ main() {
       fi
       
       # Remove app's domain tracking directory
-      rm -rf "$PLUGIN_DATA_ROOT/$APP"
+      rm -rf "${PLUGIN_DATA_ROOT:?}/${APP:?}"
       
       dokku_log_info1 "DNS: App '$APP' removed from DNS management"
     fi

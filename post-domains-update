@@ -128,7 +128,7 @@ handle_domain_remove() {
     # Check if app still has any domains
     if [[ ! -s "$APP_DOMAINS_FILE" ]]; then
       dokku_log_info1 "DNS: App '$APP' has no domains left, removing from DNS management"
-      rm -rf "$PLUGIN_DATA_ROOT/$APP"
+      rm -rf "${PLUGIN_DATA_ROOT:?}/${APP:?}"
       
       # Remove app from LINKS file
       local LINKS_FILE="$PLUGIN_DATA_ROOT/LINKS"
