@@ -4,15 +4,7 @@
 
 The DNS plugin is progress! Many core features have been implemented and tested. See [DONE.md](./DONE.md) for completed work.
 
-## Phase 6: Architecture Improvements (Medium Priority)
-- [ ] **Remove global provider configuration** - Eliminate `dns:configure` command dependency
-- [ ] **Make commands zone-aware** - Each zone can use different providers (AWS vs Cloudflare)
-- [ ] **Provider-specific credentials** - Move from global config to per-provider credential storage
-- [ ] **Zone-aware sync-all** - Auto-detect providers per zone instead of global setting
-- [ ] **Provider-specific verification** - Replace global `dns:verify` with per-zone validation
-- [ ] **Simplify command flow** - Direct zone operations instead of configure → add → sync workflow
-
-## Phase 7: Plugin Triggers (In Progress)
+## Phase 5: Plugin Triggers (In Progress)
 - [x] **Implemented Triggers** ✅
   - [x] `post-create` - Initialize DNS management for new apps
   - [x] `post-delete` - Clean up DNS records after app deletion
@@ -24,14 +16,7 @@ The DNS plugin is progress! Many core features have been implemented and tested.
   - [ ] `post-proxy-ports-set` - Handle port changes that affect DNS records
   - [ ] `post-proxy-ports-clear` - Clean up when proxy ports are removed
 
-## Phase 8: Future Enhancements (Low Priority)
-- [ ] **Add support for multiple DNS record types** - CNAME, MX, TXT records
-- [ ] **Implement domain validation** - Validate domains before DNS changes
-- [ ] **Add DNS record backup/restore** - Safety features for DNS changes
-- [ ] **Create DNS health monitoring** - Periodic DNS record validation
-- [ ] **Create Cloudflare backend** - Second provider integration
-- [ ] **Add domain parameter to dns:sync** - Allow syncing specific domains only
-
+## Phase 6: Core Enhancements (High Priority)
 - [ ] **Update zones:enable/zones:disable**
   - [ ] Modify commands to persist domain settings in app configuration
   - [ ] Update other (sync, report) commands to check if domain is in an enabled hosted zone instead of just checking for the app link
