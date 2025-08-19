@@ -3,6 +3,7 @@
 
 # Create temporary test directory
 TEST_TMP_DIR="${BATS_TMPDIR:-/tmp}/dokku-dns-test-$$"
+export TEST_TMP_DIR
 mkdir -p "$TEST_TMP_DIR"
 
 # Override environment variables to use temp directory
