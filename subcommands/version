@@ -33,12 +33,14 @@ service-version-cmd() {
   local cmd="$PLUGIN_COMMAND_PREFIX:version" argv=("$@")
   [[ ${argv[0]} == "$cmd" ]] && shift 1
 
-  local PLUGIN_ROOT="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")"
+  local PLUGIN_ROOT
+  PLUGIN_ROOT="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")"
   local VERSION_FILE="$PLUGIN_ROOT/plugin.toml"
   
   # Show plugin version
   if [[ -f "$VERSION_FILE" ]]; then
-    local VERSION=$(grep "^version" "$VERSION_FILE" | cut -d'"' -f2)
+    local VERSION
+    VERSION=$(grep "^version" "$VERSION_FILE" | cut -d'"' -f2)
     if [[ -n "$VERSION" ]]; then
       echo "dokku-dns plugin version: $VERSION"
     else
@@ -50,7 +52,8 @@ service-version-cmd() {
   
   # Show AWS CLI version if installed
   if command -v aws >/dev/null 2>&1; then
-    local AWS_VERSION=$(aws --version 2>&1 | head -1 | awk '{print $1}' | sed 's/^aws-cli\///')
+    local AWS_VERSION
+    AWS_VERSION=$(aws --version 2>&1 | head -1 | awk '{print $1}' | sed 's/^aws-cli\///')
     echo "AWS CLI version: $AWS_VERSION"
   else
     echo "AWS CLI: not installed"

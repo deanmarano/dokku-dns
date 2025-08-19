@@ -42,33 +42,26 @@ teardown() {
   setup_dns_provider aws
   
   run dokku "$PLUGIN_COMMAND_PREFIX:verify"
+  assert_success
+  
+  # With mock AWS CLI, verification should succeed
   assert_output_contains "Verifying AWS Route53 access"
   assert_output_contains "Checking AWS CLI configuration"
-  
-  # Test will likely show auth issues in test environment, which is expected
-  if [[ "$status" -eq 0 ]]; then
-    # If AWS is properly configured, should show success
-    assert_output_contains "AWS CLI configured successfully"
-  else
-    # If not configured, should show helpful instructions
-    assert_output_contains "AWS CLI is not configured" || assert_output_contains "Please configure AWS CLI"
-  fi
+  assert_output_contains "AWS CLI configured successfully"
+  assert_output_contains "Route53 access confirmed"
+  assert_output_contains "Available hosted zones:"
 }
 
 @test "(dns:verify) shows AWS setup instructions when CLI not configured" {
   setup_dns_provider aws
   
   run dokku "$PLUGIN_COMMAND_PREFIX:verify"
+  assert_success
   
-  # Should show setup instructions (either success or helpful failure)
+  # With mock AWS CLI, should show successful verification
   assert_output_contains "Verifying AWS Route53 access"
-  
-  if [[ "$status" -ne 0 ]]; then
-    assert_output_contains "Please configure AWS CLI first using one of these methods:"
-    assert_output_contains "aws configure"
-    assert_output_contains "AWS_ACCESS_KEY_ID"
-    assert_output_contains "AWS_SECRET_ACCESS_KEY"
-  fi
+  assert_output_contains "AWS CLI configured successfully"
+  assert_output_contains "Route53 access confirmed"
 }
 
 @test "(dns:verify) handles cloudflare provider" {
@@ -85,11 +78,9 @@ teardown() {
   setup_dns_provider aws
   
   run dokku "$PLUGIN_COMMAND_PREFIX:verify"
+  assert_success
   
-  # Should provide next steps regardless of success/failure
-  if [[ "$status" -eq 0 ]]; then
-    assert_output_contains "Next steps:" || assert_output_contains "Ready to use"
-  else
-    assert_output_contains "Please configure" || assert_output_contains "Run:"
-  fi
+  # Should provide next steps and helpful guidance
+  assert_output_contains "DNS provider verification and discovery completed successfully"
+  assert_output_contains "Ready to use" || assert_output_contains "Next steps:"
 }

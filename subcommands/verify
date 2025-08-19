@@ -51,7 +51,8 @@ service-verify-cmd() {
   fi
   
   # Load the provider functions
-  local PROVIDER_SCRIPT="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/providers/$PROVIDER"
+  local PROVIDER_SCRIPT
+  PROVIDER_SCRIPT="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/providers/$PROVIDER"
   if [[ ! -f "$PROVIDER_SCRIPT" ]]; then
     dokku_log_fail "Provider '$PROVIDER' not found. Available providers: aws, cloudflare"
   fi
@@ -159,7 +160,7 @@ For more info: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-qu
         echo
         # Show existing DNS records
         dokku_log_info1 "Existing DNS records:"
-        dns_provider_aws_discover_existing_domains
+        dns_provider_aws_discover_existing_domains || true
       else
         dokku_log_fail "✗ Route53 access failed. Please ensure your AWS credentials have the following permissions:
   
@@ -206,6 +207,8 @@ You can attach the AWS managed policy 'AmazonRoute53FullAccess' or create a cust
   dokku_log_info1 "  1. Add domains to an app: dokku $PLUGIN_COMMAND_PREFIX:add <app>"
   dokku_log_info1 "  2. Sync DNS records: dokku $PLUGIN_COMMAND_PREFIX:sync <app>"
   dokku_log_info1 "  3. Check DNS status: dokku $PLUGIN_COMMAND_PREFIX:report <app>"
+  
+  exit 0
 }
 
 service-verify-cmd "$@"

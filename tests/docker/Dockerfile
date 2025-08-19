@@ -1,40 +1,37 @@
+# Use minimal Ubuntu base
 FROM ubuntu:22.04
 
-# Avoid interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install basic dependencies including Docker CLI
-RUN apt-get update && apt-get install -y \
+# Install all dependencies in one optimized layer
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash \
     curl \
     git \
-    sudo \
-    wget \
-    bash \
-    openssh-client \
-    awscli \
-    dnsutils \
     netcat-openbsd \
-    && rm -rf /var/lib/apt/lists/*
+    openssh-client \
+    sudo \
+    ca-certificates \
+    unzip \
+    xz-utils \
+    dnsutils \
+    docker.io \
+    shellcheck \
+    awscli \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
-# Install Docker CLI
-RUN curl -fsSL https://get.docker.com | sh
-
-# Install BATS (Bash Automated Testing System)
-RUN git clone https://github.com/bats-core/bats-core.git /tmp/bats-core \
-    && cd /tmp/bats-core \
-    && ./install.sh /usr/local \
-    && rm -rf /tmp/bats-core
-
-# Install shellcheck for linting
-RUN apt-get update && apt-get install -y shellcheck && rm -rf /var/lib/apt/lists/*
+# Install BATS efficiently
+RUN git clone --depth=1 https://github.com/bats-core/bats-core.git /tmp/bats \
+    && /tmp/bats/install.sh /usr/local \
+    && rm -rf /tmp/bats
 
 # Set up working directory
 WORKDIR /plugin
 
-# Copy wait and test script
+# Copy test scripts and make executable
 COPY tests/wait-and-test.sh /tests/wait-and-test.sh
 COPY scripts/test-docker.sh /test-docker.sh
-RUN mkdir -p /tests && chmod +x /tests/wait-and-test.sh /test-docker.sh
+RUN chmod +x /tests/wait-and-test.sh /test-docker.sh
 
 # Default command
 CMD ["/tests/wait-and-test.sh"]

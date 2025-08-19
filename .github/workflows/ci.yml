@@ -30,17 +30,32 @@ jobs:
         with:
           python-version: "3.13"
 
-      - run: make setup
+      - name: Install dependencies
+        run: |
+          # Install system dependencies for testing
+          sudo apt-get update -qq
+          sudo apt-get install -qq -y shellcheck bats
 
-      - run: sudo sysctl -w vm.max_map_count=262144
-
-      - run: |
+      - name: Generate README and run linting in parallel
+        run: |
+          # Run README generation check
           git fetch -q origin main
           changed=$(git --no-pager diff --name-only $GITHUB_SHA..origin/main)
-          if [ $changed = "Dockerfile" ]; then
+          if [ "$changed" = "Dockerfile" ]; then
             echo "Please run 'make generate' to update the image version in the README.md"
           else
-            make generate
+            make generate &
+            README_PID=$!
+            
+            # Run linting in parallel
+            make lint &
+            LINT_PID=$!
+            
+            # Wait for both to complete
+            wait $README_PID
+            wait $LINT_PID
+            
+            # Check README changes
             if ! git diff --quiet README.md; then
               echo "Please run 'make generate'"
               git status --short
@@ -49,7 +64,8 @@ jobs:
             fi
           fi
 
-      - run: make test
+      - name: Run unit tests
+        run: make unit-tests
 
       - uses: actions/upload-artifact@v4
         if: failure()
@@ -74,11 +90,69 @@ jobs:
         sudo chmod +x /usr/local/bin/docker-compose
         docker-compose --version
         
-    - name: Run Docker integration tests
+    - name: Build Docker images with registry caching
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./tests/docker/Dockerfile
+        push: false
+        load: true
+        tags: |
+          tests-docker-test-runner:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        
+    - name: Start test containers
       run: |
+        echo "🚀 Starting test containers and waiting for readiness..."
         chmod +x ./scripts/test-docker.sh
-        ./scripts/test-docker.sh --build
+        # Start containers in detached mode and wait for readiness
+        docker-compose -f tests/docker/docker-compose.yml up -d
+        
+        # Wait for Dokku container to be accessible
+        echo "⏳ Waiting for Dokku container to be ready..."
+        timeout 300 bash -c '
+          while true; do
+            # Check if Dokku container is responding
+            if docker exec dokku-local dokku help >/dev/null 2>&1; then
+              echo "✅ Dokku container is ready!"
+              break
+            fi
+            echo "🔄 Still waiting for Dokku to be ready..."
+            sleep 5
+          done
+        '
+        
+        # Give test-runner a moment to initialize
+        echo "⏳ Initializing test environment..."
+        sleep 10
+        
+    - name: Run integration tests
+      run: |
+        echo "🧪 Running integration tests..."
+        # Execute the tests in the Dokku container where dokku command is available
+        docker exec -i dokku-local bash -c "
+          # Copy plugin to Dokku container and run tests there
+          cp -r /tmp/dokku-dns /var/lib/dokku/plugins/available/dns &&
+          dokku plugin:enable dns &&
+          cd /var/lib/dokku/plugins/available/dns &&
+          ./install &&
+          # Ensure plugin data directory exists and is writable
+          mkdir -p /var/lib/dokku/services/dns &&
+          chown -R dokku:dokku /var/lib/dokku/services/dns 2>/dev/null || true &&
+          # Copy test script to writable location and run it
+          cp scripts/test-integration.sh /tmp/test-integration.sh &&
+          chmod +x /tmp/test-integration.sh &&
+          cd /var/lib/dokku/plugins/available/dns &&
+          /tmp/test-integration.sh
+        "
       
+    - name: Stop test containers
+      if: always()
+      run: |
+        echo "🧹 Cleaning up test containers..."
+        docker-compose -f tests/docker/docker-compose.yml down -v || true
+        
     - name: Upload test logs on failure
       if: failure()
       uses: actions/upload-artifact@v4

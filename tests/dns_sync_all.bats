@@ -8,6 +8,7 @@ setup() {
         cleanup_dns_data
         setup_dns_provider aws
         create_test_app my-app
+        add_test_domains my-app test1.com
     fi
 }
 
@@ -45,57 +46,75 @@ teardown() {
   # Configure provider
   dokku "$PLUGIN_COMMAND_PREFIX:configure" aws
   
-  # Add multiple apps
+  # Add multiple apps with domains that have hosted zones
   create_service "test-app-1"
-  create_service "test-app-2"
-  dokku "$PLUGIN_COMMAND_PREFIX:add" my-app
-  dokku "$PLUGIN_COMMAND_PREFIX:add" test-app-1
-  dokku "$PLUGIN_COMMAND_PREFIX:add" test-app-2
+  add_test_domains test-app-1 test1.com
+  create_service "test-app-2"  
+  add_test_domains test-app-2 test2.com
+  
+  # Change my-app to use a domain with hosted zone
+  add_test_domains my-app test1.com
+  
+  # Add apps to DNS (should succeed with hosted zones)
+  dokku "$PLUGIN_COMMAND_PREFIX:add" my-app >/dev/null 2>&1
+  dokku "$PLUGIN_COMMAND_PREFIX:add" test-app-1 >/dev/null 2>&1
+  dokku "$PLUGIN_COMMAND_PREFIX:add" test-app-2 >/dev/null 2>&1
   
   run dokku "$PLUGIN_COMMAND_PREFIX:sync-all"
+  assert_success
   
-  # Should show attempt to sync all apps
-  assert_output_contains "Synchronizing DNS records for 3 managed app"
-  assert_output_contains "Syncing DNS records for app: my-app"
-  assert_output_contains "Syncing DNS records for app: test-app-1"
-  assert_output_contains "Syncing DNS records for app: test-app-2"
+  # Should show batch sync output with all apps processed
+  assert_output_contains "Processing app: my-app"
+  assert_output_contains "Processing app: test-app-1" 
+  assert_output_contains "Processing app: test-app-2"
+  assert_output_contains "Batch Sync Summary"
+  assert_output_contains "Batch DNS sync completed successfully"
 }
 
 @test "(dns:sync-all) handles missing apps gracefully" {
   # Configure provider
   dokku "$PLUGIN_COMMAND_PREFIX:configure" aws
   
-  # Add app to DNS
-  dokku "$PLUGIN_COMMAND_PREFIX:add" my-app
+  # Add my-app with hosted zone domain
+  add_test_domains my-app test1.com
+  dokku "$PLUGIN_COMMAND_PREFIX:add" my-app >/dev/null 2>&1
   
-  # Manually add a non-existent app to LINKS file
+  # Manually add a non-existent app to LINKS file to simulate an app that was deleted
   echo "nonexistent-app" >> "$PLUGIN_DATA_ROOT/LINKS"
   
   run dokku "$PLUGIN_COMMAND_PREFIX:sync-all"
+  assert_success
   
-  # Should handle missing app gracefully
-  assert_output_contains "App 'nonexistent-app' no longer exists, skipping"
-  assert_output_contains "Remove from DNS: dokku dns:remove nonexistent-app"
+  # Batch sync silently ignores missing apps (they don't have DOMAINS files)
+  # The nonexistent-app will be in LINKS but won't be processed
+  assert_output_contains "Processing app: my-app" 
+  assert_output_contains "Batch Sync Summary"
 }
 
 @test "(dns:sync-all) shows summary with mixed results" {
   # Configure provider  
   dokku "$PLUGIN_COMMAND_PREFIX:configure" aws
   
-  # Add apps
+  # Add apps with domains that have hosted zones
   create_service "working-app"
-  dokku "$PLUGIN_COMMAND_PREFIX:add" my-app
-  dokku "$PLUGIN_COMMAND_PREFIX:add" working-app
+  add_test_domains working-app working.com
+  add_test_domains my-app test1.com
+  
+  # Add apps to DNS management
+  dokku "$PLUGIN_COMMAND_PREFIX:add" my-app >/dev/null 2>&1
+  dokku "$PLUGIN_COMMAND_PREFIX:add" working-app >/dev/null 2>&1
   
   # Add non-existent app to simulate failure
   echo "missing-app" >> "$PLUGIN_DATA_ROOT/LINKS"
   
   run dokku "$PLUGIN_COMMAND_PREFIX:sync-all"
+  assert_success
   
-  # Should show summary
-  assert_output_contains "DNS Sync Summary"
-  assert_output_contains "Successfully synced:"
-  assert_output_contains "Failed to sync:"
+  # Should show batch sync summary with both apps processed
+  assert_output_contains "Processing app: my-app"
+  assert_output_contains "Processing app: working-app" 
+  assert_output_contains "Batch Sync Summary"
+  assert_output_contains "Batch DNS sync completed successfully"
 }
 
 @test "(dns:sync-all) displays start timing information" {

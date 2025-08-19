@@ -148,7 +148,8 @@ dns_app() {
   fi
   
   # Load the provider functions
-  local PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/$PROVIDER"
+  local PROVIDER_SCRIPT
+  PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/$PROVIDER"
   if [[ ! -f "$PROVIDER_SCRIPT" ]]; then
     dokku_log_fail "Provider '$PROVIDER' not found. Available providers: aws, cloudflare"
   fi
@@ -157,6 +158,7 @@ dns_app() {
   # Call the provider-specific sync function
   if declare -f "dns_provider_${PROVIDER}_sync_app" >/dev/null 2>&1; then
     "dns_provider_${PROVIDER}_sync_app" "$APP"
+    return 0
   else
     dokku_log_fail "Provider '$PROVIDER' does not support sync operations"
   fi
@@ -274,7 +276,8 @@ dns_add_app_domains() {
   
   if [[ "$PROVIDER" == "aws" ]]; then
     # Load AWS provider functions to check hosted zones
-    local PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/$PROVIDER"
+    local PROVIDER_SCRIPT
+  PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/$PROVIDER"
     if [[ -f "$PROVIDER_SCRIPT" ]]; then
       source "$PROVIDER_SCRIPT"
       dns_provider_aws_setup_env
@@ -461,7 +464,8 @@ dns_display_domains_table() {
   
   # Load provider functions if available
   if [[ "$PROVIDER" != "None" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
-    local PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/$PROVIDER"
+    local PROVIDER_SCRIPT
+  PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/$PROVIDER"
     if [[ -f "$PROVIDER_SCRIPT" ]]; then
       source "$PROVIDER_SCRIPT"
       if [[ "$PROVIDER" == "aws" ]]; then

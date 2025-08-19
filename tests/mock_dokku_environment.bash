@@ -3,6 +3,7 @@
 
 # Create temporary test directory
 TEST_TMP_DIR="${BATS_TMPDIR:-/tmp}/dokku-dns-test-$$"
+export TEST_TMP_DIR
 mkdir -p "$TEST_TMP_DIR"
 
 # Override environment variables to use temp directory
@@ -32,7 +33,8 @@ create_mock_dokku() {
   echo "nextcloud" >> "$DOKKU_APPS_FILE"
   
   # Use the existing test bin/dokku if available, otherwise create a basic mock
-  local test_bin_dir="$(dirname "${BASH_SOURCE[0]}")/bin"
+  local test_bin_dir
+  test_bin_dir="$(dirname "${BASH_SOURCE[0]}")/bin"
   if [[ -f "$test_bin_dir/dokku" ]]; then
     # Copy our DNS-aware test mock instead of creating a basic one
     cp "$test_bin_dir/dokku" "$mock_dir/dokku"

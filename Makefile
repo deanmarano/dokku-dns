@@ -62,14 +62,48 @@ lint: lint-setup
 	# these are disabled due to their expansive existence in the codebase. we should clean it up though
 	@cat tests/shellcheck-exclude | sed -n -e '/^# SC/p'
 	@echo linting...
-	@cat tmp/shellcheck/test-files | xargs shellcheck -e $(shell cat tmp/shellcheck/exclude) | tests/shellcheck-to-junit --output tmp/test-results/shellcheck/results.xml --files tmp/shellcheck/test-files --exclude $(shell cat tmp/shellcheck/exclude)
+	@cat tmp/shellcheck/test-files | xargs shellcheck -e $(shell cat tmp/shellcheck/exclude) > tmp/shellcheck-output.log 2>&1; \
+	EXIT_CODE=$$?; \
+	tests/shellcheck-to-junit --output tmp/test-results/shellcheck/results.xml --files tmp/shellcheck/test-files --exclude $(shell cat tmp/shellcheck/exclude) < tmp/shellcheck-output.log; \
+	if [ $$EXIT_CODE -ne 0 ]; then \
+		echo "❌ Shellcheck found violations"; \
+		cat tmp/shellcheck-output.log; \
+		exit $$EXIT_CODE; \
+	fi
 
 unit-tests:
+	@echo running unit tests...
+	@mkdir -p tmp/test-results
+	@if command -v bats >/dev/null 2>&1; then \
+		echo "Running bats unit tests..."; \
+		set -e; \
+		if ! bats tests/*.bats; then \
+			echo "❌ Unit tests failed"; \
+			echo "💡 Tip: For integration tests, use: make docker-test"; \
+			exit 1; \
+		fi; \
+		echo "✅ Unit tests passed"; \
+	else \
+		echo "❌ BATS not found - unit tests cannot run"; \
+		echo "Install BATS to run unit tests: https://github.com/bats-core/bats-core"; \
+		echo "For integration tests use: make docker-test"; \
+		echo "CI environments must have BATS installed for unit tests"; \
+		exit 1; \
+	fi
+
+integration-tests:
 	@echo running integration tests...
 	@mkdir -p tmp/test-results
 	@if command -v dokku >/dev/null 2>&1; then \
 		echo "Running integration tests against local Dokku..."; \
-		scripts/test-integration.sh || echo "Integration tests completed with some failures"; \
+		set -e; \
+		if ! scripts/test-integration.sh; then \
+			echo "❌ Integration tests failed"; \
+			echo "💡 Tip: For reliable testing, use: make docker-test"; \
+			echo "💡 Local testing requires full Dokku installation with proper permissions"; \
+			exit 1; \
+		fi; \
+		echo "✅ Integration tests passed"; \
 	else \
 		echo "No local Dokku found - integration tests skipped"; \
 		echo "This is normal for CI environments without Dokku installed"; \

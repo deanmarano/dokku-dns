@@ -3,13 +3,20 @@
 
 # Extract the DNS command  
 # Handle both normal test environment and Docker test environment
-BIN_DIR="$(dirname "${BASH_SOURCE[0]}")"
-if [[ -d "$BIN_DIR/../subcommands" ]]; then
-    # Docker test environment - subcommands in same directory level
-    PLUGIN_ROOT="$(cd "$BIN_DIR/.." && pwd)"
+# Use exported PLUGIN_ROOT if available, otherwise calculate from script location
+if [[ -n "$PLUGIN_ROOT" && -d "$PLUGIN_ROOT/subcommands" ]]; then
+    # Use the exported PLUGIN_ROOT from test environment
+    true  # PLUGIN_ROOT is already set correctly
 else
-    # Normal test environment - subcommands in parent's parent directory
-    PLUGIN_ROOT="$(cd "$BIN_DIR/../.." && pwd)"
+    # Calculate PLUGIN_ROOT from script location (fallback)
+    BIN_DIR="$(dirname "${BASH_SOURCE[0]}")"
+    if [[ -d "$BIN_DIR/../subcommands" ]]; then
+        # Docker test environment - subcommands in same directory level
+        PLUGIN_ROOT="$(cd "$BIN_DIR/.." && pwd)"
+    else
+        # Normal test environment - subcommands in parent's parent directory
+        PLUGIN_ROOT="$(cd "$BIN_DIR/../.." && pwd)"
+    fi
 fi
 if [[ "$1" == "dns:verify" ]]; then
     exec "$PLUGIN_ROOT/subcommands/verify" "${@:2}"

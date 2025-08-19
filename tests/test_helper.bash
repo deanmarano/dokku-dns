@@ -28,6 +28,7 @@ else
   # Docker test environment - subcommands are in current directory
   PLUGIN_ROOT="$(dirname "${BASH_SOURCE[0]}")"
 fi
+export PLUGIN_ROOT
 TEST_BIN_DIR="$(dirname "${BASH_SOURCE[0]}")/bin"
 export PATH="$TEST_BIN_DIR:$PLUGIN_ROOT/subcommands:$PATH"
 
@@ -36,8 +37,14 @@ if [[ -f "$TEST_BIN_DIR/dokku" ]]; then
   # shellcheck disable=SC2139
   alias dokku="$TEST_BIN_DIR/dokku"
   # Also create a function override that works in subshells (for BATS)
+  # This function will dynamically choose the correct mock dokku based on environment
   dokku() {
-    "$TEST_BIN_DIR/dokku" "$@"
+    # If we're in a mock environment, use the temporary mock dokku
+    if [[ -n "$TEST_TMP_DIR" && -f "$TEST_TMP_DIR/bin/dokku" ]]; then
+      "$TEST_TMP_DIR/bin/dokku" "$@"
+    else
+      "$TEST_BIN_DIR/dokku" "$@"
+    fi
   }
   export -f dokku
 fi

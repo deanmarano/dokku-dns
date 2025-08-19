@@ -23,9 +23,7 @@ services:
 # Use custom command to ensure cron is available for DNS plugin testing
 
   test-runner:
-    build:
-      context: ../..
-      dockerfile: tests/docker/Dockerfile
+    image: tests-docker-test-runner:latest
     depends_on:
       - dokku
     volumes:

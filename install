@@ -33,7 +33,8 @@ detect_and_configure_provider() {
     if aws sts get-caller-identity >/dev/null 2>&1; then
       # Test Route53 access
       if aws route53 list-hosted-zones >/dev/null 2>&1; then
-        local ZONE_COUNT=$(aws route53 list-hosted-zones --query 'length(HostedZones)' --output text 2>/dev/null || echo "0")
+        local ZONE_COUNT
+        ZONE_COUNT=$(aws route53 list-hosted-zones --query 'length(HostedZones)' --output text 2>/dev/null || echo "0")
         echo "       ✓ AWS CLI authenticated with Route53 access ($ZONE_COUNT hosted zones)"
         CONFIGURED_PROVIDER="aws"
       else

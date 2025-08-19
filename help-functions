@@ -16,7 +16,8 @@ fi
 if ! declare -f dokku_log_fail >/dev/null 2>&1; then
   dokku_log_fail() { echo " !     $*" >&2; exit 1; }
 fi
-export SUBCOMMAND_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/subcommands"
+SUBCOMMAND_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/subcommands"
+export SUBCOMMAND_ROOT
 
 is_implemented_command() {
   declare desc="return true if the subcommand is implemented"
@@ -91,8 +92,10 @@ help_desc
 
 fn-help-contents() {
   # Add special entry for help command
-  local LIGHT_GRAY="$(fn-help-fancy-color "\033[2;37m")"
-  local NORMAL="$(fn-help-fancy-color "\033[m")"
+  local LIGHT_GRAY
+  LIGHT_GRAY="$(fn-help-fancy-color "\033[2;37m")"
+  local NORMAL
+  NORMAL="$(fn-help-fancy-color "\033[m")"
   echo -e "$(printf "    %s%-20s " "dns" ":help [<subcommand>]")${LIGHT_GRAY}show help for DNS commands or specific subcommand${NORMAL}"
   
   pushd "$SUBCOMMAND_ROOT" >/dev/null 2>&1
@@ -103,7 +106,8 @@ fn-help-contents() {
 
 fn-help-contents-subcommand() {
   declare SUBCOMMAND="$1" FULL_OUTPUT="$2"
-  local HELP_TMPDIR=$(mktemp -d --tmpdir)
+  local HELP_TMPDIR
+  HELP_TMPDIR=$(mktemp -d --tmpdir)
   local UNCLEAN_FILE="${HELP_TMPDIR}/cmd-unclean" CLEAN_FILE="${HELP_TMPDIR}/cmd-clean"
   local BOLD CMD_OUTPUT CYAN EXAMPLE LIGHT_GRAY NORMAL
   trap 'rm -rf "$HELP_TMPDIR" > /dev/null' RETURN INT TERM EXIT

@@ -126,6 +126,26 @@ restore_docker_state() {
     fi
 }
 
+# Function to run BATS unit tests
+run_bats_unit_tests() {
+    log "INFO" "Running BATS unit tests..."
+    
+    # Check if bats is available
+    if ! command -v bats >/dev/null 2>&1; then
+        log "WARNING" "BATS not found, skipping unit tests"
+        echo "Install BATS to run unit tests: https://github.com/bats-core/bats-core"
+        return 0
+    fi
+    
+    if make unit-tests 2>/dev/null; then
+        log "SUCCESS" "BATS unit tests passed"
+        return 0
+    else
+        log "ERROR" "BATS unit tests failed"
+        return 1
+    fi
+}
+
 # Function to run Docker integration tests (fast)
 run_docker_integration_tests_fast() {
     log "INFO" "Running Docker integration tests..."
@@ -218,6 +238,19 @@ if ! run_readme_check; then
     exit 1
 fi
 
+# Run BATS unit tests for code changes
+if [[ "$CODE_CHANGES" == "true" ]]; then
+    if ! run_bats_unit_tests; then
+        log "ERROR" "Pre-commit failed due to BATS unit test failures"
+        echo ""
+        echo "To fix unit test issues, run: make unit-tests"
+        echo "To skip unit tests temporarily: SKIP_TESTS=1 git commit"
+        exit 1
+    fi
+else
+    log "INFO" "Documentation-only change detected, skipping BATS unit tests"
+fi
+
 # Check if Docker is available and user wants Docker tests
 if command -v docker >/dev/null 2>&1 && [[ "$CODE_CHANGES" == "true" ]]; then
     # Check and manage Docker state
@@ -259,13 +292,15 @@ fi
 log "SUCCESS" "All pre-commit checks passed!"
 echo ""
 echo "💡 Tips:"
-echo "   • Unit tests run by default (fast)"
+echo "   • BATS unit tests run by default (catches output changes quickly)"
+echo "   • Docker tests run by default (includes BATS integration tests)"
 echo "   • README generation is checked automatically"
 echo "   • For full integration tests: RUN_FULL_TESTS=1 git commit"
 echo "   • To skip Docker tests: RUN_DOCKER_TESTS=0 git commit"
 echo "   • To skip all tests: SKIP_TESTS=1 git commit"
 echo "   • Manual testing:"
 echo "     - make lint                    # Linting only"
+echo "     - bats tests/dns_add.bats     # Local tests (catches output changes quickly)"
 echo "     - make generate                # Update README"
-echo "     - make docker-test            # Integration tests (fast)"
+echo "     - make docker-test            # Integration tests (includes BATS)"
 echo "     - scripts/test-docker.sh --build    # Full integration tests"
