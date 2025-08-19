@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 # AWS Route53 DNS Provider for dokku-dns
 
+# Define missing functions if needed
+if ! declare -f dokku_log_verbose >/dev/null 2>&1; then
+  dokku_log_verbose() { 
+    # Only log if DOKKU_TRACE is set
+    [[ $DOKKU_TRACE ]] && echo "       $*"
+  }
+fi
+
 dns_provider_aws_validate_credentials() {
   # Check if aws-cli is available
   if ! command -v aws >/dev/null 2>&1; then
@@ -574,4 +582,6 @@ dns_provider_aws_sync_app() {
     dokku_log_info1 "Syncing domain: $DOMAIN"
     dns_provider_aws_create_record "$DOMAIN" "A" "$SERVER_IP"
   done
+  
+  return 0
 }

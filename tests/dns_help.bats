@@ -35,7 +35,8 @@ teardown() {
   assert_output_contains "dns:help" 2
   assert_output_contains "dns:remove"
   assert_output_contains "dns:report"
-  assert_output_contains "dns:sync"
+  assert_output_contains "dns:sync <app>"
+  assert_output_contains "dns:sync-all"
   assert_output_contains "dns:verify"
   assert_output_contains "dns:version"
 }
