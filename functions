@@ -533,7 +533,75 @@ dns_display_domains_table() {
   
   echo
   dokku_log_info2 "Status Legend:"
-  dokku_log_info1 "✅ Points to server IP ($SERVER_IP)"
-  dokku_log_info1 "⚠️  Points to different IP"
+  if [[ -n "$SERVER_IP" ]] && [[ "$SERVER_IP" != "Unknown" ]]; then
+    dokku_log_info1 "✅ Points to server IP ($SERVER_IP)"
+    dokku_log_info1 "⚠️  Points to different IP"
+  else
+    dokku_log_info1 "❓ Server IP unknown - cannot validate"
+  fi
   dokku_log_info1 "❌ No DNS record found"
+}
+
+# Get server's public IP address
+# Usage: get_server_ip
+# Returns: server's public IP address, or "Unknown" if detection fails
+get_server_ip() {
+  local SERVER_IP=""
+  local GLOBAL_DOMAINS=""
+  
+  if command -v dokku >/dev/null 2>&1; then
+    GLOBAL_DOMAINS=$(dokku domains:report --domains-global-vhosts 2>/dev/null || echo "")
+  fi
+  
+  if [[ -n "$GLOBAL_DOMAINS" ]] && command -v dig >/dev/null 2>&1; then
+    # Use the first global domain to resolve server IP
+    local FIRST_GLOBAL_DOMAIN
+    FIRST_GLOBAL_DOMAIN=$(echo "$GLOBAL_DOMAINS" | head -n1)
+    local RESOLVED_IP
+    RESOLVED_IP=$(dig +short "$FIRST_GLOBAL_DOMAIN" 2>/dev/null | tail -n1 || echo "")
+    if [[ -n "$RESOLVED_IP" ]] && [[ "$RESOLVED_IP" != "127.0.0.1" ]]; then
+      SERVER_IP="$RESOLVED_IP"
+    fi
+  fi
+  
+  # If no global domains or couldn't resolve, try to get server IP another way
+  if [[ -z "$SERVER_IP" ]] && command -v curl >/dev/null 2>&1; then
+    # Try to get the server's public IP
+    local PUBLIC_IP
+    PUBLIC_IP=$(curl -s --max-time 3 ifconfig.me 2>/dev/null || curl -s --max-time 3 ipecho.net/plain 2>/dev/null || curl -s --max-time 3 icanhazip.com 2>/dev/null || echo "")
+    if [[ -n "$PUBLIC_IP" ]] && [[ "$PUBLIC_IP" != "127.0.0.1" ]]; then
+      SERVER_IP="$PUBLIC_IP"
+    fi
+  fi
+  
+  # If still no IP detected, return Unknown instead of broken localhost
+  if [[ -z "$SERVER_IP" ]]; then
+    SERVER_IP="Unknown"
+  fi
+  
+  echo "$SERVER_IP"
+}
+
+# Check if a domain points to the server's IP
+# Usage: domain_points_to_server <domain>
+# Returns: 0 if domain points to server, 1 otherwise (including if server IP can't be detected)
+domain_points_to_server() {
+  local DOMAIN="$1"
+  local SERVER_IP
+  SERVER_IP=$(get_server_ip)
+  
+  # If we can't detect the server IP, we can't validate - fail safe
+  if [[ -z "$SERVER_IP" ]] || [[ "$SERVER_IP" == "Unknown" ]]; then
+    return 1
+  fi
+  
+  if command -v dig >/dev/null 2>&1; then
+    local CURRENT_IP
+    CURRENT_IP=$(dig +short "$DOMAIN" A 2>/dev/null | tail -n1 || echo "")
+    if [[ -n "$CURRENT_IP" ]] && [[ "$CURRENT_IP" == "$SERVER_IP" ]]; then
+      return 0
+    fi
+  fi
+  
+  return 1
 }

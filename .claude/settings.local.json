@@ -7,7 +7,6 @@
       "Bash(git restore:*)",
       "Bash(grep:*)",
       "Bash(source:*)",
-      "Bash(dokku dns:configure:*)",
       "Bash(docker build:*)",
       "Bash(bash:*)",
       "Bash(chmod:*)",
@@ -52,8 +51,13 @@
       "Bash(setup_dns_provider aws)",
       "Bash(create_test_app:*)",
       "Bash(add_test_domains:*)",
-      "Bash(/dev/null)"
+      "Bash(/dev/null)",
+      "Bash(./debug_aws_mock.sh:*)",
+      "Bash(gh pr view:*)",
+      "Bash(dokku dns:zones:*)",
+      "Bash(dokku plugin:reload:*)"
     ],
-    "deny": []
+    "deny": [],
+    "defaultMode": "acceptEdits"
   }
 }

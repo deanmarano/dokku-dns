@@ -25,7 +25,7 @@ is_implemented_command() {
   
   # All our subcommands are implemented
   case "$SUBCOMMAND" in
-    add|configure|cron|help|remove|report|sync|sync-all|verify|version)
+    add|configure|cron|help|remove|report|sync|sync-all|verify|version|zones)
       return 0
       ;;
     *)

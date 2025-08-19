@@ -26,6 +26,7 @@ dns:sync <app>                                     # synchronize DNS records for
 dns:sync-all                                       # synchronize DNS records for all DNS-managed apps
 dns:verify                                         # verify DNS provider setup and connectivity
 dns:version                                        # show DNS plugin version and dependency versions
+dns:zones [<zone>]                                 # manage DNS zones for hosted domain management
 ```
 
 ## Usage

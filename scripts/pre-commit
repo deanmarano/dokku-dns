@@ -46,6 +46,7 @@ run_lint() {
     fi
 }
 
+
 # Function to check README generation
 run_readme_check() {
     log "INFO" "Checking README generation..."
@@ -167,8 +168,8 @@ run_docker_integration_tests_fast() {
         fi
     fi
     
-    # Run the tests
-    if make docker-test 2>/dev/null; then
+    # Run the tests and capture output
+    if make docker-test 2>&1; then
         log "SUCCESS" "Docker integration tests passed"
         
         # Clean up containers if we started them
@@ -194,7 +195,7 @@ run_docker_integration_tests_fast() {
 # Function to run full Docker integration tests (slow)
 run_docker_integration_tests_full() {
     log "INFO" "Running full Docker integration tests..."
-    if scripts/test-docker.sh --build 2>/dev/null; then
+    if scripts/test-docker.sh --build 2>&1; then
         log "SUCCESS" "Full Docker integration tests passed"
         return 0
     else

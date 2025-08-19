@@ -454,6 +454,7 @@ def command_data(command, service, variable, alias, image, scheme, ports):
     arguments_string = ""
     example_lines = []
     flags = []
+    optional_arguments = set()
     with open(os.path.join("subcommands", command)) as f:
         for line in f.readlines():
             line = line.strip()
@@ -479,6 +480,9 @@ def command_data(command, service, variable, alias, image, scheme, ports):
                 argument = line.replace("#A ", "")
                 parts = [a.strip() for a in argument.split(",", 1)]
                 arguments.append(f"`{parts[0]}`: {parts[1]}")
+                # Check if argument is marked as optional
+                if len(parts) > 1 and "(optional)" in parts[1].lower():
+                    optional_arguments.add(parts[0])
             elif line.startswith("#F "):
                 flag = line.replace("#F ", "")
                 parts = [a.strip() for a in flag.split(",", 1)]
@@ -491,6 +495,11 @@ def command_data(command, service, variable, alias, image, scheme, ports):
         # For cron command, show the simplified usage pattern
         arguments_string = "[--enable|--disable|--schedule \"CRON_SCHEDULE\"]"
 
+    # Post-process arguments_string to make optional arguments bracketed
+    if arguments_string and optional_arguments:
+        for opt_arg in optional_arguments:
+            # Convert <arg> to [<arg>] for optional arguments
+            arguments_string = arguments_string.replace(f"<{opt_arg}>", f"[<{opt_arg}>]")
     examples = []
     sentence_lines = []
     command_lines = []
