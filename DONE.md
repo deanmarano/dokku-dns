@@ -4,21 +4,16 @@
 
 - [x] **Update core configuration** - Configure DNS plugin settings ✅
 - [x] **Create dns:configure** - Initialize global DNS configuration ✅ 
-- [x] **Implement dns:set-backend** - Configure AWS/Cloudflare backend ✅
-- [x] **Create dns:backend-auth** - Store provider credentials securely ✅
-- [x] **Create AWS Route53 backend** - Full aws-cli integration with hosted zone discovery ✅
-- [x] **Implement dns:sync** - Manual domain record synchronization ✅
-- [x] **Simplify API** - Remove service-based approach, work directly with apps ✅
 
-## Phase 2: Integration (Medium Priority) - COMPLETED ✅
+## Phase 2: Integration (Medium Priority) - COMPLETED 
 
-- [x] **Remove dns:link** - Eliminated unnecessary service linking ✅
-- [x] **Update common-functions** - Added global DNS configuration helpers ✅
-- [x] **Create dns:report** - Display DNS status and configuration ✅
-- [x] **Write BATS tests** - Comprehensive test coverage for AWS backend ✅
-- [x] **Create remote test script** - Server installation and testing automation ✅
+- [x] **Remove dns:link** - Eliminated unnecessary service linking 
+- [x] **Update common-functions** - Added global DNS configuration helpers 
+- [x] **Create dns:report** - Display DNS status and configuration 
+- [x] **Write BATS tests** - Comprehensive test coverage for AWS backend 
+- [x] **Create remote test script** - Server installation and testing automation 
 
-## Phase 3: Testing & CI Infrastructure - COMPLETED ✅
+## Phase 3: Testing & CI Infrastructure - COMPLETED 
 
 - [x] **Docker integration tests** - Full containerized testing with real Dokku ✅
 - [x] **GitHub Actions workflows** - Both unit tests and integration tests ✅
