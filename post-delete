@@ -2,8 +2,8 @@
 set -eo pipefail
 [[ $DOKKU_TRACE ]] && set -x
 
-# DNS Plugin - Pre-Delete Trigger
-# Automatically removes DNS management when an app is being deleted
+# DNS Plugin - Post-Delete Trigger
+# Automatically cleans up DNS management after an app has been successfully deleted
 
 # Source plugin configuration
 PLUGIN_BASE_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

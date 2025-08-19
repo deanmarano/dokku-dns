@@ -21,9 +21,9 @@ teardown() {
     assert_file_executable "$PLUGIN_ROOT/post-create"
 }
 
-@test "(triggers) pre-delete trigger exists and is executable" {
-    assert_file_exists "$PLUGIN_ROOT/pre-delete"
-    assert_file_executable "$PLUGIN_ROOT/pre-delete"
+@test "(triggers) post-delete trigger exists and is executable" {
+    assert_file_exists "$PLUGIN_ROOT/post-delete"
+    assert_file_executable "$PLUGIN_ROOT/post-delete"
 }
 
 @test "(triggers) post-domains-update trigger exists and is executable" {
@@ -45,13 +45,13 @@ teardown() {
     assert_output_contains "DNS: Checking if app 'test-app' should be added"
 }
 
-@test "(triggers) pre-delete works with app not in DNS management" {
+@test "(triggers) post-delete works with app not in DNS management" {
     # Should not fail if app is not managed by DNS
-    run "$PLUGIN_ROOT/pre-delete" "test-app"
+    run "$PLUGIN_ROOT/post-delete" "test-app"
     assert_success
 }
 
-@test "(triggers) pre-delete cleans up DNS management" {
+@test "(triggers) post-delete cleans up DNS management" {
     setup_dns_provider "aws"
     
     # Simulate app being managed by DNS
@@ -59,7 +59,7 @@ teardown() {
     mkdir -p "$PLUGIN_DATA_ROOT/test-app"
     echo "example.com" > "$PLUGIN_DATA_ROOT/test-app/DOMAINS"
     
-    run "$PLUGIN_ROOT/pre-delete" "test-app"
+    run "$PLUGIN_ROOT/post-delete" "test-app"
     assert_success
     assert_output_contains "DNS: Cleaning up DNS management for app 'test-app'"
     assert_output_contains "example.com"
