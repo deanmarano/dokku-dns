@@ -12,12 +12,15 @@ The DNS plugin is progress! Many core features have been implemented and tested.
 - [ ] **Provider-specific verification** - Replace global `dns:verify` with per-zone validation
 - [ ] **Simplify command flow** - Direct zone operations instead of configure → add → sync workflow
 
-## Phase 7: Plugin Triggers (High Priority)
-- [ ] **Add plugin triggers for automatic DNS management**
+## Phase 7: Plugin Triggers (In Progress)
+- [x] **Implemented Triggers** ✅
+  - [x] `post-create` - Initialize DNS management for new apps
+  - [x] `post-delete` - Clean up DNS records after app deletion
+  - [x] `post-domains-update` - Handle domain additions and removals
+
+- [ ] **Remaining Triggers**
   - [ ] `post-app-clone-setup` - Handle domain updates when apps are cloned
-  - [ ] `post-domains-set` - Sync DNS when domains are added/removed
   - [ ] `post-app-rename` - Update DNS records when app is renamed
-  - [ ] `post-delete` - Clean up DNS records when app is deleted
   - [ ] `post-proxy-ports-set` - Handle port changes that affect DNS records
   - [ ] `post-proxy-ports-clear` - Clean up when proxy ports are removed
 
