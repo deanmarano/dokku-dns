@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
-set -o pipefail
+set -eo pipefail
 [[ $DOKKU_TRACE ]] && set -x
 
 # Load dokku functions if available
