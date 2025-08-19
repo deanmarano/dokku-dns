@@ -342,6 +342,8 @@ $DOMAIN"
   else
     dokku_log_info2 "Discovery complete: Found $MATCHED_COUNT Dokku-registered domains out of $RECORD_COUNT total A records across $ZONE_COUNT hosted zones"
   fi
+  
+  return 0
 }
 
 dns_provider_aws_batch_sync_all() {

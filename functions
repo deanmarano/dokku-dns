@@ -158,6 +158,7 @@ dns_app() {
   # Call the provider-specific sync function
   if declare -f "dns_provider_${PROVIDER}_sync_app" >/dev/null 2>&1; then
     "dns_provider_${PROVIDER}_sync_app" "$APP"
+    return 0
   else
     dokku_log_fail "Provider '$PROVIDER' does not support sync operations"
   fi

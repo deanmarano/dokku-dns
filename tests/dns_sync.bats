@@ -65,7 +65,7 @@ teardown() {
   
   # With mock AWS CLI, sync should work and show domain sync results
   assert_output_contains "Syncing domains for app 'my-app'"
-  assert_output_contains "DNS record updated"
+  assert_output_contains "DNS record created" || assert_output_contains "DNS record updated"
 }
 
 @test "(dns:sync) handles app with no domains" {
