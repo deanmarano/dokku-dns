@@ -318,7 +318,7 @@ zones_enable_zone() {
   A_RECORDS=$(aws route53 list-resource-record-sets \
     --hosted-zone-id "$ZONE_ID" \
     --query "ResourceRecordSets[?Type==\`A\`].Name" \
-    --output text 2>/dev/null | tr '\t ' '\n\n' | grep -v '^$')
+    --output text 2>/dev/null | tr '\t ' '\n' | grep -v '^$')
   
   if [[ -z "$A_RECORDS" ]]; then
     dokku_log_warn "No A records found in zone '$ZONE'"
@@ -558,7 +558,8 @@ zones_disable_zone() {
   
   # Second pass: remove apps from LINKS file if needed
   if [[ ${#apps_to_remove[@]} -gt 0 ]]; then
-    local TEMP_LINKS=$(mktemp)
+    local TEMP_LINKS
+    TEMP_LINKS=$(mktemp)
     if [[ -f "$LINKS_FILE" ]]; then
       while IFS= read -r app; do
         local should_keep=true
@@ -796,7 +797,7 @@ zones_show_zone() {
   
   if [[ -z "$ZONE_ID" ]] || [[ "$ZONE_ID" == "None" ]]; then
     dokku_log_fail "Zone '$ZONE' not found in Route53. Available zones:"
-    aws route53 list-hosted-zones --query 'HostedZones[].Name' --output text 2>/dev/null | tr '\t ' '\n\n' | grep -v '^$' | sed 's/\.$//g' | while read -r zone; do
+    aws route53 list-hosted-zones --query 'HostedZones[].Name' --output text 2>/dev/null | tr '\t ' '\n' | grep -v '^$' | sed 's/\.$//g' | while read -r zone; do
       echo "  • $zone"
     done
     return 1

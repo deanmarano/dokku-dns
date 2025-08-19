@@ -383,13 +383,14 @@ EOF
     setup_mock_provider "aws"
     create_mock_aws
     
-    # Mock dokku apps:list to return no apps
+    # Mock dokku apps:list to return no apps (header only)
     mkdir -p "$PLUGIN_DATA_ROOT/bin"
     cat > "$PLUGIN_DATA_ROOT/bin/dokku" << 'EOF'
 #!/bin/bash
 case "$*" in
     "apps:list")
         echo "=====> My Apps"
+        # No apps listed, just the header
         ;;
     *)
         echo "Mock dokku - command not implemented: $*" >&2
@@ -399,6 +400,20 @@ esac
 EOF
     chmod +x "$PLUGIN_DATA_ROOT/bin/dokku"
     export PATH="$PLUGIN_DATA_ROOT/bin:$PATH"
+    
+    # Override the dokku function instead of relying on PATH
+    dokku() {
+        case "$*" in
+            "apps:list")
+                echo "=====> My Apps"
+                ;;
+            *)
+                echo "Mock dokku - command not implemented: $*" >&2
+                return 1
+                ;;
+        esac
+    }
+    export -f dokku
     
     dns_zones --enable "example.com"
     assert_success
