@@ -13,6 +13,7 @@ The DNS plugin is progress! Many core features have been implemented and tested.
   - [ ] Add integration tests for new functionality
   - [ ] Add bats tests for new functionality
 
+- [ ] **Investiate breaking up scripts/test-integration.sh**
 - [ ] **Enhance verify command**
   - [ ] Add optional provider argument to `dns:verify` (e.g., `dns:verify aws`)
   - [ ] Document using `dokku config:set` for AWS credentials:
@@ -132,17 +133,3 @@ The DNS plugin is progress! Many core features have been implemented and tested.
 
 ## Phase 9: Additional Features (Lower Priority)
 - [ ] **Add DNS record backup/restore** - Safety features for DNS changes
-
-## Recent Achievements
-
-- ✅ **dns:sync-all** - Bulk synchronization with AWS batch optimization
-- ✅ **Enhanced testing** - 23/23 tests passing with Docker integration
-- ✅ **CI/CD pipeline** - Full GitHub Actions workflow with pre-commit hooks
-- ✅ **Production testing** - Successfully deployed and tested on real servers
-- ✅ **Documentation** - Auto-generated README with comprehensive examples
-
-## Notes
-
-All high-priority features are complete. The plugin is ready for production use with AWS Route53. Future enhancements are nice-to-have features that can be implemented as needed.
-
-For implementation history and detailed accomplishments, see [DONE.md](./DONE.md).
