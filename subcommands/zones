@@ -281,6 +281,11 @@ zones_list_cloudflare_zones() {
 zones_enable_zone() {
   local ZONE="$1"
   
+  # Validate zone name
+  if ! is_valid_zone "$ZONE"; then
+    dokku_log_fail "Invalid zone name '$ZONE'. Zone names must be valid domain names (e.g., 'example.com')."
+  fi
+  
   # Check if DNS provider is configured
   local PROVIDER_FILE="$PLUGIN_DATA_ROOT/PROVIDER"
   if [[ ! -f "$PROVIDER_FILE" ]]; then
@@ -367,6 +372,13 @@ zones_enable_zone() {
   while IFS= read -r domain_with_dot; do
     [[ -z "$domain_with_dot" ]] && continue
     local domain="${domain_with_dot%.}"  # Remove trailing dot
+    
+    # Validate domain name
+    if ! is_valid_domain "$domain"; then
+      dokku_log_warn "Skipping invalid domain name: $domain"
+      domains_skipped=$((domains_skipped + 1))
+      continue
+    fi
     
     # Skip root domain records and common subdomains that aren't typically apps
     if [[ "$domain" == "$ZONE" ]] || [[ "$domain" == "www.$ZONE" ]] || [[ "$domain" == "mail.$ZONE" ]] || [[ "$domain" == "ftp.$ZONE" ]]; then
@@ -499,6 +511,11 @@ zones_enable_zone() {
 
 zones_disable_zone() {
   local ZONE="$1"
+  
+  # Validate zone name
+  if ! is_valid_zone "$ZONE"; then
+    dokku_log_fail "Invalid zone name '$ZONE'. Zone names must be valid domain names (e.g., 'example.com')."
+  fi
   
   dokku_log_info2 "Disabling DNS management for zone: $ZONE"
   
@@ -756,6 +773,12 @@ zones_add_domain_to_dns() {
   local APP="$1"
   local DOMAIN="$2"
   
+  # Validate domain name
+  if ! is_valid_domain "$DOMAIN"; then
+    dokku_log_warn "Skipping invalid domain name: $DOMAIN"
+    return 1
+  fi
+  
   # Check if app is already linked to DNS
   local LINKS_FILE="$PLUGIN_DATA_ROOT/LINKS"
   if [[ ! -f "$LINKS_FILE" ]] || ! grep -q "^$APP$" "$LINKS_FILE"; then
@@ -810,6 +833,11 @@ zones_set_disabled() {
 
 zones_show_zone() {
   local ZONE="$1"
+  
+  # Validate zone name
+  if ! is_valid_zone "$ZONE"; then
+    dokku_log_fail "Invalid zone name '$ZONE'. Zone names must be valid domain names (e.g., 'example.com')."
+  fi
   
   # Check if DNS provider is configured
   local PROVIDER_FILE="$PLUGIN_DATA_ROOT/PROVIDER"

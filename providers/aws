@@ -1,79 +1,589 @@
-#!/bin/bash
-source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
-source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
+#!/usr/bin/env bash
+# AWS Route53 DNS Provider for dokku-dns
+
+# Define missing functions if needed
+if ! declare -f dokku_log_verbose >/dev/null 2>&1; then
+  dokku_log_verbose() { 
+    # Only log if DOKKU_TRACE is set
+    [[ $DOKKU_TRACE ]] && echo "       $*"
+  }
+fi
 
 dns_provider_aws_validate_credentials() {
-    return 0
+  # Check if aws-cli is available
+  if ! command -v aws >/dev/null 2>&1; then
+    dokku_log_fail "AWS CLI is not installed. Please install aws-cli to use AWS Route53 provider.
+    
+Run: dokku $PLUGIN_COMMAND_PREFIX:verify"
+  fi
+
+  # Check if AWS CLI is configured and working
+  if ! aws sts get-caller-identity >/dev/null 2>&1; then
+    dokku_log_fail "AWS CLI is not configured or credentials are invalid.
+    
+Run: dokku $PLUGIN_COMMAND_PREFIX:verify"
+  fi
+
+  return 0
 }
 
 dns_provider_aws_setup_env() {
+  # Rely entirely on existing AWS CLI configuration
+  # AWS CLI will use its default configuration from:
+  # - ~/.aws/credentials and ~/.aws/config files
+  # - Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION)
+  # - IAM roles (if running on EC2)
+  # - AWS SSO
+  true  # No-op function, kept for compatibility
+}
+
+dns_provider_aws_get_hosted_zone_id() {
+  local DOMAIN="$1"
+  
+  # Quick check for obviously problematic domains
+  if [[ "$DOMAIN" == *"example.com"* ]]; then
+    # Skip example.com domains entirely - they won't have real hosted zones
+    return 1
+  fi
+  
+  # First try exact match for the domain
+  local HOSTED_ZONE_ID
+  HOSTED_ZONE_ID=$(aws route53 list-hosted-zones --query "HostedZones[?Name=='${DOMAIN}.'].Id" --output text 2>/dev/null | sed 's|/hostedzone/||')
+  
+  if [[ -n "$HOSTED_ZONE_ID" ]] && [[ "$HOSTED_ZONE_ID" != "None" ]]; then
+    echo "$HOSTED_ZONE_ID"
     return 0
+  fi
+  
+  # For non-example domains, try simple parent domain logic
+  # Only check one level up for now to avoid complexity
+  if [[ "$DOMAIN" == *.*.* ]]; then
+    # Remove first subdomain: subdomain.domain.com -> domain.com
+    local PARENT_DOMAIN="${DOMAIN#*.}"
+    
+    HOSTED_ZONE_ID=$(aws route53 list-hosted-zones --query "HostedZones[?Name=='${PARENT_DOMAIN}.'].Id" --output text 2>/dev/null | sed 's|/hostedzone/||')
+    
+    if [[ -n "$HOSTED_ZONE_ID" ]] && [[ "$HOSTED_ZONE_ID" != "None" ]]; then
+      echo "$HOSTED_ZONE_ID"
+      return 0
+    fi
+  fi
+  
+  # No hosted zone found
+  return 1
+}
+
+dns_provider_aws_get_record_value() {
+  local DOMAIN="$1"
+  local RECORD_TYPE="$2"
+  
+  local HOSTED_ZONE_ID
+  HOSTED_ZONE_ID=$(dns_provider_aws_get_hosted_zone_id "$DOMAIN")
+  
+  if [[ -z "$HOSTED_ZONE_ID" ]]; then
+    return 1
+  fi
+  
+  # Get the current record value
+  aws route53 list-resource-record-sets \
+    --hosted-zone-id "$HOSTED_ZONE_ID" \
+    --query "ResourceRecordSets[?Name=='${DOMAIN}.' && Type=='${RECORD_TYPE}'].ResourceRecords[0].Value" \
+    --output text 2>/dev/null | grep -v "None" || echo ""
+}
+
+dns_provider_aws_create_record() {
+  local DOMAIN="$1"
+  local RECORD_TYPE="$2"
+  local RECORD_VALUE="$3"
+  local TTL="${4:-300}"
+  
+  local HOSTED_ZONE_ID
+  HOSTED_ZONE_ID=$(dns_provider_aws_get_hosted_zone_id "$DOMAIN")
+  
+  if [[ -z "$HOSTED_ZONE_ID" ]]; then
+    dokku_log_fail "No hosted zone found for domain: $DOMAIN. Ensure the domain or its parent domain has a hosted zone in Route53."
+  fi
+  
+  # Check if record already has the correct value
+  local CURRENT_VALUE
+  CURRENT_VALUE=$(dns_provider_aws_get_record_value "$DOMAIN" "$RECORD_TYPE")
+  
+  if [[ "$CURRENT_VALUE" == "$RECORD_VALUE" ]]; then
+    dokku_log_info1 "DNS record already correct: $DOMAIN -> $RECORD_VALUE (no change needed)"
+    return 0
+  fi
+  
+  # Log what we're changing from/to
+  if [[ -n "$CURRENT_VALUE" ]]; then
+    dokku_log_info1 "Updating DNS record: $DOMAIN ($CURRENT_VALUE -> $RECORD_VALUE)"
+  else
+    dokku_log_info1 "Creating DNS record: $DOMAIN -> $RECORD_VALUE"
+  fi
+  
+  # Create change batch JSON
+  local CHANGE_BATCH
+  CHANGE_BATCH=$(cat <<EOF
+{
+  "Changes": [
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "$DOMAIN",
+        "Type": "$RECORD_TYPE",
+        "TTL": $TTL,
+        "ResourceRecords": [
+          {
+            "Value": "$RECORD_VALUE"
+          }
+        ]
+      }
+    }
+  ]
+}
+EOF
+)
+  
+  # Submit the change
+  local CHANGE_ID
+  CHANGE_ID=$(aws route53 change-resource-record-sets \
+    --hosted-zone-id "$HOSTED_ZONE_ID" \
+    --change-batch "$CHANGE_BATCH" \
+    --query 'ChangeInfo.Id' \
+    --output text 2>/dev/null)
+    
+  if [[ -n "$CHANGE_ID" ]]; then
+    if [[ -n "$CURRENT_VALUE" ]]; then
+      dokku_log_info1 "✅ DNS record updated: $DOMAIN -> $RECORD_VALUE"
+    else
+      dokku_log_info1 "✅ DNS record created: $DOMAIN -> $RECORD_VALUE"
+    fi
+    dokku_log_verbose "Change ID: $CHANGE_ID"
+    return 0
+  else
+    dokku_log_fail "Failed to create/update DNS record for $DOMAIN"
+  fi
+}
+
+dns_provider_aws_delete_record() {
+  local DOMAIN="$1"
+  local RECORD_TYPE="$2"
+  local RECORD_VALUE="$3"
+  
+  local HOSTED_ZONE_ID
+  HOSTED_ZONE_ID=$(dns_provider_aws_get_hosted_zone_id "$DOMAIN")
+  
+  if [[ -z "$HOSTED_ZONE_ID" ]]; then
+    dokku_log_warn "No hosted zone found for domain: $DOMAIN"
+    return 0
+  fi
+  
+  # Create change batch JSON for deletion
+  local CHANGE_BATCH
+  CHANGE_BATCH=$(cat <<EOF
+{
+  "Changes": [
+    {
+      "Action": "DELETE",
+      "ResourceRecordSet": {
+        "Name": "$DOMAIN",
+        "Type": "$RECORD_TYPE",
+        "ResourceRecords": [
+          {
+            "Value": "$RECORD_VALUE"
+          }
+        ]
+      }
+    }
+  ]
+}
+EOF
+)
+  
+  # Submit the change
+  local CHANGE_ID
+  CHANGE_ID=$(aws route53 change-resource-record-sets \
+    --hosted-zone-id "$HOSTED_ZONE_ID" \
+    --change-batch "$CHANGE_BATCH" \
+    --query 'ChangeInfo.Id' \
+    --output text 2>/dev/null)
+    
+  if [[ -n "$CHANGE_ID" ]]; then
+    dokku_log_info1 "DNS record deleted: $DOMAIN"
+    return 0
+  else
+    dokku_log_warn "Failed to delete DNS record for $DOMAIN (may not exist)"
+  fi
+}
+
+dns_provider_aws_list_records() {
+  local DOMAIN="$1"
+  
+  local HOSTED_ZONE_ID
+  HOSTED_ZONE_ID=$(dns_provider_aws_get_hosted_zone_id "$DOMAIN")
+  
+  if [[ -z "$HOSTED_ZONE_ID" ]]; then
+    dokku_log_warn "No hosted zone found for domain: $DOMAIN"
+    return 0
+  fi
+  
+  aws route53 list-resource-record-sets \
+    --hosted-zone-id "$HOSTED_ZONE_ID" \
+    --query "ResourceRecordSets[?Name=='${DOMAIN}.']" \
+    --output table 2>/dev/null
+}
+
+dns_provider_aws_discover_existing_domains() {
+  # Discover existing A records for domains that are registered with Dokku apps
+  
+  local HOSTED_ZONES
+  HOSTED_ZONES=$(aws route53 list-hosted-zones --query 'HostedZones[].Id' --output text 2>/dev/null | sed 's|/hostedzone/||g')
+  
+  if [[ -z "$HOSTED_ZONES" ]]; then
+    dokku_log_info1 "No hosted zones found in Route53"
+    return 0
+  fi
+  
+  # Get all domains from all Dokku apps
+  local ALL_DOKKU_DOMAINS=""
+  local APPS_LIST
+  APPS_LIST=$(dokku apps:list 2>/dev/null | grep -v "====>" || echo "")
+  
+  if [[ -z "$APPS_LIST" ]]; then
+    dokku_log_info1 "No Dokku apps found - cannot filter DNS records"
+    return 0
+  fi
+  
+  # Collect all domains from all apps
+  while IFS= read -r APP; do
+    [[ -z "$APP" ]] && continue
+    local APP_DOMAINS
+    APP_DOMAINS=$(dokku domains:report "$APP" --domains-app-vhosts 2>/dev/null || echo "")
+    if [[ -n "$APP_DOMAINS" ]]; then
+      # Convert space-separated domains to newline-separated
+      for DOMAIN in $APP_DOMAINS; do
+        ALL_DOKKU_DOMAINS="$ALL_DOKKU_DOMAINS
+$DOMAIN"
+      done
+    fi
+  done <<< "$APPS_LIST"
+  
+  # Also include global domains
+  local GLOBAL_DOMAINS
+  GLOBAL_DOMAINS=$(dokku domains:report --domains-global-vhosts 2>/dev/null || echo "")
+  if [[ -n "$GLOBAL_DOMAINS" ]]; then
+    # Convert space-separated global domains to newline-separated
+    for DOMAIN in $GLOBAL_DOMAINS; do
+      ALL_DOKKU_DOMAINS="$ALL_DOKKU_DOMAINS
+$DOMAIN"
+    done
+  fi
+  
+  # Remove empty lines and duplicates
+  ALL_DOKKU_DOMAINS=$(echo "$ALL_DOKKU_DOMAINS" | grep -v "^$" | sort -u)
+  
+  if [[ -z "$ALL_DOKKU_DOMAINS" ]]; then
+    dokku_log_info1 "No domains configured in any Dokku apps"
+    return 0
+  fi
+  
+  dokku_log_info2 "Discovering DNS records for Dokku-registered domains..."
+  
+  local ZONE_COUNT=0
+  local RECORD_COUNT=0
+  local MATCHED_COUNT=0
+  
+  for ZONE_ID in $HOSTED_ZONES; do
+    ((ZONE_COUNT++))
+    
+    # Get zone name for display
+    local ZONE_NAME
+    ZONE_NAME=$(aws route53 get-hosted-zone --id "$ZONE_ID" --query 'HostedZone.Name' --output text 2>/dev/null | sed 's/\.$//')
+    
+    # List all A records in this zone (excluding NS, SOA, etc.)
+    local A_RECORDS
+    A_RECORDS=$(aws route53 list-resource-record-sets \
+      --hosted-zone-id "$ZONE_ID" \
+      --query "ResourceRecordSets[?Type==\`A\`].{Name:Name,Value:ResourceRecords[0].Value}" \
+      --output text 2>/dev/null)
+    
+    local ZONE_MATCHED=false
+    
+    if [[ -n "$A_RECORDS" ]]; then
+      while IFS=$'\t' read -r DOMAIN IP; do
+        # Remove trailing dot from domain name
+        DOMAIN="${DOMAIN%.}"
+        if [[ -n "$DOMAIN" ]] && [[ -n "$IP" ]]; then
+          ((RECORD_COUNT++))
+          
+          # Check if this domain is registered with Dokku
+          if echo "$ALL_DOKKU_DOMAINS" | grep -q "^${DOMAIN}$"; then
+            if [[ "$ZONE_MATCHED" == false ]]; then
+              dokku_log_info1 "Zone: $ZONE_NAME ($ZONE_ID)"
+              ZONE_MATCHED=true
+            fi
+            echo "  ✓ $DOMAIN → $IP"
+            ((MATCHED_COUNT++))
+          fi
+        fi
+      done <<< "$A_RECORDS"
+    fi
+    
+    if [[ "$ZONE_MATCHED" == true ]]; then
+      echo
+    fi
+  done
+  
+  if [[ "$MATCHED_COUNT" -eq 0 ]]; then
+    dokku_log_info1 "No DNS records found for Dokku-registered domains"
+    dokku_log_info1 "Dokku domains that could be synced:"
+    echo "$ALL_DOKKU_DOMAINS" | while IFS= read -r DOMAIN; do
+      echo "  • $DOMAIN"
+    done
+  else
+    dokku_log_info2 "Discovery complete: Found $MATCHED_COUNT Dokku-registered domains out of $RECORD_COUNT total A records across $ZONE_COUNT hosted zones"
+  fi
+  
+  return 0
+}
+
+dns_provider_aws_batch_sync_all() {
+  # This function is called by dns:sync-all to batch all changes across all apps
+  # It takes no parameters and discovers all DNS-managed apps and their domains
+  
+  dns_provider_aws_validate_credentials
+  dns_provider_aws_setup_env
+  
+  # Get server IP
+  local SERVER_IP
+  local GLOBAL_DOMAINS
+  GLOBAL_DOMAINS=$(dokku domains:report --domains-global-vhosts 2>/dev/null)
+  
+  if [[ -n "$GLOBAL_DOMAINS" ]]; then
+    local FIRST_GLOBAL_DOMAIN
+    FIRST_GLOBAL_DOMAIN=$(echo "$GLOBAL_DOMAINS" | head -n1)
+    SERVER_IP=$(dig +short "$FIRST_GLOBAL_DOMAIN" | tail -n1)
+  fi
+  
+  if [[ -z "$SERVER_IP" ]]; then
+    SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || curl -s ipecho.net/plain 2>/dev/null || curl -s icanhazip.com 2>/dev/null)
+  fi
+  
+  if [[ -z "$SERVER_IP" ]]; then
+    dokku_log_fail "Could not determine server IP for batch sync"
+  fi
+  
+  # Get all DNS-managed apps
+  local PLUGIN_DATA_ROOT="${DNS_ROOT:-${DOKKU_LIB_ROOT:-/var/lib/dokku}/services/dns}"
+  local LINKS_FILE="$PLUGIN_DATA_ROOT/LINKS"
+  
+  if [[ ! -f "$LINKS_FILE" ]]; then
+    dokku_log_warn "No apps are currently managed by DNS"
+    return 0
+  fi
+  
+  # Collect all domains by hosted zone
+  declare -A zone_changes
+  declare -A zone_domains
+  local total_domains=0
+  local total_changes=0
+  local skipped_changes=0
+  
+  dokku_log_info2 "Collecting domains for batch sync to server IP: $SERVER_IP"
+  
+  # Read managed apps and collect their domains
+  while IFS= read -r app; do
+    [[ -z "$app" ]] && continue
+    
+    local APP_DOMAINS_FILE="$PLUGIN_DATA_ROOT/$app/DOMAINS"
+    if [[ ! -f "$APP_DOMAINS_FILE" ]]; then
+      continue
+    fi
+    
+    dokku_log_info1 "Processing app: $app"
+    
+    while IFS= read -r domain; do
+      [[ -z "$domain" ]] && continue
+      total_domains=$((total_domains + 1))
+      
+      # Check if record needs updating
+      local current_value
+      current_value=$(dns_provider_aws_get_record_value "$domain" "A")
+      
+      if [[ "$current_value" == "$SERVER_IP" ]]; then
+        dokku_log_info1 "  $domain: already correct (no change needed)"
+        skipped_changes=$((skipped_changes + 1))
+        continue
+      fi
+      
+      # Get hosted zone for this domain
+      local zone_id
+      zone_id=$(dns_provider_aws_get_hosted_zone_id "$domain")
+      
+      if [[ -z "$zone_id" ]]; then
+        dokku_log_warn "  $domain: no hosted zone found, skipping"
+        continue
+      fi
+      
+      # Track domains per zone for reporting
+      if [[ -z "${zone_domains[$zone_id]:-}" ]]; then
+        zone_domains[$zone_id]=""
+      else
+        zone_domains[$zone_id]="${zone_domains[$zone_id]} "
+      fi
+      zone_domains[$zone_id]="${zone_domains[$zone_id]}$domain"
+      
+      # Add to batch for this zone
+      local change_json
+      change_json=$(cat <<EOF
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "$domain",
+        "Type": "A",
+        "TTL": 300,
+        "ResourceRecords": [
+          {
+            "Value": "$SERVER_IP"
+          }
+        ]
+      }
+    }
+EOF
+)
+      
+      if [[ -n "${zone_changes[$zone_id]:-}" ]]; then
+        zone_changes[$zone_id]="${zone_changes[$zone_id]},"
+      fi
+      zone_changes[$zone_id]="${zone_changes[$zone_id]}$change_json"
+      
+      if [[ -n "$current_value" ]]; then
+        dokku_log_info1 "  $domain: queued for update ($current_value -> $SERVER_IP)"
+      else
+        dokku_log_info1 "  $domain: queued for creation -> $SERVER_IP"
+      fi
+      total_changes=$((total_changes + 1))
+      
+    done < "$APP_DOMAINS_FILE"
+    
+  done < "$LINKS_FILE"
+  
+  if [[ $total_changes -eq 0 ]]; then
+    dokku_log_info1 "No changes needed - all $total_domains domains are already correctly configured"
+    return 0
+  fi
+  
+  # Execute batched changes per hosted zone
+  echo
+  dokku_log_info2 "Executing batched DNS updates"
+  local zones_updated=0
+  local zones_failed=0
+  
+  for zone_id in "${!zone_changes[@]}"; do
+    local change_batch
+    change_batch=$(cat <<EOF
+{
+  "Changes": [
+    ${zone_changes[$zone_id]}
+  ]
+}
+EOF
+)
+    
+    local domain_list="${zone_domains[$zone_id]}"
+    local domain_count
+    domain_count=$(echo "$domain_list" | wc -w)
+    dokku_log_info1 "Updating hosted zone $zone_id ($domain_count domains: $domain_list)"
+    
+    local change_id
+    change_id=$(aws route53 change-resource-record-sets \
+      --hosted-zone-id "$zone_id" \
+      --change-batch "$change_batch" \
+      --query 'ChangeInfo.Id' \
+      --output text 2>/dev/null)
+      
+    if [[ -n "$change_id" ]]; then
+      dokku_log_info1 "✅ Batch update successful (Change ID: $change_id)"
+      zones_updated=$((zones_updated + 1))
+    else
+      dokku_log_warn "❌ Batch update failed for zone $zone_id"
+      zones_failed=$((zones_failed + 1))
+    fi
+  done
+  
+  # Summary
+  echo
+  dokku_log_info2 "Batch Sync Summary"
+  dokku_log_info1 "Total domains processed: $total_domains"
+  dokku_log_info1 "Records already correct: $skipped_changes"
+  dokku_log_info1 "Records updated: $total_changes"
+  dokku_log_info1 "Hosted zones updated: $zones_updated"
+  if [[ $zones_failed -gt 0 ]]; then
+    dokku_log_warn "Hosted zones failed: $zones_failed"
+  fi
+  dokku_log_info1 "API calls made: $zones_updated (instead of $total_changes individual calls)"
+  
+  return $zones_failed
 }
 
 dns_provider_aws_sync_app() {
-    local APP="$1"
-    local PLUGIN_DATA_ROOT="${DNS_ROOT:-${DOKKU_LIB_ROOT:-/var/lib/dokku}/services/dns}"
-    local APP_DOMAINS_FILE="$PLUGIN_DATA_ROOT/$APP/DOMAINS"
-    local APP_DOMAINS=""
-    
-    if [[ -f "$APP_DOMAINS_FILE" ]]; then
-        APP_DOMAINS=$(tr '\n' ' ' < "$APP_DOMAINS_FILE" 2>/dev/null)
-    fi
-    
-    if [[ -z "$APP_DOMAINS" ]]; then
-        echo "No DNS-managed domains found for app: $APP"
-        return 0
-    fi
-    
-    echo "Syncing domains for app '$APP' to server IP: 1.2.3.4"
-    
-    # Check if zone management is enabled (ENABLED_ZONES file exists)
-    local ENABLED_ZONES_FILE="$PLUGIN_DATA_ROOT/ENABLED_ZONES"
-    local ZONE_CHECKING_ENABLED=false
-    if [[ -f "$ENABLED_ZONES_FILE" ]]; then
-        ZONE_CHECKING_ENABLED=true
-    fi
-    
-    # Sync each domain (with conditional zone checking)
-    local domains_synced=0
-    local domains_skipped=0
-    local skipped_domains=()
-    
-    for DOMAIN in $APP_DOMAINS; do
-        [[ -z "$DOMAIN" ]] && continue
-        
-        # Check if domain should be synced (zone checking only if enabled)
-        local should_sync=true
-        if [[ "$ZONE_CHECKING_ENABLED" == true ]]; then
-            if ! is_domain_in_enabled_zone "$DOMAIN"; then
-                should_sync=false
-            fi
-        fi
-        
-        if [[ "$should_sync" == true ]]; then
-            echo "Syncing domain: $DOMAIN"
-            echo "DNS record created: $DOMAIN -> 1.2.3.4"
-            domains_synced=$((domains_synced + 1))
-        else
-            echo "Skipping domain '$DOMAIN' - not in an enabled hosted zone"
-            skipped_domains+=("$DOMAIN")
-            domains_skipped=$((domains_skipped + 1))
-        fi
-    done
-    
-    # Show zone checking summary if applicable
-    if [[ "$ZONE_CHECKING_ENABLED" == true ]] && [[ $domains_skipped -gt 0 ]]; then
-        echo
-        echo "Skipped $domains_skipped domain(s) not in enabled zones:"
-        for skipped_domain in "${skipped_domains[@]}"; do
-            echo "• $skipped_domain"
-        done
-        echo
-        echo "To enable zones for these domains:"
-        echo "• List available zones: dokku $PLUGIN_COMMAND_PREFIX:zones"
-        echo "• Enable specific zone: dokku $PLUGIN_COMMAND_PREFIX:zones --enable <zone-name>"
-        echo "• Enable all zones: dokku $PLUGIN_COMMAND_PREFIX:zones --enable --all"
-    fi
-    
+  local SERVICE="$1"  # Not used in global mode, kept for compatibility
+  local APP="$2"
+  
+  # Handle both service-based (legacy) and global mode calls
+  if [[ -z "$APP" ]]; then
+    # If only one parameter, it's the app name (global mode)
+    APP="$SERVICE"
+  fi
+  
+  dns_provider_aws_validate_credentials
+  dns_provider_aws_setup_env
+  
+  # Get DNS-managed domains for the app from DNS plugin data  
+  local PLUGIN_DATA_ROOT="${DNS_ROOT:-${DOKKU_LIB_ROOT:-/var/lib/dokku}/services/dns}"
+  local APP_DOMAINS_FILE="$PLUGIN_DATA_ROOT/$APP/DOMAINS"
+  local APP_DOMAINS=""
+  
+  if [[ -f "$APP_DOMAINS_FILE" ]]; then
+    APP_DOMAINS=$(tr '\n' ' ' < "$APP_DOMAINS_FILE" 2>/dev/null)
+  fi
+  
+  if [[ -z "$APP_DOMAINS" ]]; then
+    dokku_log_warn "No DNS-managed domains found for app: $APP"
+    dokku_log_info1 "Add domains to DNS first: dokku $PLUGIN_COMMAND_PREFIX:add $APP [domain1] [domain2]"
     return 0
+  fi
+  
+  # Get the server's IP (where this Dokku instance is running)
+  # We'll use the global domains to determine the server IP
+  local SERVER_IP
+  local GLOBAL_DOMAINS
+  GLOBAL_DOMAINS=$(dokku domains:report --domains-global-vhosts 2>/dev/null)
+  
+  if [[ -n "$GLOBAL_DOMAINS" ]]; then
+    # Use the first global domain to resolve server IP
+    local FIRST_GLOBAL_DOMAIN
+    FIRST_GLOBAL_DOMAIN=$(echo "$GLOBAL_DOMAINS" | head -n1)
+    SERVER_IP=$(dig +short "$FIRST_GLOBAL_DOMAIN" | tail -n1)
+  fi
+  
+  # If no global domains or couldn't resolve, try to get server IP another way
+  if [[ -z "$SERVER_IP" ]]; then
+    # Try to get the server's public IP
+    SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || curl -s ipecho.net/plain 2>/dev/null || curl -s icanhazip.com 2>/dev/null)
+  fi
+  
+  if [[ -z "$SERVER_IP" ]]; then
+    dokku_log_fail "Could not determine server IP. Please ensure your server has internet access or configure global domains."
+  fi
+  
+  dokku_log_info2 "Syncing domains for app '$APP' to server IP: $SERVER_IP"
+  
+  # Sync each domain
+  for DOMAIN in $APP_DOMAINS; do
+    [[ -z "$DOMAIN" ]] && continue
+    dokku_log_info1 "Syncing domain: $DOMAIN"
+    dns_provider_aws_create_record "$DOMAIN" "A" "$SERVER_IP"
+  done
+  
+  return 0
 }
