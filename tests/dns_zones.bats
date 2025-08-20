@@ -184,53 +184,16 @@ dns_provider_aws_sync_app() {
     
     echo "Syncing domains for app '$APP' to server IP: 1.2.3.4"
     
-    # Check if zone management is enabled (ENABLED_ZONES file exists)
-    local ENABLED_ZONES_FILE="$PLUGIN_DATA_ROOT/ENABLED_ZONES"
-    local ZONE_CHECKING_ENABLED=false
-    if [[ -f "$ENABLED_ZONES_FILE" ]]; then
-        ZONE_CHECKING_ENABLED=true
-    fi
-    
-    # Sync each domain (with conditional zone checking)
+    # Sync each domain (no zone enablement checking for explicit sync operations)
     local domains_synced=0
-    local domains_skipped=0
-    local skipped_domains=()
     
     for DOMAIN in $APP_DOMAINS; do
         [[ -z "$DOMAIN" ]] && continue
         
-        # Check if domain should be synced (zone checking only if enabled)
-        local should_sync=true
-        if [[ "$ZONE_CHECKING_ENABLED" == true ]]; then
-            if ! is_domain_in_enabled_zone "$DOMAIN"; then
-                should_sync=false
-            fi
-        fi
-        
-        if [[ "$should_sync" == true ]]; then
-            echo "Syncing domain: $DOMAIN"
-            echo "DNS record created: $DOMAIN -> 1.2.3.4"
-            domains_synced=$((domains_synced + 1))
-        else
-            echo "Skipping domain '$DOMAIN' - not in an enabled hosted zone"
-            skipped_domains+=("$DOMAIN")
-            domains_skipped=$((domains_skipped + 1))
-        fi
+        echo "Syncing domain: $DOMAIN"
+        echo "DNS record created: $DOMAIN -> 1.2.3.4"
+        domains_synced=$((domains_synced + 1))
     done
-    
-    # Show zone checking summary if applicable
-    if [[ "$ZONE_CHECKING_ENABLED" == true ]] && [[ $domains_skipped -gt 0 ]]; then
-        echo
-        echo "Skipped $domains_skipped domain(s) not in enabled zones:"
-        for skipped_domain in "${skipped_domains[@]}"; do
-            echo "• $skipped_domain"
-        done
-        echo
-        echo "To enable zones for these domains:"
-        echo "• List available zones: dokku $PLUGIN_COMMAND_PREFIX:zones"
-        echo "• Enable specific zone: dokku $PLUGIN_COMMAND_PREFIX:zones --enable <zone-name>"
-        echo "• Enable all zones: dokku $PLUGIN_COMMAND_PREFIX:zones --enable --all"
-    fi
     
     return 0
 }
@@ -721,7 +684,7 @@ assert_file_contains() {
   assert_failure
 }
 
-@test "sync command checks enabled zones before syncing" {
+@test "sync command works for explicitly added apps regardless of zone enablement" {
   setup_mock_provider "aws"
   create_mock_aws
   create_mock_provider_scripts
@@ -738,22 +701,23 @@ assert_file_contains() {
   # Create empty ENABLED_ZONES file to ensure no zones are enabled
   touch "$PLUGIN_DATA_ROOT/ENABLED_ZONES"
   
-  # Try to sync without any enabled zones
-  run dokku "$PLUGIN_COMMAND_PREFIX:sync" "testapp"
-  assert_success
-  assert_output_contains "Skipping domain 'app1.example.com' - not in an enabled hosted zone"
-  assert_output_contains "Skipping domain 'app2.test.org' - not in an enabled hosted zone"
-  assert_output_contains "To enable zones for these domains"
-  
-  # Enable one zone
-  run dns_zones "--enable" "example.com"
-  assert_success
-  
-  # Now sync should process the example.com domain but skip test.org
+  # Sync should work regardless of zone enablement for explicitly added apps
   run dokku "$PLUGIN_COMMAND_PREFIX:sync" "testapp"
   assert_success
   assert_output_contains "Syncing domain: app1.example.com"
-  assert_output_contains "Skipping domain 'app2.test.org' - not in an enabled hosted zone"
+  assert_output_contains "Syncing domain: app2.test.org"
+  assert_output_contains "DNS record created: app1.example.com -> 1.2.3.4"
+  assert_output_contains "DNS record created: app2.test.org -> 1.2.3.4"
+  
+  # Zone enablement should not affect explicitly added apps
+  run dns_zones "--enable" "example.com"
+  assert_success
+  
+  # Sync should still work for all domains
+  run dokku "$PLUGIN_COMMAND_PREFIX:sync" "testapp"
+  assert_success
+  assert_output_contains "Syncing domain: app1.example.com"
+  assert_output_contains "Syncing domain: app2.test.org"
   
   cleanup_test_app "testapp"
 }

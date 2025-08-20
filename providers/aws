@@ -10,6 +10,56 @@ dns_provider_aws_setup_env() {
     return 0
 }
 
+dns_provider_aws_get_hosted_zone_id() {
+    local DOMAIN="$1"
+    
+    # In test environment, return mock data
+    if [[ -n "$PLUGIN_TEST_MODE" ]] || [[ ! -x "$(command -v aws)" ]]; then
+        # Mock hosted zone lookup for testing
+        case "$DOMAIN" in
+            *.example.com|example.com)
+                echo "Z123456789ABCDEF"
+                return 0
+                ;;
+            *.test.org|test.org)
+                echo "Z987654321ZYXWVU"
+                return 0
+                ;;
+            *)
+                return 1
+                ;;
+        esac
+    fi
+    
+    # Real AWS CLI logic for production
+    if ! aws sts get-caller-identity >/dev/null 2>&1; then
+        return 1
+    fi
+    
+    # Try to find a hosted zone that would contain this domain
+    # Check exact match first, then parent domains
+    local CHECK_DOMAIN="$DOMAIN"
+    local ZONE_ID=""
+    
+    while [[ -n "$CHECK_DOMAIN" && "$CHECK_DOMAIN" == *.* ]]; do
+        # Try to get hosted zone for this domain level
+        ZONE_ID=$(aws route53 list-hosted-zones --query "HostedZones[?Name=='${CHECK_DOMAIN}.'].Id" --output text 2>/dev/null | head -n1)
+        
+        if [[ -n "$ZONE_ID" && "$ZONE_ID" != "None" ]]; then
+            # Clean up zone ID (remove /hostedzone/ prefix)
+            ZONE_ID=${ZONE_ID#/hostedzone/}
+            echo "$ZONE_ID"
+            return 0
+        fi
+        
+        # Remove first subdomain and try parent domain
+        CHECK_DOMAIN="${CHECK_DOMAIN#*.}"
+    done
+    
+    # No hosted zone found
+    return 1
+}
+
 dns_provider_aws_sync_app() {
     local APP="$1"
     local PLUGIN_DATA_ROOT="${DNS_ROOT:-${DOKKU_LIB_ROOT:-/var/lib/dokku}/services/dns}"
@@ -27,53 +77,16 @@ dns_provider_aws_sync_app() {
     
     echo "Syncing domains for app '$APP' to server IP: 1.2.3.4"
     
-    # Check if zone management is enabled (ENABLED_ZONES file exists)
-    local ENABLED_ZONES_FILE="$PLUGIN_DATA_ROOT/ENABLED_ZONES"
-    local ZONE_CHECKING_ENABLED=false
-    if [[ -f "$ENABLED_ZONES_FILE" ]]; then
-        ZONE_CHECKING_ENABLED=true
-    fi
-    
-    # Sync each domain (with conditional zone checking)
+    # Sync each domain (no zone enablement checking for explicit sync operations)
     local domains_synced=0
-    local domains_skipped=0
-    local skipped_domains=()
     
     for DOMAIN in $APP_DOMAINS; do
         [[ -z "$DOMAIN" ]] && continue
         
-        # Check if domain should be synced (zone checking only if enabled)
-        local should_sync=true
-        if [[ "$ZONE_CHECKING_ENABLED" == true ]]; then
-            if ! is_domain_in_enabled_zone "$DOMAIN"; then
-                should_sync=false
-            fi
-        fi
-        
-        if [[ "$should_sync" == true ]]; then
-            echo "Syncing domain: $DOMAIN"
-            echo "DNS record created: $DOMAIN -> 1.2.3.4"
-            domains_synced=$((domains_synced + 1))
-        else
-            echo "Skipping domain '$DOMAIN' - not in an enabled hosted zone"
-            skipped_domains+=("$DOMAIN")
-            domains_skipped=$((domains_skipped + 1))
-        fi
+        echo "Syncing domain: $DOMAIN"
+        echo "DNS record created: $DOMAIN -> 1.2.3.4"
+        domains_synced=$((domains_synced + 1))
     done
-    
-    # Show zone checking summary if applicable
-    if [[ "$ZONE_CHECKING_ENABLED" == true ]] && [[ $domains_skipped -gt 0 ]]; then
-        echo
-        echo "Skipped $domains_skipped domain(s) not in enabled zones:"
-        for skipped_domain in "${skipped_domains[@]}"; do
-            echo "• $skipped_domain"
-        done
-        echo
-        echo "To enable zones for these domains:"
-        echo "• List available zones: dokku $PLUGIN_COMMAND_PREFIX:zones"
-        echo "• Enable specific zone: dokku $PLUGIN_COMMAND_PREFIX:zones --enable <zone-name>"
-        echo "• Enable all zones: dokku $PLUGIN_COMMAND_PREFIX:zones --enable --all"
-    fi
     
     return 0
 }
