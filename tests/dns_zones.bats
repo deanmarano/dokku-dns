@@ -352,7 +352,7 @@ EOF
     dns_zones --enable "example.com"
     assert_success
     assert_output_contains "Enabling DNS management for zone: example.com"
-    assert_output_contains "Discovering domains in zone"
+    assert_output_contains "Zone 'example.com' enabled for DNS management"
 }
 
 @test "(dns:zones --disable) removes domains from zone" {
@@ -507,7 +507,7 @@ EOF
     
     dns_zones --enable "example.com"
     assert_success
-    assert_output_contains "No Dokku apps found"
+    assert_output_contains "Zone 'example.com' enabled for DNS management"
 }
 
 # Helper functions for test assertions
@@ -766,8 +766,8 @@ assert_file_contains() {
     dns_zones --enable "example.com"
     assert_success
     assert_output_contains "Enabling DNS management for zone: example.com"
-    assert_output_contains "Discovering domains in zone"
+    assert_output_contains "Zone 'example.com' enabled for DNS management"
     
-    # The new implementation is cautious and validates IPs before adding domains
-    # This test verifies the zones enable functionality works with the new safeguards
+    # The new implementation simply enables zones without automatic domain discovery
+    # Applications must be added manually via dns:add command after zone enablement
 }

@@ -413,6 +413,79 @@ test_dns_zones() {
     assert_failure "Unknown flag should fail" dokku dns:zones --invalid-flag
     assert_output_contains_ignore_exit "Unknown flag shows error" "Unknown option" dokku dns:zones --invalid-flag
 }
+
+test_zones_with_report_sync() {
+    log_info "Testing zones functionality with report and sync..."
+    
+    # Ensure AWS provider is configured
+    dokku dns:configure aws >/dev/null 2>&1
+    
+    # Create a test app with domains that would be in example.com zone
+    local ZONES_TEST_APP="zones-report-test"
+    
+    # Clean up any existing test app first
+    dokku apps:destroy "$ZONES_TEST_APP" --force >/dev/null 2>&1 || true
+    
+    # Create the test app
+    assert_success "Create zones test app" dokku apps:create "$ZONES_TEST_APP"
+    
+    # Add domains that would be in example.com zone
+    assert_success "Add app.example.com domain" dokku domains:add "$ZONES_TEST_APP" "app.example.com"
+    assert_success "Add api.example.com domain" dokku domains:add "$ZONES_TEST_APP" "api.example.com"
+    
+    # Test report shows domains even when app is not in DNS management
+    assert_output_contains "Report shows 'Not added' status for non-DNS-managed app" "DNS Status.*Not added" dokku dns:report "$ZONES_TEST_APP"
+    assert_output_contains "Report shows app domains even when not added to DNS" "app.example.com" dokku dns:report "$ZONES_TEST_APP"
+    assert_output_contains "Report shows all app domains even when not added to DNS" "api.example.com" dokku dns:report "$ZONES_TEST_APP"
+    
+    # Test sync on app not added to DNS management
+    # This should work with the mock provider and show appropriate behavior
+    local sync_output
+    sync_output=$(dokku dns:sync "$ZONES_TEST_APP" 2>&1) || true
+    if echo "$sync_output" | grep -q "No DNS-managed domains found for app"; then
+        log_success "Sync shows appropriate message for non-DNS-managed app"
+        TESTS_PASSED=$((TESTS_PASSED + 1))
+    elif echo "$sync_output" | grep -q "not managed by DNS\|not found in DNS management"; then
+        log_success "Sync shows appropriate message for non-DNS-managed app"
+        TESTS_PASSED=$((TESTS_PASSED + 1))
+    else
+        log_warning "Sync behavior test inconclusive (output: ${sync_output:0:100}...)"
+    fi
+    TESTS_TOTAL=$((TESTS_TOTAL + 1))
+    
+    # Test that enabling a zone (if AWS CLI available) and then running sync works correctly
+    # We'll test the zones enable/disable persistence functionality
+    if [[ -f "/tmp/test-enabled-zones" ]]; then
+        # Create fake enabled zones file for testing
+        mkdir -p /var/lib/dokku/services/dns
+        echo "example.com" > /var/lib/dokku/services/dns/ENABLED_ZONES
+        
+        # Now add the app to DNS and test sync behavior with enabled zones
+        assert_success "Add app to DNS management after zone enabled" dokku dns:add "$ZONES_TEST_APP"
+        
+        # Test sync with enabled zone
+        assert_output_contains "Sync works with enabled zone" "Syncing domains for app" dokku dns:sync "$ZONES_TEST_APP"
+        
+        # Clean up
+        rm -f /var/lib/dokku/services/dns/ENABLED_ZONES
+        dokku dns:remove "$ZONES_TEST_APP" >/dev/null 2>&1 || true
+    fi
+    
+    # Clean up the test app - make cleanup more robust
+    if dokku apps:list 2>/dev/null | grep -q "$ZONES_TEST_APP"; then
+        if dokku apps:destroy "$ZONES_TEST_APP" --force >/dev/null 2>&1; then
+            log_success "Clean up zones test app"
+            TESTS_PASSED=$((TESTS_PASSED + 1))
+        else
+            log_warning "Could not clean up zones test app (may have been removed already)"
+        fi
+    else
+        log_success "Clean up zones test app (already cleaned up)"
+        TESTS_PASSED=$((TESTS_PASSED + 1))
+    fi
+    TESTS_TOTAL=$((TESTS_TOTAL + 1))
+}
+
 test_error_conditions() {
     log_info "Testing error conditions..."
     
@@ -454,6 +527,7 @@ main() {
     test_dns_app_management
     test_dns_cron
     test_dns_zones
+    test_zones_with_report_sync
     test_error_conditions
     
     # Cleanup

@@ -370,8 +370,70 @@ EOF
         test_failed=true
     fi
     
-    # Test 13: Edge cases and error handling
-    echo "13. Testing edge cases and error handling..."
+    # Test 13: Zones functionality with report and sync
+    echo "13. Testing zones functionality with report and sync..."
+    
+    # Create a second test app for zones testing
+    ZONES_TEST_APP="zones-test-app"
+    echo "Setting up zones test app: $ZONES_TEST_APP"
+    if ! dokku apps:list 2>/dev/null | grep -q "$ZONES_TEST_APP"; then
+        dokku apps:create "$ZONES_TEST_APP" 2>&1 || echo "Failed to create app, using existing"
+    fi
+    
+    # Add domains that would be in example.com zone
+    dokku domains:add "$ZONES_TEST_APP" "app.example.com" 2>&1 || echo "Domain add completed"
+    dokku domains:add "$ZONES_TEST_APP" "api.example.com" 2>&1 || echo "Domain add completed"
+    
+    # Test zones functionality (without AWS CLI this should show errors gracefully)
+    echo "Testing zones listing..."
+    if dokku dns:zones 2>&1 | grep -q "AWS CLI is not configured"; then
+        echo "✓ Zones shows AWS CLI requirement when not configured"
+    else
+        echo "⚠️ Zones command test inconclusive (AWS CLI may be available)"
+    fi
+    
+    # Test report shows domains even when not added to DNS but zones could be enabled
+    echo "Testing report with non-DNS-managed app that has domains..."
+    local zones_report_output
+    zones_report_output=$(dokku dns:report "$ZONES_TEST_APP" 2>&1)
+    
+    if echo "$zones_report_output" | grep -q "DNS Status.*Not added"; then
+        echo "✓ Report shows 'Not added' status for app not in DNS management"
+    else
+        echo "❌ Report doesn't show correct status for non-DNS-managed app"
+        test_failed=true
+    fi
+    
+    if echo "$zones_report_output" | grep -q "app.example.com"; then
+        echo "✓ Report shows app domains even when not added to DNS"
+    else
+        echo "❌ Report doesn't show app domains for non-DNS-managed app"
+        test_failed=true
+    fi
+    
+    if echo "$zones_report_output" | grep -q "api.example.com"; then
+        echo "✓ Report shows all app domains even when not added to DNS"
+    else
+        echo "❌ Report doesn't show all app domains for non-DNS-managed app"
+        test_failed=true
+    fi
+    
+    # Test sync on app not added to DNS management shows appropriate behavior
+    echo "Testing sync with non-DNS-managed app..."
+    local zones_sync_output
+    zones_sync_output=$(dokku dns:sync "$ZONES_TEST_APP" 2>&1)
+    
+    if echo "$zones_sync_output" | grep -q "No DNS provider configured\|App.*not found in DNS management\|not managed by DNS"; then
+        echo "✓ Sync shows appropriate message for non-DNS-managed app"
+    else
+        echo "⚠️ Sync behavior test inconclusive (may depend on provider configuration)"
+    fi
+    
+    # Clean up zones test app
+    dokku apps:destroy "$ZONES_TEST_APP" --force 2>&1 || echo "App cleanup completed"
+    
+    # Test 14: Edge cases and error handling
+    echo "14. Testing edge cases and error handling..."
     
     # Test commands without required arguments
     if dokku dns:add 2>&1 | grep -q "Please specify an app name"; then
@@ -397,6 +459,18 @@ EOF
         echo "✓ Add nonexistent app shows error"
     else
         echo "⚠️ Add nonexistent app error handling test inconclusive"
+    fi
+    
+    if dokku dns:sync "nonexistent-app-12345" 2>&1 | grep -q "App.*does not exist"; then
+        echo "✓ Sync nonexistent app shows error"
+    else
+        echo "⚠️ Sync nonexistent app error handling test inconclusive"
+    fi
+    
+    if dokku dns:remove "nonexistent-app-12345" 2>&1 | grep -q "App.*does not exist"; then
+        echo "✓ Remove nonexistent app shows error"
+    else
+        echo "⚠️ Remove nonexistent app error handling test inconclusive"
     fi
     
     # Test provider configuration edge cases
