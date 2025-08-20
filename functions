@@ -74,6 +74,61 @@ is_app_dns_managed() {
   fi
 }
 
+# Check if a domain is in an enabled hosted zone
+# Usage: is_domain_in_enabled_zone <domain>
+# Returns: 0 if domain is in enabled zone, 1 if not
+is_domain_in_enabled_zone() {
+  local DOMAIN="$1"
+  local ENABLED_ZONES_FILE="$PLUGIN_DATA_ROOT/ENABLED_ZONES"
+  
+  # If no enabled zones file exists, return false (no zones enabled)
+  if [[ ! -f "$ENABLED_ZONES_FILE" ]]; then
+    return 1
+  fi
+  
+  # If file exists but is empty, no zones are enabled
+  if [[ ! -s "$ENABLED_ZONES_FILE" ]]; then
+    return 1
+  fi
+  
+  # Check if domain matches any enabled zone
+  while IFS= read -r zone; do
+    [[ -z "$zone" ]] && continue
+    
+    # Check if domain matches this zone exactly or is a subdomain
+    if [[ "$DOMAIN" == "$zone" ]] || [[ "$DOMAIN" == *".$zone" ]]; then
+      return 0  # Domain is in an enabled zone
+    fi
+  done < "$ENABLED_ZONES_FILE"
+  
+  return 1  # Domain not in any enabled zone
+}
+
+# Get list of enabled zones
+# Usage: get_enabled_zones
+# Returns: newline-separated list of enabled zone names
+get_enabled_zones() {
+  local ENABLED_ZONES_FILE="$PLUGIN_DATA_ROOT/ENABLED_ZONES"
+  
+  if [[ -f "$ENABLED_ZONES_FILE" ]]; then
+    cat "$ENABLED_ZONES_FILE" 2>/dev/null || echo ""
+  fi
+}
+
+# Check if a zone is enabled
+# Usage: is_zone_enabled <zone>
+# Returns: 0 if zone is enabled, 1 if not
+is_zone_enabled() {
+  local ZONE="$1"
+  local ENABLED_ZONES_FILE="$PLUGIN_DATA_ROOT/ENABLED_ZONES"
+  
+  if [[ -f "$ENABLED_ZONES_FILE" ]] && grep -q "^$ZONE$" "$ENABLED_ZONES_FILE" 2>/dev/null; then
+    return 0
+  else
+    return 1
+  fi
+}
+
 # Configure global DNS provider (internal function)
 # Usage: dns_configure_global <provider>
 # Note: This is an internal function, use dns:configure command instead
@@ -476,8 +531,8 @@ dns_display_domains_table() {
   
   echo
   dokku_log_info2 "Domain Status Table for app '$APP':"
-  printf "%-30s %-8s %-15s %-15s %s\n" "Domain" "Status" "Enabled" "Provider" "Hosted Zone"
-  printf "%-30s %-8s %-15s %-15s %s\n" "------" "------" "-------" "--------" "-----------"
+  printf "%-30s %-8s %-15s %-15s %s\n" "Domain" "Status" "Enabled" "Provider" "Zone (Enabled)"
+  printf "%-30s %-8s %-15s %-15s %s\n" "------" "------" "-------" "--------" "---------------"
   
   for DOMAIN in "${DOMAINS[@]}"; do
     [[ -z "$DOMAIN" ]] && continue
@@ -506,24 +561,38 @@ dns_display_domains_table() {
           # Get the zone name from AWS
           local ZONE_NAME
           ZONE_NAME=$(aws route53 get-hosted-zone --id "$ZONE_ID" --query 'HostedZone.Name' --output text 2>/dev/null | sed 's/\.$//g' || echo "$ZONE_ID")
-          HOSTED_ZONE="$ZONE_NAME"
+          # Check if this zone is enabled
+          if is_zone_enabled "$ZONE_NAME"; then
+            HOSTED_ZONE="$ZONE_NAME ✅"
+          else
+            HOSTED_ZONE="$ZONE_NAME ❌"
+          fi
         else
           HOSTED_ZONE="Not found"
         fi
       fi
     fi
     
-    # Check if domain is enabled - only enable if hosted zone is found
+    # Check if domain is enabled based on zone enablement
     local ENABLED_STATUS="No"
     if [[ "$PROVIDER" == "aws" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
       if [[ -n "$ZONE_ID" ]]; then
-        ENABLED_STATUS="Yes"
+        # Check if the zone is enabled
+        if is_domain_in_enabled_zone "$DOMAIN"; then
+          ENABLED_STATUS="Yes"
+        else
+          ENABLED_STATUS="No (zone disabled)"
+        fi
       else
         ENABLED_STATUS="No (no hosted zone)"
       fi
     elif [[ "$PROVIDER" != "None" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
-      # For other providers, default to enabled (they can implement their own logic)
-      ENABLED_STATUS="Yes"
+      # For other providers, check enabled zones
+      if is_domain_in_enabled_zone "$DOMAIN"; then
+        ENABLED_STATUS="Yes"
+      else
+        ENABLED_STATUS="No (zone disabled)"
+      fi
     else
       ENABLED_STATUS="No (provider not ready)"
     fi

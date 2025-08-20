@@ -36,7 +36,7 @@ teardown() {
   assert_success
   assert_output_contains "Adding all domains for app 'my-app':"
   assert_output_contains "Domain Status Table for app 'my-app':"
-  assert_output_contains "Domain                         Status   Enabled         Provider        Hosted Zone"
+  assert_output_contains "Domain                         Status   Enabled         Provider        Zone (Enabled)"
   assert_output_contains "example.com" 14  # Appears multiple times in output
   assert_output_contains "api.example.com" 7  # Appears multiple times in output
   assert_output_contains "provider not ready" 2  # Enabled column - appears once per domain

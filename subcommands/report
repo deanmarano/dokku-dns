@@ -136,8 +136,8 @@ dns_global_report() {
   
   echo
   dokku_log_info2 "All Apps Domain Analysis:"
-  printf "%-15s %-30s %-8s %-15s %-12s %s\n" "App" "Domain" "DNS" "Status" "Provider" "Hosted Zone"
-  printf "%-15s %-30s %-8s %-15s %-12s %s\n" "---" "------" "---" "------" "--------" "-----------"
+  printf "%-15s %-30s %-8s %-15s %-12s %s\n" "App" "Domain" "DNS" "Status" "Provider" "Zone (Enabled)"
+  printf "%-15s %-30s %-8s %-15s %-12s %s\n" "---" "------" "---" "------" "--------" "---------------"
   
   # First pass: collect all domains from DNS DOMAINS files and count them
   local ALL_DOMAINS=""
@@ -217,10 +217,22 @@ dns_global_report() {
               else
                 ZONE_NAME="$ZONE_ID"
               fi
-              HOSTED_ZONE="$ZONE_NAME"
+              # Check if this zone is enabled
+              if is_zone_enabled "$ZONE_NAME"; then
+                HOSTED_ZONE="$ZONE_NAME ✅"
+              else
+                HOSTED_ZONE="$ZONE_NAME ❌"
+              fi
             else
               HOSTED_ZONE="Not found"
             fi
+          fi
+        elif [[ "$PROVIDER" == "aws" ]]; then
+          # Provider is AWS but not ready, still check if domain is in enabled zone
+          if is_domain_in_enabled_zone "$DOMAIN"; then
+            HOSTED_ZONE="Zone enabled ✅"
+          else
+            HOSTED_ZONE="Zone disabled ❌"
           fi
         fi
         
@@ -351,8 +363,8 @@ dns_report() {
   
   echo
   dokku_log_info2 "Domain Analysis:"
-  printf "%-35s %-8s %-20s %-12s %s\n" "Domain" "DNS" "Status" "Provider" "Hosted Zone"
-  printf "%-35s %-8s %-20s %-12s %s\n" "------" "---" "------" "--------" "-----------"
+  printf "%-30s %-8s %-15s %-15s %s\n" "Domain" "Status" "Enabled" "Provider" "Zone (Enabled)"
+  printf "%-30s %-8s %-15s %-15s %s\n" "------" "------" "-------" "--------" "---------------"
   
   # Check global provider credentials
   local CREDENTIALS_DIR="$GLOBAL_CONFIG_ROOT/credentials"
@@ -454,7 +466,7 @@ dns_report() {
     fi
     
     # Format and display the row
-    printf "%-35s %-8s %-20s %-12s %s\n" "$DOMAIN" "$DNS_EMOJI" "$DOMAIN_STATUS" "$PROVIDER" "$HOSTED_ZONE"
+    printf "%-30s %-8s %-15s %-15s %s\n" "$DOMAIN" "$DNS_EMOJI" "$DOMAIN_STATUS" "$PROVIDER" "$HOSTED_ZONE"
   done
   
   echo

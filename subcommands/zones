@@ -243,13 +243,19 @@ zones_list_aws_zones() {
       done
     fi
     
+    # Check if zone is enabled
+    local zone_enabled_status="❌ DISABLED"
+    if is_zone_enabled "$zone_name"; then
+      zone_enabled_status="✅ ENABLED"
+    fi
+    
     # Display zone info
     echo
     if [[ $managed_in_zone -gt 0 ]]; then
-      dokku_log_info1 "✅ $zone_name ($zone_id) - ACTIVE"
+      dokku_log_info1 "$zone_enabled_status $zone_name ($zone_id) - ACTIVE"
       dokku_log_info1 "   Managed domains ($managed_in_zone): $zone_domains"
     else
-      dokku_log_info1 "⭕ $zone_name ($zone_id) - available"
+      dokku_log_info1 "$zone_enabled_status $zone_name ($zone_id) - available"
     fi
     dokku_log_info1 "   Records: $record_count"
     if [[ -n "$comment" ]] && [[ "$comment" != "null" ]]; then
@@ -311,6 +317,9 @@ zones_enable_zone() {
     done
     return 1
   fi
+  
+  # Mark zone as enabled globally
+  zones_set_enabled "$ZONE"
   
   # Get all A records in the zone that could be Dokku domains
   dokku_log_info1 "Discovering domains in zone..."
@@ -493,6 +502,9 @@ zones_disable_zone() {
   
   dokku_log_info2 "Disabling DNS management for zone: $ZONE"
   
+  # Mark zone as disabled globally
+  zones_set_disabled "$ZONE"
+  
   # Get all managed apps and their domains
   local LINKS_FILE="$PLUGIN_DATA_ROOT/LINKS"
   if [[ ! -f "$LINKS_FILE" ]] || [[ ! -s "$LINKS_FILE" ]]; then
@@ -542,6 +554,7 @@ zones_disable_zone() {
         apps_to_remove+=("$app")
         app_summaries+=("$app: ${app_domains_removed[*]}")
       fi
+      
     fi
     
   done < "$LINKS_FILE"
@@ -760,6 +773,39 @@ zones_add_domain_to_dns() {
   
   echo "$DOMAIN" >> "$APP_DOMAINS_FILE"
   return 0
+}
+
+zones_set_enabled() {
+  local ZONE="$1"
+  local ENABLED_ZONES_FILE="$PLUGIN_DATA_ROOT/ENABLED_ZONES"
+  
+  mkdir -p "$PLUGIN_DATA_ROOT"
+  
+  # Add zone to enabled zones if not already present
+  if [[ ! -f "$ENABLED_ZONES_FILE" ]] || ! grep -q "^$ZONE$" "$ENABLED_ZONES_FILE"; then
+    echo "$ZONE" >> "$ENABLED_ZONES_FILE"
+  fi
+}
+
+zones_set_disabled() {
+  local ZONE="$1"
+  local ENABLED_ZONES_FILE="$PLUGIN_DATA_ROOT/ENABLED_ZONES"
+  
+  if [[ -f "$ENABLED_ZONES_FILE" ]]; then
+    # Remove the zone from enabled zones file
+    local temp_file
+    temp_file=$(mktemp)
+    grep -v "^$ZONE$" "$ENABLED_ZONES_FILE" > "$temp_file" || true
+    
+    # If file is empty after removal, delete it
+    if [[ ! -s "$temp_file" ]]; then
+      rm -f "$ENABLED_ZONES_FILE"
+    else
+      mv "$temp_file" "$ENABLED_ZONES_FILE"
+    fi
+    
+    rm -f "$temp_file"
+  fi
 }
 
 zones_show_zone() {

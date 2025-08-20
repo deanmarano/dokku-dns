@@ -55,7 +55,8 @@
       "Bash(./debug_aws_mock.sh:*)",
       "Bash(gh pr view:*)",
       "Bash(dokku dns:zones:*)",
-      "Bash(dokku plugin:reload:*)"
+      "Bash(dokku plugin:reload:*)",
+      "Bash(printf:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

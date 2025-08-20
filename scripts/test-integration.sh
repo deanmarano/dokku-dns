@@ -210,8 +210,8 @@ test_dns_app_management() {
     # Test app-specific report
     assert_output_contains "App-specific report works" "Domain Analysis:" dokku dns:report "$TEST_APP"
     
-    # Test sync (will show AWS CLI not configured, which is expected)
-    assert_output_contains_ignore_exit "Sync shows expected message" "AWS CLI is not installed" dokku dns:sync "$TEST_APP"
+    # Test sync (should work with mock provider)
+    assert_output_contains "Sync shows expected message" "Syncing domains for app" dokku dns:sync "$TEST_APP"
     
     # Test removing app from DNS
     assert_output_contains "Can remove app from DNS" "removed from DNS" dokku dns:remove "$TEST_APP"
