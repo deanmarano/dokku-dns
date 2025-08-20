@@ -267,15 +267,9 @@ dns_add_app_domains() {
     done < "$APP_DOMAINS_FILE"
   fi
   
-  # Separate already-added domains from new domains and validate them
+  # Separate already-added domains from new domains
   for DOMAIN in "${DOMAINS[@]}"; do
     [[ -z "$DOMAIN" ]] && continue
-    
-    # Validate domain name
-    if ! is_valid_domain "$DOMAIN"; then
-      dokku_log_warn "Skipping invalid domain name: $DOMAIN"
-      continue
-    fi
     
     local IS_ALREADY_ADDED=false
     for ADDED_DOMAIN in "${ALREADY_ADDED_DOMAINS[@]}"; do
@@ -681,72 +675,3 @@ domain_points_to_server() {
   return 1
 }
 
-# Validate a domain name according to RFC 1123
-# Usage: is_valid_domain <domain>
-# Returns: 0 if domain is valid, 1 if invalid
-is_valid_domain() {
-  local DOMAIN="$1"
-  
-  # Basic checks
-  if [[ -z "$DOMAIN" ]]; then
-    return 1
-  fi
-  
-  # Check length (max 253 characters)
-  if [[ ${#DOMAIN} -gt 253 ]]; then
-    return 1
-  fi
-  
-  # Check for invalid characters - must contain only letters, numbers, dots, and hyphens
-  if [[ ! "$DOMAIN" =~ ^[a-zA-Z0-9.-]+$ ]]; then
-    return 1
-  fi
-  
-  # Cannot start or end with hyphen or dot
-  if [[ "$DOMAIN" =~ ^[-.]|[-.]$ ]]; then
-    return 1
-  fi
-  
-  # Cannot have consecutive dots
-  if [[ "$DOMAIN" =~ \.\. ]]; then
-    return 1
-  fi
-  
-  # Must contain at least one dot (not a bare hostname)
-  if [[ "$DOMAIN" != *.* ]]; then
-    return 1
-  fi
-  
-  # Each label must be 1-63 characters and cannot start/end with hyphen
-  local IFS='.'
-  local labels=($DOMAIN)
-  for label in "${labels[@]}"; do
-    if [[ ${#label} -eq 0 ]] || [[ ${#label} -gt 63 ]]; then
-      return 1
-    fi
-    if [[ "$label" =~ ^-|-$ ]]; then
-      return 1
-    fi
-    # Label must contain at least one letter or number (not just hyphens)
-    if [[ ! "$label" =~ [a-zA-Z0-9] ]]; then
-      return 1
-    fi
-  done
-  
-  return 0
-}
-
-# Validate a zone name (similar to domain but may be more permissive)
-# Usage: is_valid_zone <zone>
-# Returns: 0 if zone is valid, 1 if invalid
-is_valid_zone() {
-  local ZONE="$1"
-  
-  # Use domain validation as base
-  if ! is_valid_domain "$ZONE"; then
-    return 1
-  fi
-  
-  # Additional zone-specific validations could go here if needed
-  return 0
-}
