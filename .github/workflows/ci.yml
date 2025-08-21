@@ -71,7 +71,10 @@ jobs:
         if: failure()
         with:
           name: unit-test-results
-          path: test-results
+          path: |
+            *.log
+            tmp/test-results/
+          if-no-files-found: ignore
 
   docker-integration-tests:
     name: Docker Integration Tests

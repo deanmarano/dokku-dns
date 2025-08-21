@@ -147,48 +147,77 @@ run_bats_unit_tests() {
     fi
 }
 
+# Function to run BATS unit tests in background
+run_bats_unit_tests_background() {
+    local temp_file="$1"
+    
+    # Check if bats is available
+    if ! command -v bats >/dev/null 2>&1; then
+        echo "WARNING:BATS not found, skipping unit tests" > "$temp_file"
+        return 0
+    fi
+    
+    if make unit-tests >/dev/null 2>&1; then
+        echo "SUCCESS:BATS unit tests passed" > "$temp_file"
+    else
+        echo "ERROR:BATS unit tests failed" > "$temp_file"
+    fi
+}
+
 # Function to run Docker integration tests (fast)
 run_docker_integration_tests_fast() {
     log "INFO" "Running Docker integration tests..."
     
-    # Check if test containers are running, start them if not
-    local containers_running=false
-    if docker-compose -f tests/docker/docker-compose.yml ps | grep -q "Up"; then
-        containers_running=true
-        log "INFO" "Test containers already running"
+    # Always restart containers for clean state (prevent test contamination)
+    log "INFO" "Ensuring clean Docker test environment..."
+    docker-compose -f tests/docker/docker-compose.yml down --volumes >/dev/null 2>&1 || true
+    
+    log "INFO" "Starting fresh test containers..."
+    if docker-compose -f tests/docker/docker-compose.yml up -d >/dev/null 2>&1; then
+        log "INFO" "Test containers started"
+        # Wait a moment for containers to be ready
+        sleep 2
     else
-        log "INFO" "Starting test containers..."
-        if docker-compose -f tests/docker/docker-compose.yml up -d >/dev/null 2>&1; then
-            log "INFO" "Test containers started"
-            # Wait a moment for containers to be ready
-            sleep 2
-        else
-            log "ERROR" "Failed to start test containers"
-            return 1
-        fi
+        log "ERROR" "Failed to start test containers"
+        return 1
     fi
     
     # Run the tests and capture output
     if make docker-test 2>&1; then
         log "SUCCESS" "Docker integration tests passed"
         
-        # Clean up containers if we started them
-        if [[ "$containers_running" == "false" ]]; then
-            log "INFO" "Cleaning up test containers..."
-            docker-compose -f tests/docker/docker-compose.yml down >/dev/null 2>&1 || true
-        fi
+        # Clean up containers after tests
+        log "INFO" "Cleaning up test containers..."
+        docker-compose -f tests/docker/docker-compose.yml down --volumes >/dev/null 2>&1 || true
         
         return 0
     else
         log "ERROR" "Docker integration tests failed"
         
-        # Clean up containers if we started them
-        if [[ "$containers_running" == "false" ]]; then
-            log "INFO" "Cleaning up test containers..."
-            docker-compose -f tests/docker/docker-compose.yml down >/dev/null 2>&1 || true
-        fi
+        # Clean up containers after failed tests
+        log "INFO" "Cleaning up test containers..."
+        docker-compose -f tests/docker/docker-compose.yml down --volumes >/dev/null 2>&1 || true
         
         return 1
+    fi
+}
+
+# Function to run Docker integration tests in background
+run_docker_integration_tests_background() {
+    local temp_file="$1"
+    
+    # Ensure clean Docker test environment (prevent test contamination)
+    docker-compose -f tests/docker/docker-compose.yml down --volumes >/dev/null 2>&1 || true
+    
+    # Run the tests using the same approach as make docker-test
+    if ./tests/integration/docker-orchestrator.sh --direct >/dev/null 2>&1; then
+        echo "SUCCESS:Docker integration tests passed" > "$temp_file"
+        # Clean up after successful tests
+        docker-compose -f tests/docker/docker-compose.yml down --volumes >/dev/null 2>&1 || true
+    else
+        echo "ERROR:Docker integration tests failed" > "$temp_file"
+        # Clean up after failed tests
+        docker-compose -f tests/docker/docker-compose.yml down --volumes >/dev/null 2>&1 || true
     fi
 }
 
@@ -200,6 +229,93 @@ run_docker_integration_tests_full() {
         return 0
     else
         log "ERROR" "Full Docker integration tests failed"
+        return 1
+    fi
+}
+
+# Function to run BATS and Docker tests in parallel
+run_tests_parallel() {
+    log "INFO" "Running BATS unit tests and Docker integration tests in parallel..."
+    
+    # Create temporary files for test results
+    local bats_result_file
+    local docker_result_file
+    bats_result_file=$(mktemp)
+    docker_result_file=$(mktemp)
+    
+    # Start both test suites in background
+    run_bats_unit_tests_background "$bats_result_file" &
+    local bats_pid=$!
+    
+    run_docker_integration_tests_background "$docker_result_file" &
+    local docker_pid=$!
+    
+    # Wait for both to complete
+    local bats_exit_code=0
+    local docker_exit_code=0
+    
+    # Show progress while waiting
+    local dots=0
+    while kill -0 "$bats_pid" 2>/dev/null || kill -0 "$docker_pid" 2>/dev/null; do
+        printf "."
+        sleep 1
+        dots=$((dots + 1))
+        if [[ $dots -gt 60 ]]; then
+            echo ""
+            log "INFO" "Tests still running... (this may take a few minutes)"
+            dots=0
+        fi
+    done
+    echo ""
+    
+    # Wait for processes to complete and get exit codes
+    wait "$bats_pid" || bats_exit_code=$?
+    wait "$docker_pid" || docker_exit_code=$?
+    
+    # Read results from temp files
+    local bats_result=""
+    local docker_result=""
+    
+    if [[ -f "$bats_result_file" ]]; then
+        bats_result=$(cat "$bats_result_file")
+        rm -f "$bats_result_file"
+    fi
+    
+    if [[ -f "$docker_result_file" ]]; then
+        docker_result=$(cat "$docker_result_file")
+        rm -f "$docker_result_file"
+    fi
+    
+    # Parse and display results
+    local overall_success=true
+    
+    # Handle BATS results
+    if [[ "$bats_result" == SUCCESS:* ]]; then
+        log "SUCCESS" "${bats_result#SUCCESS:}"
+    elif [[ "$bats_result" == WARNING:* ]]; then
+        log "WARNING" "${bats_result#WARNING:}"
+    elif [[ "$bats_result" == ERROR:* ]]; then
+        log "ERROR" "${bats_result#ERROR:}"
+        overall_success=false
+    else
+        log "ERROR" "BATS tests failed to complete properly"
+        overall_success=false
+    fi
+    
+    # Handle Docker results
+    if [[ "$docker_result" == SUCCESS:* ]]; then
+        log "SUCCESS" "${docker_result#SUCCESS:}"
+    elif [[ "$docker_result" == ERROR:* ]]; then
+        log "ERROR" "${docker_result#ERROR:}"
+        overall_success=false
+    else
+        log "ERROR" "Docker tests failed to complete properly"
+        overall_success=false
+    fi
+    
+    if [[ "$overall_success" == "true" ]]; then
+        return 0
+    else
         return 1
     fi
 }
@@ -239,69 +355,88 @@ if ! run_readme_check; then
     exit 1
 fi
 
-# Run BATS unit tests for code changes
+# Run tests for code changes
 if [[ "$CODE_CHANGES" == "true" ]]; then
-    if ! run_bats_unit_tests; then
-        log "ERROR" "Pre-commit failed due to BATS unit test failures"
-        echo ""
-        echo "To fix unit test issues, run: make unit-tests"
-        echo "To skip unit tests temporarily: SKIP_TESTS=1 git commit"
-        exit 1
+    # Check if Docker is available for parallel testing
+    if command -v docker >/dev/null 2>&1 && [[ "${RUN_DOCKER_TESTS:-1}" == "1" ]]; then
+        # Check and manage Docker state
+        DOCKER_WAS_RUNNING=$(check_docker_state)
+        DOCKER_STATE_EXIT_CODE=$?
+        
+        if [[ $DOCKER_STATE_EXIT_CODE -ne 0 ]]; then
+            log "ERROR" "Failed to start Docker"
+            exit 1
+        fi
+        
+        # Set up trap to restore Docker state on exit
+        trap 'restore_docker_state "$DOCKER_WAS_RUNNING"' EXIT
+        
+        # Check for full integration tests first
+        if [[ "${RUN_FULL_TESTS:-}" == "1" ]]; then
+            log "INFO" "Running full Docker integration tests (RUN_FULL_TESTS=1)..."
+            if ! run_docker_integration_tests_full; then
+                log "ERROR" "Pre-commit failed due to full integration test failures"
+                echo ""
+                echo "To skip full tests: unset RUN_FULL_TESTS"
+                echo "To skip all tests: SKIP_TESTS=1 git commit"
+                exit 1
+            fi
+            
+            # Also run BATS tests separately for full tests
+            if ! run_bats_unit_tests; then
+                log "ERROR" "Pre-commit failed due to BATS unit test failures"
+                echo ""
+                echo "To fix unit test issues, run: make unit-tests"
+                echo "To skip unit tests temporarily: SKIP_TESTS=1 git commit"
+                exit 1
+            fi
+        else
+            # Run BATS and Docker tests in parallel (default)
+            if ! run_tests_parallel; then
+                log "ERROR" "Pre-commit failed due to test failures"
+                echo ""
+                echo "To fix unit test issues, run: make unit-tests"
+                echo "To fix Docker test issues, run: make docker-test"
+                echo "To skip Docker tests: RUN_DOCKER_TESTS=0 git commit"
+                echo "To skip all tests: SKIP_TESTS=1 git commit"
+                exit 1
+            fi
+        fi
+    else
+        # Docker not available or disabled, run only BATS tests
+        if [[ "${RUN_DOCKER_TESTS:-1}" == "0" ]]; then
+            log "INFO" "Docker tests disabled (RUN_DOCKER_TESTS=0)"
+        else
+            log "WARNING" "Docker not available, running BATS tests only"
+        fi
+        
+        if ! run_bats_unit_tests; then
+            log "ERROR" "Pre-commit failed due to BATS unit test failures"
+            echo ""
+            echo "To fix unit test issues, run: make unit-tests"
+            echo "To skip unit tests temporarily: SKIP_TESTS=1 git commit"
+            exit 1
+        fi
     fi
 else
-    log "INFO" "Documentation-only change detected, skipping BATS unit tests"
-fi
-
-# Check if Docker is available and user wants Docker tests
-if command -v docker >/dev/null 2>&1 && [[ "$CODE_CHANGES" == "true" ]]; then
-    # Check and manage Docker state
-    DOCKER_WAS_RUNNING=$(check_docker_state)
-    DOCKER_STATE_EXIT_CODE=$?
-    
-    if [[ $DOCKER_STATE_EXIT_CODE -ne 0 ]]; then
-        log "ERROR" "Failed to start Docker"
-        exit 1
-    fi
-    
-    # Set up trap to restore Docker state on exit
-    trap 'restore_docker_state "$DOCKER_WAS_RUNNING"' EXIT
-    
-    # Default to fast integration tests, allow full integration tests with RUN_FULL_TESTS=1
-    if [[ "${RUN_FULL_TESTS:-}" == "1" ]]; then
-        log "INFO" "Running full Docker integration tests (RUN_FULL_TESTS=1)..."
-        if ! run_docker_integration_tests_full; then
-            log "ERROR" "Pre-commit failed due to full integration test failures"
-            echo ""
-            echo "To skip full tests: unset RUN_FULL_TESTS"
-            echo "To skip all tests: SKIP_TESTS=1 git commit"
-            exit 1
-        fi
-    elif [[ "${RUN_DOCKER_TESTS:-1}" == "1" ]]; then
-        log "INFO" "Running Docker integration tests..."
-        if ! run_docker_integration_tests_fast; then
-            log "ERROR" "Pre-commit failed due to integration test failures"
-            echo ""
-            echo "To skip Docker tests: RUN_DOCKER_TESTS=0 git commit"
-            echo "To skip all tests: SKIP_TESTS=1 git commit"
-            exit 1
-        fi
-    fi
-elif [[ "$CODE_CHANGES" == "true" ]]; then
-    log "WARNING" "Docker not available, skipping Docker tests"
+    log "INFO" "Documentation-only change detected, skipping tests"
 fi
 
 log "SUCCESS" "All pre-commit checks passed!"
 echo ""
 echo "💡 Tips:"
-echo "   • BATS unit tests run by default (catches output changes quickly)"
-echo "   • Docker tests run by default (includes BATS integration tests)"
+echo "   • BATS unit tests and Docker integration tests run in parallel by default"
+echo "   • Docker containers are rebuilt each time to prevent test contamination"
+echo "   • This ensures reliable, clean test runs while maintaining reasonable speed"
 echo "   • README generation is checked automatically"
-echo "   • For full integration tests: RUN_FULL_TESTS=1 git commit"
-echo "   • To skip Docker tests: RUN_DOCKER_TESTS=0 git commit"
-echo "   • To skip all tests: SKIP_TESTS=1 git commit"
+echo "   • Environment variables:"
+echo "     - RUN_FULL_TESTS=1 git commit       # Full integration tests (sequential)"
+echo "     - RUN_DOCKER_TESTS=0 git commit     # Skip Docker tests (BATS only)"
+echo "     - SKIP_TESTS=1 git commit           # Skip all tests"
 echo "   • Manual testing:"
-echo "     - make lint                    # Linting only"
-echo "     - bats tests/dns_add.bats     # Local tests (catches output changes quickly)"
-echo "     - make generate                # Update README"
-echo "     - make docker-test            # Integration tests (includes BATS)"
-echo "     - scripts/test-docker.sh --build    # Full integration tests"
+echo "     - make lint                          # Linting only"
+echo "     - bats tests/dns_add.bats           # Individual unit tests"
+echo "     - make unit-tests                    # All BATS unit tests"
+echo "     - make generate                      # Update README"
+echo "     - make docker-test                   # Docker integration tests"
+echo "     - scripts/test-docker.sh --build    # Full Docker integration tests"

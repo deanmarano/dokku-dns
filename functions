@@ -74,6 +74,95 @@ is_app_dns_managed() {
   fi
 }
 
+# Zone management functions
+zones_set_enabled() {
+  local ZONE="$1"
+  local ENABLED_ZONES_FILE="$PLUGIN_DATA_ROOT/ENABLED_ZONES"
+  
+  mkdir -p "$PLUGIN_DATA_ROOT"
+  
+  # Add zone to enabled zones if not already present
+  if [[ ! -f "$ENABLED_ZONES_FILE" ]] || ! grep -q "^$ZONE$" "$ENABLED_ZONES_FILE"; then
+    echo "$ZONE" >> "$ENABLED_ZONES_FILE"
+  fi
+}
+
+zones_set_disabled() {
+  local ZONE="$1"
+  local ENABLED_ZONES_FILE="$PLUGIN_DATA_ROOT/ENABLED_ZONES"
+  
+  if [[ -f "$ENABLED_ZONES_FILE" ]]; then
+    # Remove the zone from enabled zones file
+    local temp_file
+    temp_file=$(mktemp)
+    grep -v "^$ZONE$" "$ENABLED_ZONES_FILE" > "$temp_file" || true
+    
+    # If file is empty after removal, delete it
+    if [[ ! -s "$temp_file" ]]; then
+      rm -f "$ENABLED_ZONES_FILE"
+    else
+      mv "$temp_file" "$ENABLED_ZONES_FILE"
+    fi
+    
+    rm -f "$temp_file"
+  fi
+}
+
+# Check if a domain is in an enabled hosted zone
+# Usage: is_domain_in_enabled_zone <domain>
+# Returns: 0 if domain is in enabled zone, 1 if not
+is_domain_in_enabled_zone() {
+  local DOMAIN="$1"
+  local ENABLED_ZONES_FILE="$PLUGIN_DATA_ROOT/ENABLED_ZONES"
+  
+  # If no enabled zones file exists, return false (no zones enabled)
+  if [[ ! -f "$ENABLED_ZONES_FILE" ]]; then
+    return 1
+  fi
+  
+  # If file exists but is empty, no zones are enabled
+  if [[ ! -s "$ENABLED_ZONES_FILE" ]]; then
+    return 1
+  fi
+  
+  # Check if domain matches any enabled zone
+  while IFS= read -r zone; do
+    [[ -z "$zone" ]] && continue
+    
+    # Check if domain matches this zone exactly or is a subdomain
+    if [[ "$DOMAIN" == "$zone" ]] || [[ "$DOMAIN" == *".$zone" ]]; then
+      return 0  # Domain is in an enabled zone
+    fi
+  done < "$ENABLED_ZONES_FILE"
+  
+  return 1  # Domain not in any enabled zone
+}
+
+# Get list of enabled zones
+# Usage: get_enabled_zones
+# Returns: newline-separated list of enabled zone names
+get_enabled_zones() {
+  local ENABLED_ZONES_FILE="$PLUGIN_DATA_ROOT/ENABLED_ZONES"
+  
+  if [[ -f "$ENABLED_ZONES_FILE" ]]; then
+    cat "$ENABLED_ZONES_FILE" 2>/dev/null || echo ""
+  fi
+}
+
+# Check if a zone is enabled
+# Usage: is_zone_enabled <zone>
+# Returns: 0 if zone is enabled, 1 if not
+is_zone_enabled() {
+  local ZONE="$1"
+  local ENABLED_ZONES_FILE="$PLUGIN_DATA_ROOT/ENABLED_ZONES"
+  
+  if [[ -f "$ENABLED_ZONES_FILE" ]] && grep -q "^$ZONE$" "$ENABLED_ZONES_FILE" 2>/dev/null; then
+    return 0
+  else
+    return 1
+  fi
+}
+
 # Configure global DNS provider (internal function)
 # Usage: dns_configure_global <provider>
 # Note: This is an internal function, use dns:configure command instead
@@ -99,6 +188,37 @@ dns_configure_global() {
   
   dokku_log_info2 "DNS configured globally with provider: $PROVIDER"
   dokku_log_info1 "Next step: dokku $PLUGIN_COMMAND_PREFIX:verify"
+}
+
+dns_get_record_ip() {
+  local DOMAIN="$1"
+  local PROVIDER="$2"
+  
+  # Try provider-specific DNS checking first (bypasses DNS caching)
+  if [[ "$PROVIDER" == "aws" ]]; then
+    local PROVIDER_SCRIPT
+    PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/aws"
+    if [[ -f "$PROVIDER_SCRIPT" ]]; then
+      source "$PROVIDER_SCRIPT"
+      if declare -f "dns_provider_aws_get_record_ip" >/dev/null 2>&1; then
+        local provider_ip
+        if provider_ip=$(dns_provider_aws_get_record_ip "$DOMAIN") && [[ -n "$provider_ip" ]]; then
+          echo "$provider_ip"
+          return 0
+        fi
+      fi
+    fi
+  fi
+  
+  # Fallback to DNS resolution (may be cached)
+  local current_ip
+  current_ip=$(dig +short "$DOMAIN" A 2>/dev/null | tail -n1 || echo "")
+  if [[ -n "$current_ip" ]]; then
+    echo "$current_ip"
+    return 0
+  fi
+  
+  return 1
 }
 
 dns_get_server_ip() {
@@ -439,17 +559,19 @@ dns_display_domains_table() {
     
     # Check provider status
     local CREDENTIALS_DIR="$GLOBAL_CONFIG_ROOT/credentials"
-    if [[ "$PROVIDER" != "None" ]] && [[ -d "$CREDENTIALS_DIR" ]]; then
+    if [[ "$PROVIDER" != "None" ]]; then
       case "$PROVIDER" in
         aws)
-          if [[ -f "$CREDENTIALS_DIR/AWS_ACCESS_KEY_ID" ]] || aws sts get-caller-identity >/dev/null 2>&1; then
+          if [[ -d "$CREDENTIALS_DIR" ]] && [[ -f "$CREDENTIALS_DIR/AWS_ACCESS_KEY_ID" ]]; then
+            SYNC_STATUS="Ready"
+          elif aws sts get-caller-identity >/dev/null 2>&1; then
             SYNC_STATUS="Ready"
           else
             SYNC_STATUS="Missing auth"
           fi
           ;;
         cloudflare)
-          if [[ -f "$CREDENTIALS_DIR/CLOUDFLARE_API_TOKEN" ]]; then
+          if [[ -d "$CREDENTIALS_DIR" ]] && [[ -f "$CREDENTIALS_DIR/CLOUDFLARE_API_TOKEN" ]]; then
             SYNC_STATUS="Ready"
           else
             SYNC_STATUS="Missing auth"
@@ -459,6 +581,8 @@ dns_display_domains_table() {
           SYNC_STATUS="Unknown provider"
           ;;
       esac
+    else
+      SYNC_STATUS="Missing auth"
     fi
   fi
   
@@ -476,15 +600,15 @@ dns_display_domains_table() {
   
   echo
   dokku_log_info2 "Domain Status Table for app '$APP':"
-  printf "%-30s %-8s %-15s %-15s %s\n" "Domain" "Status" "Enabled" "Provider" "Hosted Zone"
-  printf "%-30s %-8s %-15s %-15s %s\n" "------" "------" "-------" "--------" "-----------"
+  printf "%-30s %-8s %-15s %-15s %s\n" "Domain" "Status" "Enabled" "Provider" "Zone (Enabled)"
+  printf "%-30s %-8s %-15s %-15s %s\n" "------" "------" "-------" "--------" "---------------"
   
   for DOMAIN in "${DOMAINS[@]}"; do
     [[ -z "$DOMAIN" ]] && continue
     
-    # Get current DNS resolution
+    # Get current DNS resolution (using provider-specific checking if available)
     local CURRENT_IP
-    CURRENT_IP=$(dig +short "$DOMAIN" A 2>/dev/null | tail -n1 || echo "")
+    CURRENT_IP=$(dns_get_record_ip "$DOMAIN" "$PROVIDER" || echo "")
     
     # Determine DNS status emoji
     local DNS_EMOJI="❌"
@@ -506,24 +630,38 @@ dns_display_domains_table() {
           # Get the zone name from AWS
           local ZONE_NAME
           ZONE_NAME=$(aws route53 get-hosted-zone --id "$ZONE_ID" --query 'HostedZone.Name' --output text 2>/dev/null | sed 's/\.$//g' || echo "$ZONE_ID")
-          HOSTED_ZONE="$ZONE_NAME"
+          # Check if this zone is enabled
+          if is_zone_enabled "$ZONE_NAME"; then
+            HOSTED_ZONE="$ZONE_NAME ✅"
+          else
+            HOSTED_ZONE="$ZONE_NAME ❌"
+          fi
         else
           HOSTED_ZONE="Not found"
         fi
       fi
     fi
     
-    # Check if domain is enabled - only enable if hosted zone is found
+    # Check if domain is enabled based on zone enablement
     local ENABLED_STATUS="No"
     if [[ "$PROVIDER" == "aws" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
       if [[ -n "$ZONE_ID" ]]; then
-        ENABLED_STATUS="Yes"
+        # Check if the zone is enabled
+        if is_domain_in_enabled_zone "$DOMAIN"; then
+          ENABLED_STATUS="Yes"
+        else
+          ENABLED_STATUS="No (zone disabled)"
+        fi
       else
         ENABLED_STATUS="No (no hosted zone)"
       fi
     elif [[ "$PROVIDER" != "None" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
-      # For other providers, default to enabled (they can implement their own logic)
-      ENABLED_STATUS="Yes"
+      # For other providers, check enabled zones
+      if is_domain_in_enabled_zone "$DOMAIN"; then
+        ENABLED_STATUS="Yes"
+      else
+        ENABLED_STATUS="No (zone disabled)"
+      fi
     else
       ENABLED_STATUS="No (provider not ready)"
     fi
@@ -605,3 +743,4 @@ domain_points_to_server() {
   
   return 1
 }
+

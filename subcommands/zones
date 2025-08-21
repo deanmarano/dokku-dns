@@ -28,18 +28,14 @@ fi
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
 
 service-zones-cmd() {
-  #E manage DNS zones for hosted domain management
-  #E dokku $PLUGIN_COMMAND_PREFIX:zones [<zone>] [--enable [<zone>]] [--disable [<zone>]] [--all]
-  #E without flags: displays all available DNS zones and their management status
+  #E list DNS zones and their auto-discovery status
+  #E dokku $PLUGIN_COMMAND_PREFIX:zones [<zone>]
+  #E without arguments: displays all available DNS zones and their auto-discovery status
   #E <zone>: show detailed information about a specific zone
-  #E --enable [<zone>]: enable DNS management for domains in the specified zone (or all zones with --all)
-  #E --disable [<zone>]: disable DNS management for domains in the specified zone (or all zones with --all)
-  #E --all: modify --enable/--disable to affect all zones
+  #E use 'dokku $PLUGIN_COMMAND_PREFIX:zones:add' to enable auto-discovery for zones
+  #E use 'dokku $PLUGIN_COMMAND_PREFIX:zones:remove' to disable auto-discovery for zones
   #A zone, zone name to show detailed information for (optional)
-  #F --enable, enable DNS management for domains in a zone
-  #F --disable, disable DNS management for domains in a zone
-  #F --all, modify --enable/--disable to affect all zones
-  declare desc="manage DNS zones for hosted domain management"
+  declare desc="list DNS zones and their auto-discovery status"
   local cmd="$PLUGIN_COMMAND_PREFIX:zones" argv=("$@")
   
   # Handle Dokku command routing - first argument will be the command name
@@ -47,100 +43,31 @@ service-zones-cmd() {
     shift 1
   fi
   
-  declare ZONE="$1"
+  declare ZONE=""
   
-  # Parse arguments
-  local enable_zone=""
-  local disable_zone=""
-  local all_zones=false
-  local show_zone=""
-  local action=""
-  
-  # Check if first argument is a zone name (no dashes) or a flag
-  if [[ -n "$1" && "$1" != --* ]]; then
-    show_zone="$1"
-    shift 1
-  fi
-  
+  # Check for any flags (which are no longer supported)
   while [[ $# -gt 0 ]]; do
     case $1 in
-      --enable)
-        if [[ "$action" == "disable" ]]; then
-          dokku_log_fail "Cannot use both --enable and --disable flags together"
-        fi
-        action="enable"
-        # Check if next argument is a zone name (not a flag)
-        if [[ -n "$2" && "$2" != --* ]]; then
-          enable_zone="$2"
-          shift 2
-        else
-          shift 1
-        fi
-        ;;
-      --disable)
-        if [[ "$action" == "enable" ]]; then
-          dokku_log_fail "Cannot use both --enable and --disable flags together"
-        fi
-        action="disable"
-        # Check if next argument is a zone name (not a flag)
-        if [[ -n "$2" && "$2" != --* ]]; then
-          disable_zone="$2"
-          shift 2
-        else
-          shift 1
-        fi
-        ;;
-      --all)
-        all_zones=true
-        shift
+      --*)
+        dokku_log_fail "Flags are no longer supported. Use 'dokku $PLUGIN_COMMAND_PREFIX:zones:add' or 'dokku $PLUGIN_COMMAND_PREFIX:zones:remove' instead."
         ;;
       *)
-        dokku_log_fail "Unknown option: $1. Use <zone>, --enable [<zone>], --disable [<zone>], --all, or no flags for status."
+        if [[ -z "$ZONE" ]]; then
+          ZONE="$1"
+        else
+          dokku_log_fail "Unknown option: $1. Use <zone> or no arguments for status listing."
+        fi
+        shift
         ;;
     esac
   done
   
-  # Validate flag combinations
-  if [[ -n "$show_zone" && -n "$action" ]]; then
-    dokku_log_fail "Cannot specify zone name and action flags together. Use either <zone> or --enable/--disable."
-  fi
-  
-  if [[ "$action" == "enable" && -z "$enable_zone" && "$all_zones" == "false" ]]; then
-    dokku_log_fail "--enable requires either a zone name or --all flag"
-  fi
-  
-  if [[ "$action" == "disable" && -z "$disable_zone" && "$all_zones" == "false" ]]; then
-    dokku_log_fail "--disable requires either a zone name or --all flag"
-  fi
-  
-  # --all by itself is equivalent to no flags (show all zones status)
-  if [[ "$all_zones" == "true" && -z "$action" ]]; then
-    zones_list_status
-    return $?
-  fi
-  
   # Execute actions
-  if [[ -n "$show_zone" ]]; then
-    zones_show_zone "$show_zone"
-    return $?
-  elif [[ "$action" == "enable" ]]; then
-    if [[ "$all_zones" == "true" ]]; then
-      zones_enable_all
-    else
-      zones_enable_zone "$enable_zone"
-    fi
-    return $?
-  elif [[ "$action" == "disable" ]]; then
-    if [[ "$all_zones" == "true" ]]; then
-      zones_disable_all
-    else
-      zones_disable_zone "$disable_zone"
-    fi
-    return $?
+  if [[ -n "$ZONE" ]]; then
+    zones_show_zone "$ZONE"
+  else
+    zones_list_status
   fi
-  
-  # Default: show zones status
-  zones_list_status
 }
 
 zones_list_status() {
@@ -243,13 +170,19 @@ zones_list_aws_zones() {
       done
     fi
     
+    # Check if zone is enabled
+    local zone_enabled_status="❌ DISABLED"
+    if is_zone_enabled "$zone_name"; then
+      zone_enabled_status="✅ ENABLED"
+    fi
+    
     # Display zone info
     echo
     if [[ $managed_in_zone -gt 0 ]]; then
-      dokku_log_info1 "✅ $zone_name ($zone_id) - ACTIVE"
+      dokku_log_info1 "$zone_enabled_status $zone_name ($zone_id) - ACTIVE"
       dokku_log_info1 "   Managed domains ($managed_in_zone): $zone_domains"
     else
-      dokku_log_info1 "⭕ $zone_name ($zone_id) - available"
+      dokku_log_info1 "$zone_enabled_status $zone_name ($zone_id) - available"
     fi
     dokku_log_info1 "   Records: $record_count"
     if [[ -n "$comment" ]] && [[ "$comment" != "null" ]]; then
@@ -260,506 +193,16 @@ zones_list_aws_zones() {
   # Show summary and management commands
   echo
   dokku_log_info2 "Management Commands"
-  dokku_log_info1 "• Enable zone: dokku $PLUGIN_COMMAND_PREFIX:zones --enable <zone-name>"
-  dokku_log_info1 "• Disable zone: dokku $PLUGIN_COMMAND_PREFIX:zones --disable <zone-name>"
-  dokku_log_info1 "• Enable all zones: dokku $PLUGIN_COMMAND_PREFIX:zones --enable --all"
-  dokku_log_info1 "• Disable all zones: dokku $PLUGIN_COMMAND_PREFIX:zones --disable --all"
-  dokku_log_info1 "• Show zone details: dokku $PLUGIN_COMMAND_PREFIX:report"
+  dokku_log_info1 "• Add zone to auto-discovery: dokku $PLUGIN_COMMAND_PREFIX:zones:add <zone-name>"
+  dokku_log_info1 "• Remove zone from auto-discovery: dokku $PLUGIN_COMMAND_PREFIX:zones:remove <zone-name>"
+  dokku_log_info1 "• Add all zones to auto-discovery: dokku $PLUGIN_COMMAND_PREFIX:zones:add --all"
+  dokku_log_info1 "• Remove all zones from auto-discovery: dokku $PLUGIN_COMMAND_PREFIX:zones:remove --all"
+  dokku_log_info1 "• Show zone details: dokku $PLUGIN_COMMAND_PREFIX:zones <zone-name>"
 }
 
 zones_list_cloudflare_zones() {
   dokku_log_warn "Cloudflare zones management not yet implemented"
   dokku_log_info1 "Use AWS Route53 provider for full zones support"
-}
-
-zones_enable_zone() {
-  local ZONE="$1"
-  
-  # Check if DNS provider is configured
-  local PROVIDER_FILE="$PLUGIN_DATA_ROOT/PROVIDER"
-  if [[ ! -f "$PROVIDER_FILE" ]]; then
-    dokku_log_fail "No DNS provider configured. Run: dokku $PLUGIN_COMMAND_PREFIX:configure [provider]"
-  fi
-  
-  local PROVIDER
-  PROVIDER=$(cat "$PROVIDER_FILE")
-  
-  if [[ "$PROVIDER" != "aws" ]]; then
-    dokku_log_fail "Zone management is currently only supported for AWS Route53 provider"
-  fi
-  
-  # Validate AWS dependencies
-  if ! command -v aws >/dev/null 2>&1; then
-    dokku_log_fail "AWS CLI is not installed. Please install aws-cli to use AWS Route53 provider."
-  fi
-  
-  
-  if ! aws sts get-caller-identity >/dev/null 2>&1; then
-    dokku_log_fail "AWS CLI is not configured or credentials are invalid."
-  fi
-  
-  dokku_log_info2 "Enabling DNS management for zone: $ZONE"
-  
-  # Get zone ID
-  local ZONE_ID
-  ZONE_ID=$(aws route53 list-hosted-zones --query "HostedZones[?Name=='${ZONE}.'].Id" --output text 2>/dev/null | sed 's|/hostedzone/||')
-  
-  if [[ -z "$ZONE_ID" ]] || [[ "$ZONE_ID" == "None" ]]; then
-    dokku_log_fail "Zone '$ZONE' not found in Route53. Available zones:"
-    aws route53 list-hosted-zones --query 'HostedZones[].Name' --output text 2>/dev/null | sed 's/\.$//g' | while read -r zone; do
-      echo "  • $zone"
-    done
-    return 1
-  fi
-  
-  # Get all A records in the zone that could be Dokku domains
-  dokku_log_info1 "Discovering domains in zone..."
-  local A_RECORDS
-  A_RECORDS=$(aws route53 list-resource-record-sets \
-    --hosted-zone-id "$ZONE_ID" \
-    --query "ResourceRecordSets[?Type==\`A\`].Name" \
-    --output text 2>/dev/null | tr '\t ' '\n' | grep -v '^$')
-  
-  if [[ -z "$A_RECORDS" ]]; then
-    dokku_log_warn "No A records found in zone '$ZONE'"
-    return 0
-  fi
-  
-  # Get all existing Dokku apps to check which domains can be added
-  local APPS_LIST
-  APPS_LIST=$(dokku apps:list 2>/dev/null | grep -v "====>" || echo "")
-  
-  if [[ -z "$APPS_LIST" ]]; then
-    dokku_log_warn "No Dokku apps found. Create an app first: dokku apps:create <app-name>"
-    return 0
-  fi
-  
-  local domains_added=0
-  local domains_skipped=0
-  local system_domains=()
-  local orphaned_domains=()
-  local added_domains=()
-  local incorrect_ip_domains=()
-  
-  # Get server IP for checking
-  local SERVER_IP
-  SERVER_IP=$(get_server_ip)
-  
-  if [[ -z "$SERVER_IP" ]] || [[ "$SERVER_IP" == "Unknown" ]]; then
-    dokku_log_fail "Cannot detect server IP address. Please ensure either:
-1. Global domains are configured: dokku domains:add-global <domain>
-2. External IP services are accessible (ifconfig.me, ipecho.net, icanhazip.com)
-3. dig command is available for DNS resolution"
-  fi
-  
-  dokku_log_info1 "Server IP: $SERVER_IP"
-  
-  # Process each A record
-  while IFS= read -r domain_with_dot; do
-    [[ -z "$domain_with_dot" ]] && continue
-    local domain="${domain_with_dot%.}"  # Remove trailing dot
-    
-    # Skip root domain records and common subdomains that aren't typically apps
-    if [[ "$domain" == "$ZONE" ]] || [[ "$domain" == "www.$ZONE" ]] || [[ "$domain" == "mail.$ZONE" ]] || [[ "$domain" == "ftp.$ZONE" ]]; then
-      system_domains+=("$domain")
-      domains_skipped=$((domains_skipped + 1))
-      continue
-    fi
-    
-    # Find a matching app or ask user to specify
-    local matching_app=""
-    while IFS= read -r app; do
-      [[ -z "$app" ]] && continue
-      # Check if domain is already configured for this app
-      local app_domains
-      app_domains=$(dokku domains:report "$app" --domains-app-vhosts 2>/dev/null || echo "")
-      if [[ "$app_domains" == *"$domain"* ]]; then
-        matching_app="$app"
-        break
-      fi
-    done <<< "$APPS_LIST"
-    
-    if [[ -n "$matching_app" ]]; then
-      # Check if domain points to the correct server IP before adding
-      if domain_points_to_server "$domain"; then
-        # Safe to add - domain points to this server
-        if zones_add_domain_to_dns "$matching_app" "$domain"; then
-          added_domains+=("$matching_app: $domain")
-          domains_added=$((domains_added + 1))
-        else
-          domains_skipped=$((domains_skipped + 1))
-        fi
-      else
-        # Domain has incorrect IP - don't add automatically
-        incorrect_ip_domains+=("$matching_app: $domain")
-        domains_skipped=$((domains_skipped + 1))
-      fi
-    else
-      orphaned_domains+=("$domain")
-      domains_skipped=$((domains_skipped + 1))
-    fi
-  done <<< "$A_RECORDS"
-  
-  # Show organized results
-  if [[ ${#added_domains[@]} -gt 0 ]]; then
-    echo
-    dokku_log_info1 "Added to DNS management:"
-    for domain_info in "${added_domains[@]}"; do
-      local app="${domain_info%%:*}"
-      local domain="${domain_info#*: }"
-      dokku_log_info1 "• $app: $domain"
-    done
-  fi
-  
-  if [[ ${#incorrect_ip_domains[@]} -gt 0 ]]; then
-    echo
-    dokku_log_warn "Skipped (incorrect IP - not pointing to server):"
-    for domain_info in "${incorrect_ip_domains[@]}"; do
-      local app="${domain_info%%:*}"
-      local domain="${domain_info#*: }"
-      local current_ip
-      current_ip=$(dig +short "$domain" A 2>/dev/null | tail -n1 || echo "unknown")
-      dokku_log_info1 "• $domain → $current_ip (expected: $SERVER_IP)"
-    done
-    echo
-    dokku_log_info2 "To add these domains after fixing their DNS records:"
-    for domain_info in "${incorrect_ip_domains[@]}"; do
-      local app="${domain_info%%:*}"
-      local domain="${domain_info#*: }"
-      dokku_log_info1 "dokku $PLUGIN_COMMAND_PREFIX:add $app $domain"
-    done
-  fi
-  
-  if [[ ${#orphaned_domains[@]} -gt 0 ]]; then
-    echo
-    dokku_log_info1 "Skipped (no matching Dokku app):"
-    for domain in "${orphaned_domains[@]}"; do
-      dokku_log_info1 "• $domain"
-    done
-  fi
-  
-  if [[ ${#system_domains[@]} -gt 0 ]]; then
-    echo
-    dokku_log_info1 "Skipped (system domains):"
-    for domain in "${system_domains[@]}"; do
-      dokku_log_info1 "• $domain"
-    done
-  fi
-  
-  echo
-  dokku_log_info2 "Zone enablement complete"
-  
-  # Create intelligent summary
-  local summary_msg="Added $domains_added"
-  [[ $domains_added -eq 1 ]] && summary_msg="$summary_msg domain" || summary_msg="$summary_msg domains"
-  summary_msg="$summary_msg to DNS management"
-  
-  if [[ $domains_skipped -gt 0 ]]; then
-    summary_msg="$summary_msg, skipped $domains_skipped"
-    [[ $domains_skipped -eq 1 ]] && summary_msg="$summary_msg domain" || summary_msg="$summary_msg domains"
-    
-    # Add breakdown of skipped domains
-    local skip_details=""
-    local skip_parts=()
-    
-    if [[ ${#incorrect_ip_domains[@]} -gt 0 ]]; then
-      skip_parts+=("${#incorrect_ip_domains[@]} wrong IP")
-    fi
-    if [[ ${#orphaned_domains[@]} -gt 0 ]]; then
-      skip_parts+=("${#orphaned_domains[@]} orphaned")
-    fi
-    if [[ ${#system_domains[@]} -gt 0 ]]; then
-      skip_parts+=("${#system_domains[@]} system")
-    fi
-    
-    if [[ ${#skip_parts[@]} -gt 0 ]]; then
-      skip_details=" ($(IFS=', '; echo "${skip_parts[*]}"))"
-      summary_msg="$summary_msg$skip_details"
-    fi
-  fi
-  
-  dokku_log_info1 "$summary_msg"
-  
-  if [[ $domains_added -gt 0 ]]; then
-    echo
-    dokku_log_info2 "Next steps"
-    dokku_log_info1 "• Sync DNS records: dokku $PLUGIN_COMMAND_PREFIX:sync-all"
-    dokku_log_info1 "• Check status: dokku $PLUGIN_COMMAND_PREFIX:report"
-  fi
-}
-
-zones_disable_zone() {
-  local ZONE="$1"
-  
-  dokku_log_info2 "Disabling DNS management for zone: $ZONE"
-  
-  # Get all managed apps and their domains
-  local LINKS_FILE="$PLUGIN_DATA_ROOT/LINKS"
-  if [[ ! -f "$LINKS_FILE" ]] || [[ ! -s "$LINKS_FILE" ]]; then
-    dokku_log_info1 "No apps are currently managed by DNS"
-    return 0
-  fi
-  
-  local domains_removed=0
-  local apps_to_remove=()
-  local app_summaries=()
-  
-  # First pass: read all apps and collect domains to remove
-  while IFS= read -r app; do
-    [[ -z "$app" ]] && continue
-    
-    local APP_DOMAINS_FILE="$PLUGIN_DATA_ROOT/$app/DOMAINS"
-    if [[ ! -f "$APP_DOMAINS_FILE" ]]; then
-      continue
-    fi
-    
-    # Check each domain to see if it belongs to this zone
-    local remaining_domains=""
-    local app_domains_removed=()
-    while IFS= read -r domain; do
-      [[ -z "$domain" ]] && continue
-      
-      # Check if domain belongs to this zone
-      if [[ "$domain" == "$ZONE" ]] || [[ "$domain" == *".$ZONE" ]]; then
-        app_domains_removed+=("$domain")
-        domains_removed=$((domains_removed + 1))
-      else
-        remaining_domains="$remaining_domains$domain
-"
-      fi
-    done < "$APP_DOMAINS_FILE"
-    
-    # Update the domains file and create summary
-    if [[ ${#app_domains_removed[@]} -gt 0 ]]; then
-      local domain_text="domain"
-      [[ ${#app_domains_removed[@]} -gt 1 ]] && domain_text="domains"
-      
-      if [[ -n "$remaining_domains" ]]; then
-        echo -n "$remaining_domains" | grep -v "^$" > "$APP_DOMAINS_FILE"
-        app_summaries+=("$app: ${app_domains_removed[*]}")
-      else
-        rm -f "$APP_DOMAINS_FILE"
-        apps_to_remove+=("$app")
-        app_summaries+=("$app: ${app_domains_removed[*]}")
-      fi
-    fi
-    
-  done < "$LINKS_FILE"
-  
-  # Show organized summary
-  if [[ ${#app_summaries[@]} -gt 0 ]]; then
-    echo
-    for summary in "${app_summaries[@]}"; do
-      local app_name="${summary%%:*}"
-      local app_details="${summary#*: }"
-      dokku_log_info1 "• $app_name: $app_details"
-    done
-  fi
-  
-  # Second pass: remove apps from LINKS file if needed
-  if [[ ${#apps_to_remove[@]} -gt 0 ]]; then
-    local TEMP_LINKS
-    TEMP_LINKS=$(mktemp)
-    if [[ -f "$LINKS_FILE" ]]; then
-      while IFS= read -r app; do
-        local should_keep=true
-        for remove_app in "${apps_to_remove[@]}"; do
-          if [[ "$app" == "$remove_app" ]]; then
-            should_keep=false
-            break
-          fi
-        done
-        if [[ "$should_keep" == "true" ]]; then
-          echo "$app" >> "$TEMP_LINKS"
-        fi
-      done < "$LINKS_FILE"
-    fi
-    mv "$TEMP_LINKS" "$LINKS_FILE"
-  fi
-  
-  echo
-  dokku_log_info2 "Zone disablement complete"
-  
-  # Create better summary message
-  local summary_msg="Removed $domains_removed"
-  [[ $domains_removed -eq 1 ]] && summary_msg="$summary_msg domain" || summary_msg="$summary_msg domains"
-  summary_msg="$summary_msg from ${#app_summaries[@]}"
-  [[ ${#app_summaries[@]} -eq 1 ]] && summary_msg="$summary_msg app" || summary_msg="$summary_msg apps"
-  
-  if [[ ${#apps_to_remove[@]} -eq ${#app_summaries[@]} ]]; then
-    summary_msg="$summary_msg (all apps removed from DNS management)"
-  elif [[ ${#apps_to_remove[@]} -gt 0 ]]; then
-    summary_msg="$summary_msg (${#apps_to_remove[@]} apps removed from DNS management)"
-  fi
-  
-  dokku_log_info1 "$summary_msg"
-  
-  if [[ $domains_removed -gt 0 ]]; then
-    echo
-    dokku_log_info2 "Note"
-    dokku_log_info1 "DNS records remain in Route53 but are no longer managed by Dokku."
-    if [[ ${#apps_to_remove[@]} -eq ${#app_summaries[@]} ]]; then
-      dokku_log_info1 "To clean up: manually delete records in AWS Console or use AWS CLI."
-    else
-      dokku_log_info1 "For remaining apps: dokku $PLUGIN_COMMAND_PREFIX:sync <app>"
-      dokku_log_info1 "For removed records: manually delete in AWS Console or use AWS CLI."
-    fi
-  fi
-}
-
-zones_enable_all() {
-  # Check if DNS provider is configured
-  local PROVIDER_FILE="$PLUGIN_DATA_ROOT/PROVIDER"
-  if [[ ! -f "$PROVIDER_FILE" ]]; then
-    dokku_log_fail "No DNS provider configured. Run: dokku $PLUGIN_COMMAND_PREFIX:configure [provider]"
-  fi
-  
-  local PROVIDER
-  PROVIDER=$(cat "$PROVIDER_FILE")
-  
-  if [[ "$PROVIDER" != "aws" ]]; then
-    dokku_log_fail "Zone management is currently only supported for AWS Route53 provider"
-  fi
-  
-  # Validate AWS dependencies
-  if ! command -v aws >/dev/null 2>&1; then
-    dokku_log_fail "AWS CLI is not installed. Please install aws-cli to use AWS Route53 provider."
-  fi
-  
-  
-  if ! aws sts get-caller-identity >/dev/null 2>&1; then
-    dokku_log_fail "AWS CLI is not configured or credentials are invalid."
-  fi
-  
-  dokku_log_info2 "Enabling DNS management for all zones"
-  
-  # Get all hosted zones
-  local ZONES
-  ZONES=$(aws route53 list-hosted-zones --query 'HostedZones[].Name' --output text 2>/dev/null | tr '\t' ' ' | sed 's/\.$//g')
-  
-  if [[ -z "$ZONES" ]]; then
-    dokku_log_info1 "No hosted zones found in Route53"
-    return 0
-  fi
-  
-  local zones_processed=0
-  local total_domains_added=0
-  
-  for zone in $ZONES; do
-    dokku_log_info1 "Processing zone: $zone"
-    zones_processed=$((zones_processed + 1))
-    
-    # Enable this zone (capture the output to count domains)
-    local zone_result
-    if zone_result=$(zones_enable_zone "$zone" 2>&1); then
-      echo "$zone_result"
-      # Try to extract number of domains added (this is approximate)
-      local domains_in_zone
-      domains_in_zone=$(echo "$zone_result" | grep "Domains added to DNS management:" | grep -o '[0-9]\+' || echo "0")
-      total_domains_added=$((total_domains_added + domains_in_zone))
-    else
-      dokku_log_warn "Failed to enable zone: $zone"
-    fi
-    
-    echo
-  done
-  
-  dokku_log_info2 "Enable-all complete"
-  dokku_log_info1 "Zones processed: $zones_processed"
-  dokku_log_info1 "Total domains added: $total_domains_added"
-  
-  if [[ $total_domains_added -gt 0 ]]; then
-    echo
-    dokku_log_info2 "Next steps"
-    dokku_log_info1 "• Sync all DNS records: dokku $PLUGIN_COMMAND_PREFIX:sync-all"
-    dokku_log_info1 "• Check status: dokku $PLUGIN_COMMAND_PREFIX:report"
-  fi
-}
-
-zones_disable_all() {
-  dokku_log_info2 "Disabling DNS management for all zones"
-  
-  # Get all managed apps and their domains
-  local LINKS_FILE="$PLUGIN_DATA_ROOT/LINKS"
-  if [[ ! -f "$LINKS_FILE" ]] || [[ ! -s "$LINKS_FILE" ]]; then
-    dokku_log_info1 "No apps are currently managed by DNS"
-    return 0
-  fi
-  
-  local total_domains_removed=0
-  local apps_removed=0
-  local apps_processed=0
-  
-  # Create a temporary file to track which apps to keep
-  local TEMP_LINKS_FILE
-  TEMP_LINKS_FILE=$(mktemp)
-  
-  # Process each app
-  while IFS= read -r app; do
-    [[ -z "$app" ]] && continue
-    apps_processed=$((apps_processed + 1))
-    
-    local APP_DOMAINS_FILE="$PLUGIN_DATA_ROOT/$app/DOMAINS"
-    if [[ ! -f "$APP_DOMAINS_FILE" ]]; then
-      continue
-    fi
-    
-    # Count domains for this app
-    local app_domain_count
-    app_domain_count=$(grep -c "." "$APP_DOMAINS_FILE" 2>/dev/null || echo "0")
-    
-    if [[ $app_domain_count -gt 0 ]]; then
-      dokku_log_info1 "Removing app '$app' from DNS management ($app_domain_count domains)"
-      total_domains_removed=$((total_domains_removed + app_domain_count))
-      apps_removed=$((apps_removed + 1))
-      
-      # Remove the app's domains file and directory
-      rm -f "$APP_DOMAINS_FILE"
-      rmdir "$(dirname "$APP_DOMAINS_FILE")" 2>/dev/null || true
-    fi
-    
-  done < "$LINKS_FILE"
-  
-  # Clear the LINKS file since we're removing all apps
-  true > "$LINKS_FILE"
-  
-  # Clean up temp file
-  rm -f "$TEMP_LINKS_FILE"
-  
-  dokku_log_info2 "Disable-all complete"
-  dokku_log_info1 "Apps processed: $apps_processed"
-  dokku_log_info1 "Apps removed from DNS: $apps_removed"
-  dokku_log_info1 "Total domains removed: $total_domains_removed"
-  
-  if [[ $total_domains_removed -gt 0 ]]; then
-    echo
-    dokku_log_info2 "All DNS management has been disabled"
-    dokku_log_info1 "• To re-enable: dokku $PLUGIN_COMMAND_PREFIX:zones --enable --all"
-    dokku_log_info1 "• Or add apps individually: dokku $PLUGIN_COMMAND_PREFIX:add <app>"
-  fi
-}
-
-zones_add_domain_to_dns() {
-  local APP="$1"
-  local DOMAIN="$2"
-  
-  # Check if app is already linked to DNS
-  local LINKS_FILE="$PLUGIN_DATA_ROOT/LINKS"
-  if [[ ! -f "$LINKS_FILE" ]] || ! grep -q "^$APP$" "$LINKS_FILE"; then
-    echo "$APP" >> "$LINKS_FILE"
-  fi
-  
-  # Add domain to app's DNS domains
-  local APP_DOMAINS_FILE="$PLUGIN_DATA_ROOT/$APP/DOMAINS"
-  mkdir -p "$(dirname "$APP_DOMAINS_FILE")"
-  
-  # Check if domain is already managed
-  if [[ -f "$APP_DOMAINS_FILE" ]] && grep -q "^$DOMAIN$" "$APP_DOMAINS_FILE"; then
-    return 0  # Already managed
-  fi
-  
-  echo "$DOMAIN" >> "$APP_DOMAINS_FILE"
-  return 0
 }
 
 zones_show_zone() {
@@ -889,7 +332,7 @@ zones_show_zone() {
     echo
     dokku_log_info1 "To manage these domains:"
     dokku_log_info1 "• Individual: dokku $PLUGIN_COMMAND_PREFIX:add <app>"
-    dokku_log_info1 "• All in zone: dokku $PLUGIN_COMMAND_PREFIX:zones --enable $ZONE"
+    dokku_log_info1 "• All in zone: dokku $PLUGIN_COMMAND_PREFIX:zones:add $ZONE"
   else
     dokku_log_info1 "All potential domains for this zone are already managed"
   fi
@@ -931,8 +374,8 @@ zones_show_zone() {
   # Show management commands
   echo
   dokku_log_info2 "Management Commands"
-  dokku_log_info1 "• Enable zone: dokku $PLUGIN_COMMAND_PREFIX:zones --enable $ZONE"
-  dokku_log_info1 "• Disable zone: dokku $PLUGIN_COMMAND_PREFIX:zones --disable $ZONE"
+  dokku_log_info1 "• Add zone to auto-discovery: dokku $PLUGIN_COMMAND_PREFIX:zones:add $ZONE"
+  dokku_log_info1 "• Remove zone from auto-discovery: dokku $PLUGIN_COMMAND_PREFIX:zones:remove $ZONE"
   dokku_log_info1 "• Sync records: dokku $PLUGIN_COMMAND_PREFIX:sync-all"
   dokku_log_info1 "• List all zones: dokku $PLUGIN_COMMAND_PREFIX:zones"
 }
