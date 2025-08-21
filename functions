@@ -202,8 +202,7 @@ dns_get_record_ip() {
       source "$PROVIDER_SCRIPT"
       if declare -f "dns_provider_aws_get_record_ip" >/dev/null 2>&1; then
         local provider_ip
-        provider_ip=$(dns_provider_aws_get_record_ip "$DOMAIN")
-        if [[ $? -eq 0 ]] && [[ -n "$provider_ip" ]]; then
+        if provider_ip=$(dns_provider_aws_get_record_ip "$DOMAIN") && [[ -n "$provider_ip" ]]; then
           echo "$provider_ip"
           return 0
         fi
