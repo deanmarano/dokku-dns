@@ -183,11 +183,9 @@ dns_global_report() {
       for DOMAIN in $APP_DNS_DOMAINS; do
         [[ -z "$DOMAIN" ]] && continue
         
-        # Get current DNS resolution (handle failure gracefully)
+        # Get current DNS resolution (handle failure gracefully, use provider-specific checking)
         local CURRENT_IP=""
-        if command -v dig >/dev/null 2>&1; then
-          CURRENT_IP=$(dig +short "$DOMAIN" A 2>/dev/null | tail -n1 || echo "")
-        fi
+        CURRENT_IP=$(dns_get_record_ip "$DOMAIN" "$PROVIDER" || echo "")
         
         # Determine DNS status emoji
         local DNS_EMOJI="❌"
@@ -258,7 +256,7 @@ dns_global_report() {
       [[ -z "$APP" ]] && continue
       [[ -z "$DOMAIN" ]] && continue
       local CURRENT_IP
-      CURRENT_IP=$(dig +short "$DOMAIN" A 2>/dev/null | tail -n1 || echo "")
+      CURRENT_IP=$(dns_get_record_ip "$DOMAIN" "$PROVIDER" || echo "")
       if [[ -n "$CURRENT_IP" ]] && [[ "$CURRENT_IP" == "$SERVER_IP" ]]; then
         ((CORRECTLY_CONFIGURED_DOMAINS++))
       fi
@@ -416,7 +414,7 @@ dns_report() {
     
     # Get current DNS resolution
     local CURRENT_IP
-    CURRENT_IP=$(dig +short "$DOMAIN" A 2>/dev/null | tail -n1 || echo "")
+    CURRENT_IP=$(dns_get_record_ip "$DOMAIN" "$PROVIDER" || echo "")
     
     # Determine DNS status emoji
     local DNS_EMOJI="❌"

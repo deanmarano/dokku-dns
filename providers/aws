@@ -44,6 +44,40 @@ dns_provider_aws_get_hosted_zone_id() {
     return 1
 }
 
+dns_provider_aws_get_record_ip() {
+    local DOMAIN="$1"
+    
+    # Validate AWS CLI and credentials
+    if ! command -v aws >/dev/null 2>&1; then
+        return 1
+    fi
+    
+    if ! aws sts get-caller-identity >/dev/null 2>&1; then
+        return 1
+    fi
+    
+    # Get hosted zone ID for this domain
+    local zone_id
+    zone_id=$(dns_provider_aws_get_hosted_zone_id "$DOMAIN")
+    if [[ -z "$zone_id" ]]; then
+        return 1
+    fi
+    
+    # Query Route53 for A record
+    local record_ip
+    record_ip=$(aws route53 list-resource-record-sets \
+        --hosted-zone-id "$zone_id" \
+        --query "ResourceRecordSets[?Name=='${DOMAIN}.' && Type=='A'].ResourceRecords[0].Value" \
+        --output text 2>/dev/null)
+    
+    if [[ -n "$record_ip" && "$record_ip" != "None" ]]; then
+        echo "$record_ip"
+        return 0
+    fi
+    
+    return 1
+}
+
 dns_provider_aws_sync_app() {
     local APP="$1"
     local PLUGIN_DATA_ROOT="${DNS_ROOT:-${DOKKU_LIB_ROOT:-/var/lib/dokku}/services/dns}"

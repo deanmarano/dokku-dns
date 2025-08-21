@@ -190,6 +190,38 @@ dns_configure_global() {
   dokku_log_info1 "Next step: dokku $PLUGIN_COMMAND_PREFIX:verify"
 }
 
+dns_get_record_ip() {
+  local DOMAIN="$1"
+  local PROVIDER="$2"
+  
+  # Try provider-specific DNS checking first (bypasses DNS caching)
+  if [[ "$PROVIDER" == "aws" ]]; then
+    local PROVIDER_SCRIPT
+    PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/aws"
+    if [[ -f "$PROVIDER_SCRIPT" ]]; then
+      source "$PROVIDER_SCRIPT"
+      if declare -f "dns_provider_aws_get_record_ip" >/dev/null 2>&1; then
+        local provider_ip
+        provider_ip=$(dns_provider_aws_get_record_ip "$DOMAIN")
+        if [[ $? -eq 0 ]] && [[ -n "$provider_ip" ]]; then
+          echo "$provider_ip"
+          return 0
+        fi
+      fi
+    fi
+  fi
+  
+  # Fallback to DNS resolution (may be cached)
+  local current_ip
+  current_ip=$(dig +short "$DOMAIN" A 2>/dev/null | tail -n1 || echo "")
+  if [[ -n "$current_ip" ]]; then
+    echo "$current_ip"
+    return 0
+  fi
+  
+  return 1
+}
+
 dns_get_server_ip() {
   # Try to get the server's public IP using multiple methods
   local SERVER_IP
@@ -575,9 +607,9 @@ dns_display_domains_table() {
   for DOMAIN in "${DOMAINS[@]}"; do
     [[ -z "$DOMAIN" ]] && continue
     
-    # Get current DNS resolution
+    # Get current DNS resolution (using provider-specific checking if available)
     local CURRENT_IP
-    CURRENT_IP=$(dig +short "$DOMAIN" A 2>/dev/null | tail -n1 || echo "")
+    CURRENT_IP=$(dns_get_record_ip "$DOMAIN" "$PROVIDER" || echo "")
     
     # Determine DNS status emoji
     local DNS_EMOJI="❌"
