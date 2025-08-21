@@ -168,7 +168,7 @@ test_dns_configuration() {
     
     # Test AWS configuration
     assert_success "AWS provider configuration should succeed" dokku dns:configure aws
-    assert_output_contains "Provider configured as AWS" "aws" dokku dns:report
+    assert_output_contains "Provider configured as AWS" "Global DNS Provider: aws" dokku dns:report
     
     # Test provider switching - skip cloudflare since provider script doesn't exist yet
     # assert_success "Can switch to cloudflare provider" dokku dns:configure cloudflare

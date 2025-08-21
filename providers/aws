@@ -111,8 +111,34 @@ dns_provider_aws_sync_app() {
         [[ -z "$DOMAIN" ]] && continue
         
         echo "Syncing domain: $DOMAIN"
-        echo "DNS record created: $DOMAIN -> $SERVER_IP"
-        domains_synced=$((domains_synced + 1))
+        
+        # Get hosted zone ID for this domain
+        local zone_id
+        zone_id=$(dns_provider_aws_get_hosted_zone_id "$DOMAIN")
+        if [[ -z "$zone_id" ]]; then
+            echo "Error: No hosted zone found for $DOMAIN"
+            continue
+        fi
+        
+        # Create or update A record in Route53
+        local change_batch="{
+            \"Changes\": [{
+                \"Action\": \"UPSERT\",
+                \"ResourceRecordSet\": {
+                    \"Name\": \"$DOMAIN\",
+                    \"Type\": \"A\",
+                    \"TTL\": 300,
+                    \"ResourceRecords\": [{\"Value\": \"$SERVER_IP\"}]
+                }
+            }]
+        }"
+        
+        if aws route53 change-resource-record-sets --hosted-zone-id "$zone_id" --change-batch "$change_batch" >/dev/null 2>&1; then
+            echo "DNS record created: $DOMAIN -> $SERVER_IP"
+            domains_synced=$((domains_synced + 1))
+        else
+            echo "Error: Failed to create DNS record for $DOMAIN"
+        fi
     done
     
     return 0
