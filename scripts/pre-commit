@@ -168,42 +168,35 @@ run_bats_unit_tests_background() {
 run_docker_integration_tests_fast() {
     log "INFO" "Running Docker integration tests..."
     
-    # Check if test containers are running, start them if not
-    local containers_running=false
-    if docker-compose -f tests/docker/docker-compose.yml ps | grep -q "Up"; then
-        containers_running=true
-        log "INFO" "Test containers already running"
+    # Always restart containers for clean state (prevent test contamination)
+    log "INFO" "Ensuring clean Docker test environment..."
+    docker-compose -f tests/docker/docker-compose.yml down --volumes >/dev/null 2>&1 || true
+    
+    log "INFO" "Starting fresh test containers..."
+    if docker-compose -f tests/docker/docker-compose.yml up -d >/dev/null 2>&1; then
+        log "INFO" "Test containers started"
+        # Wait a moment for containers to be ready
+        sleep 2
     else
-        log "INFO" "Starting test containers..."
-        if docker-compose -f tests/docker/docker-compose.yml up -d >/dev/null 2>&1; then
-            log "INFO" "Test containers started"
-            # Wait a moment for containers to be ready
-            sleep 2
-        else
-            log "ERROR" "Failed to start test containers"
-            return 1
-        fi
+        log "ERROR" "Failed to start test containers"
+        return 1
     fi
     
     # Run the tests and capture output
     if make docker-test 2>&1; then
         log "SUCCESS" "Docker integration tests passed"
         
-        # Clean up containers if we started them
-        if [[ "$containers_running" == "false" ]]; then
-            log "INFO" "Cleaning up test containers..."
-            docker-compose -f tests/docker/docker-compose.yml down >/dev/null 2>&1 || true
-        fi
+        # Clean up containers after tests
+        log "INFO" "Cleaning up test containers..."
+        docker-compose -f tests/docker/docker-compose.yml down --volumes >/dev/null 2>&1 || true
         
         return 0
     else
         log "ERROR" "Docker integration tests failed"
         
-        # Clean up containers if we started them
-        if [[ "$containers_running" == "false" ]]; then
-            log "INFO" "Cleaning up test containers..."
-            docker-compose -f tests/docker/docker-compose.yml down >/dev/null 2>&1 || true
-        fi
+        # Clean up containers after failed tests
+        log "INFO" "Cleaning up test containers..."
+        docker-compose -f tests/docker/docker-compose.yml down --volumes >/dev/null 2>&1 || true
         
         return 1
     fi
@@ -213,11 +206,18 @@ run_docker_integration_tests_fast() {
 run_docker_integration_tests_background() {
     local temp_file="$1"
     
+    # Ensure clean Docker test environment (prevent test contamination)
+    docker-compose -f tests/docker/docker-compose.yml down --volumes >/dev/null 2>&1 || true
+    
     # Run the tests using the same approach as make docker-test
     if ./tests/integration/docker-orchestrator.sh --direct >/dev/null 2>&1; then
         echo "SUCCESS:Docker integration tests passed" > "$temp_file"
+        # Clean up after successful tests
+        docker-compose -f tests/docker/docker-compose.yml down --volumes >/dev/null 2>&1 || true
     else
         echo "ERROR:Docker integration tests failed" > "$temp_file"
+        # Clean up after failed tests
+        docker-compose -f tests/docker/docker-compose.yml down --volumes >/dev/null 2>&1 || true
     fi
 }
 
@@ -426,7 +426,8 @@ log "SUCCESS" "All pre-commit checks passed!"
 echo ""
 echo "💡 Tips:"
 echo "   • BATS unit tests and Docker integration tests run in parallel by default"
-echo "   • This significantly reduces commit time while maintaining test coverage"
+echo "   • Docker containers are rebuilt each time to prevent test contamination"
+echo "   • This ensures reliable, clean test runs while maintaining reasonable speed"
 echo "   • README generation is checked automatically"
 echo "   • Environment variables:"
 echo "     - RUN_FULL_TESTS=1 git commit       # Full integration tests (sequential)"
