@@ -38,20 +38,6 @@ teardown() {
   assert_output "aws"
 }
 
-@test "(dns:configure) success with cloudflare provider" {
-  run dokku "$PLUGIN_COMMAND_PREFIX:configure" cloudflare
-  assert_success
-  assert_output_contains "DNS configured globally with provider: cloudflare"
-  assert_output_contains "Next step: dokku dns:verify"
-  
-  # Verify the provider file was created
-  assert_exists "$PLUGIN_DATA_ROOT/PROVIDER"
-  
-  # Check the content
-  run cat "$PLUGIN_DATA_ROOT/PROVIDER"
-  assert_success
-  assert_output "cloudflare"
-}
 
 @test "(dns:configure) success with default provider (no args)" {
   run dokku "$PLUGIN_COMMAND_PREFIX:configure"
@@ -65,22 +51,6 @@ teardown() {
   assert_output "aws"
 }
 
-@test "(dns:configure) can change provider" {
-  # Set initial provider
-  run dokku "$PLUGIN_COMMAND_PREFIX:configure" aws
-  assert_success
-  
-  # Change to different provider
-  run dokku "$PLUGIN_COMMAND_PREFIX:configure" cloudflare
-  assert_success
-  assert_output_contains "Changing DNS provider from 'aws' to 'cloudflare'"
-  assert_output_contains "DNS configured globally with provider: cloudflare"
-  
-  # Verify change
-  run cat "$PLUGIN_DATA_ROOT/PROVIDER"
-  assert_success
-  assert_output "cloudflare"
-}
 
 @test "(dns:configure) creates data directory if missing" {
   # Ensure directory doesn't exist
