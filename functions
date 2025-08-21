@@ -74,6 +74,40 @@ is_app_dns_managed() {
   fi
 }
 
+# Zone management functions
+zones_set_enabled() {
+  local ZONE="$1"
+  local ENABLED_ZONES_FILE="$PLUGIN_DATA_ROOT/ENABLED_ZONES"
+  
+  mkdir -p "$PLUGIN_DATA_ROOT"
+  
+  # Add zone to enabled zones if not already present
+  if [[ ! -f "$ENABLED_ZONES_FILE" ]] || ! grep -q "^$ZONE$" "$ENABLED_ZONES_FILE"; then
+    echo "$ZONE" >> "$ENABLED_ZONES_FILE"
+  fi
+}
+
+zones_set_disabled() {
+  local ZONE="$1"
+  local ENABLED_ZONES_FILE="$PLUGIN_DATA_ROOT/ENABLED_ZONES"
+  
+  if [[ -f "$ENABLED_ZONES_FILE" ]]; then
+    # Remove the zone from enabled zones file
+    local temp_file
+    temp_file=$(mktemp)
+    grep -v "^$ZONE$" "$ENABLED_ZONES_FILE" > "$temp_file" || true
+    
+    # If file is empty after removal, delete it
+    if [[ ! -s "$temp_file" ]]; then
+      rm -f "$ENABLED_ZONES_FILE"
+    else
+      mv "$temp_file" "$ENABLED_ZONES_FILE"
+    fi
+    
+    rm -f "$temp_file"
+  fi
+}
+
 # Check if a domain is in an enabled hosted zone
 # Usage: is_domain_in_enabled_zone <domain>
 # Returns: 0 if domain is in enabled zone, 1 if not

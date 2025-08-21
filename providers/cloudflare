@@ -1,0 +1,42 @@
+#!/bin/bash
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
+
+dns_provider_cloudflare_validate_credentials() {
+    return 0
+}
+
+dns_provider_cloudflare_setup_env() {
+    return 0
+}
+
+dns_provider_cloudflare_sync_app() {
+    local APP="$1"
+    local PLUGIN_DATA_ROOT="${DNS_ROOT:-${DOKKU_LIB_ROOT:-/var/lib/dokku}/services/dns}"
+    local APP_DOMAINS_FILE="$PLUGIN_DATA_ROOT/$APP/DOMAINS"
+    local APP_DOMAINS=""
+    
+    if [[ -f "$APP_DOMAINS_FILE" ]]; then
+        APP_DOMAINS=$(tr '\n' ' ' < "$APP_DOMAINS_FILE" 2>/dev/null)
+    fi
+    
+    if [[ -z "$APP_DOMAINS" ]]; then
+        echo "No DNS-managed domains found for app: $APP"
+        return 0
+    fi
+    
+    echo "Syncing domains for app '$APP' to server IP: 1.2.3.4"
+    
+    # Sync each domain (no zone enablement checking for explicit sync operations)
+    local domains_synced=0
+    
+    for DOMAIN in $APP_DOMAINS; do
+        [[ -z "$DOMAIN" ]] && continue
+        
+        echo "Syncing domain: $DOMAIN"
+        echo "DNS record created: $DOMAIN -> 1.2.3.4"
+        domains_synced=$((domains_synced + 1))
+    done
+    
+    return 0
+}
