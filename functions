@@ -528,17 +528,19 @@ dns_display_domains_table() {
     
     # Check provider status
     local CREDENTIALS_DIR="$GLOBAL_CONFIG_ROOT/credentials"
-    if [[ "$PROVIDER" != "None" ]] && [[ -d "$CREDENTIALS_DIR" ]]; then
+    if [[ "$PROVIDER" != "None" ]]; then
       case "$PROVIDER" in
         aws)
-          if [[ -f "$CREDENTIALS_DIR/AWS_ACCESS_KEY_ID" ]] || aws sts get-caller-identity >/dev/null 2>&1; then
+          if [[ -d "$CREDENTIALS_DIR" ]] && [[ -f "$CREDENTIALS_DIR/AWS_ACCESS_KEY_ID" ]]; then
+            SYNC_STATUS="Ready"
+          elif aws sts get-caller-identity >/dev/null 2>&1; then
             SYNC_STATUS="Ready"
           else
             SYNC_STATUS="Missing auth"
           fi
           ;;
         cloudflare)
-          if [[ -f "$CREDENTIALS_DIR/CLOUDFLARE_API_TOKEN" ]]; then
+          if [[ -d "$CREDENTIALS_DIR" ]] && [[ -f "$CREDENTIALS_DIR/CLOUDFLARE_API_TOKEN" ]]; then
             SYNC_STATUS="Ready"
           else
             SYNC_STATUS="Missing auth"
@@ -548,6 +550,8 @@ dns_display_domains_table() {
           SYNC_STATUS="Unknown provider"
           ;;
       esac
+    else
+      SYNC_STATUS="Missing auth"
     fi
   fi
   

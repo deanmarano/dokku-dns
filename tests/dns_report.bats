@@ -45,7 +45,7 @@ teardown() {
   assert_output_contains "⚠️   Not added"
   assert_output_contains "DNS Status Legend:"
   assert_output_contains "Actions available:"
-  assert_output_contains "Fix configuration issues, then update: dokku dns:sync my-app"
+  assert_output_contains "Update DNS records: dokku dns:sync my-app"
 }
 
 @test "(dns:report) app-specific report shows message for nonexistent app" {

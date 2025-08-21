@@ -59,7 +59,16 @@ dns_provider_aws_sync_app() {
         return 0
     fi
     
-    echo "Syncing domains for app '$APP' to server IP: 1.2.3.4"
+    # Get server IP
+    local SERVER_IP
+    SERVER_IP=$(get_server_ip)
+    
+    if [[ -z "$SERVER_IP" ]] || [[ "$SERVER_IP" == "Unknown" ]]; then
+        echo "Error: Unable to determine server IP address"
+        return 1
+    fi
+    
+    echo "Syncing domains for app '$APP' to server IP: $SERVER_IP"
     
     # Sync each domain (no zone enablement checking for explicit sync operations)
     local domains_synced=0
@@ -68,7 +77,7 @@ dns_provider_aws_sync_app() {
         [[ -z "$DOMAIN" ]] && continue
         
         echo "Syncing domain: $DOMAIN"
-        echo "DNS record created: $DOMAIN -> 1.2.3.4"
+        echo "DNS record created: $DOMAIN -> $SERVER_IP"
         domains_synced=$((domains_synced + 1))
     done
     

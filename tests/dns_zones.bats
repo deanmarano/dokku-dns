@@ -91,8 +91,8 @@ ZONES_DATA
         ;;
     "route53 list-resource-record-sets --hosted-zone-id Z123456789ABCDEF --query ResourceRecordSets[?Type==\`A\`].[Name,ResourceRecords[0].Value] --output text")
         cat << 'A_RECORDS'
-example.com.	1.2.3.4
-www.example.com.	1.2.3.4
+example.com.	192.168.1.100
+www.example.com.	192.168.1.100
 api.example.com.	1.2.3.5
 A_RECORDS
         ;;
@@ -133,7 +133,7 @@ ZONE_DETAILS
     {
       "Name": "example.com.",
       "Type": "A",
-      "ResourceRecords": [{"Value": "1.2.3.4"}]
+      "ResourceRecords": [{"Value": "192.168.1.100"}]
     },
     {
       "Name": "www.example.com.",
@@ -232,7 +232,10 @@ dns_provider_aws_sync_app() {
         return 0
     fi
     
-    echo "Syncing domains for app '$APP' to server IP: 1.2.3.4"
+    # Get server IP (use test IP for consistent testing)
+    local SERVER_IP="192.168.1.100"  # Test IP for unit tests
+    
+    echo "Syncing domains for app '$APP' to server IP: $SERVER_IP"
     
     # Sync each domain (no zone enablement checking for explicit sync operations)
     local domains_synced=0
@@ -241,7 +244,7 @@ dns_provider_aws_sync_app() {
         [[ -z "$DOMAIN" ]] && continue
         
         echo "Syncing domain: $DOMAIN"
-        echo "DNS record created: $DOMAIN -> 1.2.3.4"
+        echo "DNS record created: $DOMAIN -> $SERVER_IP"
         domains_synced=$((domains_synced + 1))
     done
     
@@ -764,8 +767,8 @@ assert_file_contains() {
   assert_success
   assert_output_contains "Syncing domain: app1.example.com"
   assert_output_contains "Syncing domain: app2.test.org"
-  assert_output_contains "DNS record created: app1.example.com -> 1.2.3.4"
-  assert_output_contains "DNS record created: app2.test.org -> 1.2.3.4"
+  assert_output_contains "DNS record created: app1.example.com -> 192.168.1.100"
+  assert_output_contains "DNS record created: app2.test.org -> 192.168.1.100"
   
   # Zone enablement should not affect explicitly added apps
   run dns_zones "--enable" "example.com"

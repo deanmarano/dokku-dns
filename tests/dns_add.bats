@@ -39,7 +39,7 @@ teardown() {
   assert_output_contains "Domain                         Status   Enabled         Provider        Zone (Enabled)"
   assert_output_contains "example.com" 14  # Appears multiple times in output
   assert_output_contains "api.example.com" 7  # Appears multiple times in output
-  assert_output_contains "provider not ready" 2  # Enabled column - appears once per domain
+  assert_output_contains "No (no hosted zone)" 2  # Enabled column - appears once per domain
   assert_output_contains "aws" 3  # Provider column
   assert_output_contains "Status Legend:"
   assert_output_contains "✅ Points to server IP"
@@ -54,7 +54,7 @@ teardown() {
   assert_output_contains "Adding specified domains for app 'my-app':"
   assert_output_contains "Domain Status Table for app 'my-app':"
   assert_output_contains "example.com" 7  # Appears multiple times in output
-  assert_output_contains "provider not ready" 1  # Enabled column - appears in table
+  assert_output_contains "No (no hosted zone)" 1  # Enabled column - appears in table
   assert_output_contains "aws" 2  # Provider column
   assert_output_contains "Status Legend:"
 }
@@ -88,7 +88,7 @@ teardown() {
   run dokku "$PLUGIN_COMMAND_PREFIX:add" my-app
   assert_success
   assert_output_contains "Provider: None"
-  assert_output_contains "provider not ready" 2  # Appears for each domain in table
+  assert_output_contains "No (provider not ready)" 2  # Appears for each domain in table
   assert_output_contains "Next step: dokku dns:sync my-app"
 }
 
