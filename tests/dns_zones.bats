@@ -12,6 +12,7 @@ setup() {
 }
 
 teardown() {
+    cleanup_mock_provider_scripts
     rm -rf "$PLUGIN_DATA_ROOT"
 }
 
@@ -160,11 +161,31 @@ EOF
 
 # Create mock provider scripts for testing
 create_mock_provider_scripts() {
-    local PROVIDERS_DIR="$PLUGIN_ROOT/providers"
+    # Use test-specific providers directory to avoid overwriting real provider files
+    local PROVIDERS_DIR="$PLUGIN_DATA_ROOT/test-providers"
     mkdir -p "$PROVIDERS_DIR"
     
-    # Create mock AWS provider script
-    cat > "$PROVIDERS_DIR/aws" << 'EOF'
+    # Override PLUGIN_ROOT temporarily to point to test providers
+    export ORIGINAL_PLUGIN_ROOT="$PLUGIN_ROOT"
+    
+    # Create a test plugin structure that includes our mock providers
+    local TEST_PLUGIN_ROOT="$PLUGIN_DATA_ROOT/test-plugin"
+    mkdir -p "$TEST_PLUGIN_ROOT"
+    
+    # Symlink everything from real plugin root except providers
+    for item in "$ORIGINAL_PLUGIN_ROOT"/*; do
+        local basename="$(basename "$item")"
+        if [[ "$basename" != "providers" ]]; then
+            ln -sf "$item" "$TEST_PLUGIN_ROOT/$basename"
+        fi
+    done
+    
+    # Create mock providers directory
+    mkdir -p "$TEST_PLUGIN_ROOT/providers"
+    export PLUGIN_ROOT="$TEST_PLUGIN_ROOT"
+    
+    # Create mock AWS provider script in test directory
+    cat > "$TEST_PLUGIN_ROOT/providers/aws" << 'EOF'
 #!/bin/bash
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
@@ -175,6 +196,25 @@ dns_provider_aws_validate_credentials() {
 
 dns_provider_aws_setup_env() {
     return 0
+}
+
+dns_provider_aws_get_hosted_zone_id() {
+    local DOMAIN="$1"
+    
+    # Mock implementation for testing
+    case "$DOMAIN" in
+        "example.com"|*.example.com)
+            echo "Z123456789ABCDEF"
+            return 0
+            ;;
+        "test.org"|*.test.org)
+            echo "Z987654321ZYXWVU"
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
 }
 
 dns_provider_aws_sync_app() {
@@ -208,7 +248,15 @@ dns_provider_aws_sync_app() {
     return 0
 }
 EOF
-    chmod +x "$PROVIDERS_DIR/aws"
+    chmod +x "$TEST_PLUGIN_ROOT/providers/aws"
+}
+
+# Cleanup mock provider scripts
+cleanup_mock_provider_scripts() {
+    if [[ -n "$ORIGINAL_PLUGIN_ROOT" ]]; then
+        export PLUGIN_ROOT="$ORIGINAL_PLUGIN_ROOT"
+        unset ORIGINAL_PLUGIN_ROOT
+    fi
 }
 
 # Mock dokku commands
