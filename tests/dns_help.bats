@@ -86,12 +86,12 @@ teardown() {
   assert_success
   # Check that all main commands have consistent descriptions
   assert_output_contains "add app domains to DNS provider for management"
-  assert_output_contains "configure or change the global DNS provider"
+  assert_output_contains "configure or change the global DNS provider" 2
   assert_output_contains "show help for DNS commands or specific subcommand"
   assert_output_contains "remove app from DNS management"
   assert_output_contains "display DNS status and domain information for app(s)"
   assert_output_contains "synchronize DNS records for app"
-  assert_output_contains "verify DNS provider setup and connectivity"
+  assert_output_contains "verify DNS provider setup and connectivity" 2
   assert_output_contains "show DNS plugin version and dependency versions"
 }
 
