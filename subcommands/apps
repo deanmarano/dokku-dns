@@ -40,7 +40,7 @@ service-apps-cmd() {
   dokku_log_info2 "DNS-managed applications:"
   echo
   
-  # List all apps that have DNS management enabled
+  # List all applications that have DNS management enabled
   local apps_found=false
   
   if [[ -d "$PLUGIN_DATA_ROOT" ]]; then

@@ -206,18 +206,28 @@ run_docker_integration_tests_fast() {
 run_docker_integration_tests_background() {
     local temp_file="$1"
     
-    # Ensure clean Docker test environment (prevent test contamination)
+    # Always ensure clean Docker test environment (prevent test contamination)
+    log "INFO" "Ensuring clean Docker test environment..."
     docker-compose -f tests/docker/docker-compose.yml down --volumes >/dev/null 2>&1 || true
     
-    # Run the tests using the same approach as make docker-test
-    if ./tests/integration/docker-orchestrator.sh --direct >/dev/null 2>&1; then
-        echo "SUCCESS:Docker integration tests passed" > "$temp_file"
-        # Clean up after successful tests
-        docker-compose -f tests/docker/docker-compose.yml down --volumes >/dev/null 2>&1 || true
+    # Start fresh containers
+    log "INFO" "Starting fresh Docker containers..."
+    if docker-compose -f tests/docker/docker-compose.yml up -d --build >/dev/null 2>&1; then
+        # Wait for containers to be ready
+        sleep 3
+        
+        # Run the tests
+        if ./tests/integration/docker-orchestrator.sh --direct >/dev/null 2>&1; then
+            echo "SUCCESS:Docker integration tests passed" > "$temp_file"
+            # Clean up after successful tests
+            docker-compose -f tests/docker/docker-compose.yml down --volumes >/dev/null 2>&1 || true
+        else
+            echo "ERROR:Docker integration tests failed" > "$temp_file"
+            # Clean up after failed tests
+            docker-compose -f tests/docker/docker-compose.yml down --volumes >/dev/null 2>&1 || true
+        fi
     else
-        echo "ERROR:Docker integration tests failed" > "$temp_file"
-        # Clean up after failed tests
-        docker-compose -f tests/docker/docker-compose.yml down --volumes >/dev/null 2>&1 || true
+        echo "ERROR:Failed to start Docker containers" > "$temp_file"
     fi
 }
 
