@@ -24,7 +24,7 @@ dns:remove <app>                                   # remove app from dns managem
 dns:report <app>                                   # display DNS status and domain information for app(s)
 dns:sync <app>                                     # synchronize DNS records for app
 dns:sync-all                                       # synchronize DNS records for all DNS-managed apps
-dns:verify                                         # verify DNS provider setup and connectivity
+dns:verify <provider-arg>                          # verify DNS provider setup and connectivity
 dns:version                                        # show DNS plugin version and dependency versions
 dns:zones [<zone>]                                 # list DNS zones and their auto-discovery status
 dns:zones:add <zone>                               # add DNS zone to auto-discovery for automatic app domain management
@@ -72,16 +72,16 @@ This sets up or changes the `DNS` provider for all `DNS` management. If no provi
 
 ```shell
 # usage
-dokku dns:verify
+dokku dns:verify <provider-arg>
 ```
 
 Verify `DNS` provider setup and connectivity, discover existing `DNS` records:
 
 ```shell
-dokku dns:verify
+dokku dns:verify [provider]
 ```
 
-For `AWS`:` checks if `AWS` `CLI` is configured, tests Route53 access, shows existing `DNS` records for Dokku domains for Cloudflare: prompts for `CLOUDFLARE_API_TOKEN` if not set, then validates access:
+Verify configured provider or specific provider if specified for `AWS`:` checks if `AWS` `CLI` is configured, tests Route53 access, shows existing `DNS` records for Dokku domains:
 
 ## AWS Setup
 

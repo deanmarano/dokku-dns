@@ -13,7 +13,8 @@ teardown() {
   run dokku "$PLUGIN_COMMAND_PREFIX:verify"
   assert_failure
   assert_output_contains "No provider configured"
-  assert_output_contains "Run: dokku dns:configure <provider>"
+  assert_output_contains "Configure a provider: dokku dns:configure <provider>"
+  assert_output_contains "Available providers: aws"
 }
 
 @test "(dns:verify) error when provider file is empty" {
@@ -24,7 +25,8 @@ teardown() {
   run dokku "$PLUGIN_COMMAND_PREFIX:verify"
   assert_failure
   assert_output_contains "Provider not set"
-  assert_output_contains "Run: dokku dns:configure <provider>"
+  assert_output_contains "Configure a provider: dokku dns:configure <provider>"
+  assert_output_contains "Available providers: aws"
 }
 
 @test "(dns:verify) error when invalid provider configured" {
@@ -34,8 +36,8 @@ teardown() {
   
   run dokku "$PLUGIN_COMMAND_PREFIX:verify"
   assert_failure
-  assert_output_contains "Provider 'invalid' not found"
-  assert_output_contains "Available providers: aws, cloudflare"
+  assert_output_contains "Provider 'invalid' is not supported"
+  assert_output_contains "Available providers: aws"
 }
 
 @test "(dns:verify) attempts AWS verification when configured" {
@@ -45,11 +47,10 @@ teardown() {
   assert_success
   
   # With mock AWS CLI, verification should succeed
-  assert_output_contains "Verifying AWS Route53 access"
-  assert_output_contains "Checking AWS CLI configuration"
-  assert_output_contains "AWS CLI configured successfully"
-  assert_output_contains "Route53 access confirmed"
-  assert_output_contains "Available hosted zones:"
+  assert_output_contains "Verifying AWS Route53 Setup"
+  assert_output_contains "Current Configuration"
+  assert_output_contains "AWS CLI: installed"
+  assert_output_contains "DNS Provider Verification Complete"
 }
 
 @test "(dns:verify) shows AWS setup instructions when CLI not configured" {
@@ -59,19 +60,9 @@ teardown() {
   assert_success
   
   # With mock AWS CLI, should show successful verification
-  assert_output_contains "Verifying AWS Route53 access"
-  assert_output_contains "AWS CLI configured successfully"
-  assert_output_contains "Route53 access confirmed"
-}
-
-@test "(dns:verify) handles cloudflare provider" {
-  setup_dns_provider cloudflare
-  
-  run dokku "$PLUGIN_COMMAND_PREFIX:verify"
-  assert_failure
-  
-  # Currently shows provider not found error even though it's listed as available
-  assert_output_contains "Provider 'cloudflare' not found"
+  assert_output_contains "Verifying AWS Route53 Setup"
+  assert_output_contains "Current Configuration"
+  assert_output_contains "DNS Provider Verification Complete"
 }
 
 @test "(dns:verify) provides helpful guidance" {
@@ -81,6 +72,68 @@ teardown() {
   assert_success
   
   # Should provide next steps and helpful guidance
-  assert_output_contains "DNS provider verification and discovery completed successfully"
-  assert_output_contains "Ready to use" || assert_output_contains "Next steps:"
+  assert_output_contains "DNS Provider Verification Complete"
+  assert_output_contains "Next Steps:"
+  assert_output_contains "Enable zones for auto-discovery"
+  assert_output_contains "Add domains to an app"
+  assert_output_contains "Sync DNS records"
+  assert_output_contains "Check DNS status"
+}
+
+# New tests for enhanced functionality
+@test "(dns:verify) accepts provider argument" {
+  # Test without configuring provider first
+  run dokku "$PLUGIN_COMMAND_PREFIX:verify" aws
+  assert_success
+  assert_output_contains "Verifying specific provider: aws"
+  assert_output_contains "Verifying AWS Route53 Setup"
+}
+
+@test "(dns:verify) shows credential detection" {
+  setup_dns_provider aws
+  
+  run dokku "$PLUGIN_COMMAND_PREFIX:verify"
+  assert_success
+  
+  # Should show detailed credential detection
+  assert_output_contains "Credential Detection:"
+  assert_output_contains "Environment variables:"
+  assert_output_contains "AWS config files:"
+  assert_output_contains "IAM Role:"
+}
+
+@test "(dns:verify) shows AWS account details" {
+  setup_dns_provider aws
+  
+  run dokku "$PLUGIN_COMMAND_PREFIX:verify"
+  assert_success
+  
+  # Should show AWS account information
+  assert_output_contains "AWS Account Details:"
+  assert_output_contains "Account ID:"
+  assert_output_contains "User/Role ARN:"
+  assert_output_contains "Region:"
+}
+
+@test "(dns:verify) tests Route53 permissions" {
+  setup_dns_provider aws
+  
+  run dokku "$PLUGIN_COMMAND_PREFIX:verify"
+  assert_success
+  
+  # Should test Route53 API access
+  assert_output_contains "Testing Route53 API Access:"
+  assert_output_contains "route53:ListHostedZones"
+  # Note: Other permission tests may only show when zones exist
+}
+
+@test "(dns:verify) shows hosted zones discovery" {
+  setup_dns_provider aws
+  
+  run dokku "$PLUGIN_COMMAND_PREFIX:verify"
+  assert_success
+  
+  # Should show zones discovery
+  assert_output_contains "Hosted Zones Discovery:"
+  assert_output_contains "Dokku DNS Records Discovery:"
 }
