@@ -122,3 +122,39 @@ The plugin now automatically discovers all domains configured for an app via `do
 ## Notes
 
 **Major API Simplification**: The plugin has been completely redesigned from a service-based architecture to a global configuration approach. This eliminates the confusing two-step process and makes DNS work more intuitively with Dokku apps.
+
+## Phase 5: Plugin Triggers - COMPLETED ✅ (2025-08-22)
+
+- [x] **Core Triggers Implemented** ✅
+  - [x] `post-create` - Initialize DNS management for new apps
+  - [x] `post-delete` - Clean up DNS records after app deletion  
+  - [x] `post-domains-update` - Handle domain additions and removals
+  - [x] `post-app-rename` - Update DNS records when app is renamed
+  - [x] Integrated with zone enablement system from main branch
+  - [x] All triggers respect zone enablement settings
+  - [x] Comprehensive test coverage (118/118 tests passing)
+
+### Automatic DNS Management ✅
+The triggers provide seamless automatic DNS management:
+- **App Creation**: `post-create` checks if new apps have domains in enabled zones and auto-adds them to DNS
+- **Domain Changes**: `post-domains-update` automatically adds/removes domains when using `dokku domains:add/remove`
+- **App Lifecycle**: `post-delete` and `post-app-rename` handle cleanup and updates during app lifecycle events
+- **Zone Awareness**: All triggers respect zone enablement settings - only domains in enabled zones are automatically managed
+
+## Phase 6: DNS Zones Management - COMPLETED ✅ (2025-08-21)
+
+- [x] **Zones Management** ✅ COMPLETED (implemented in main branch)
+  - [x] Implemented `dns:zones:add` and `dns:zones:remove` commands 
+  - [x] Persistent zone enablement configuration
+  - [x] Updated sync, report, and add commands to check zone enablement
+  - [x] Comprehensive error handling and user guidance
+  - [x] Full integration and unit test coverage
+
+### Global DNS Zones with Enablement Control ✅
+- **Zone Enablement Control**: New `dns:zones:add` and `dns:zones:remove` commands for managing which zones are active
+- **Auto-discovery Support**: Zones can be enabled/disabled for automatic app domain management
+- **Persistent Configuration**: Zone enablement state is stored and maintained across operations
+- **Multi-zone Support**: Handle multiple DNS zones with selective enablement
+- **Real AWS Route53 Integration**: Actual DNS record creation using UPSERT operations
+- **DNS Caching Bypass**: Uses AWS CLI for authoritative Route53 queries instead of cached DNS
+- **Dynamic Server IP Detection**: Removed hardcoded IP addresses, uses actual server IP

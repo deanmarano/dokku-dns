@@ -181,3 +181,31 @@ assert_output_contains() {
   done
   assert_equal "$count" "$found"
 }
+
+# File assertion helpers
+assert_file_exists() {
+  local file="$1"
+  [[ -f "$file" ]] || flunk "Expected file to exist: $file"
+}
+
+assert_file_not_exists() {
+  local file="$1"
+  [[ ! -f "$file" ]] || flunk "Expected file to not exist: $file"
+}
+
+assert_file_executable() {
+  local file="$1"
+  [[ -x "$file" ]] || flunk "Expected file to be executable: $file"
+}
+
+assert_line_in_file() {
+  local line="$1"
+  local file="$2"
+  grep -q "^$line$" "$file" || flunk "Expected line '$line' to be in file: $file"
+}
+
+refute_line_in_file() {
+  local line="$1"
+  local file="$2"
+  ! grep -q "^$line$" "$file" || flunk "Expected line '$line' to NOT be in file: $file"
+}

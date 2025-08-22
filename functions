@@ -419,8 +419,14 @@ dns_add_app_domains() {
           set -e  # Re-enable exit on error
           
           if [[ $ZONE_CHECK_EXIT_CODE -eq 0 ]] && [[ -n "$ZONE_ID" ]]; then
-            VALID_DOMAINS+=("$DOMAIN")
-            dokku_log_info1 "✓ $DOMAIN has hosted zone: $ZONE_ID"
+            # Check if this domain is in an enabled zone
+            if is_domain_in_enabled_zone "$DOMAIN"; then
+              VALID_DOMAINS+=("$DOMAIN")
+              dokku_log_info1 "✓ $DOMAIN has hosted zone: $ZONE_ID (zone enabled)"
+            else
+              SKIPPED_DOMAINS+=("$DOMAIN")
+              dokku_log_info1 "✗ $DOMAIN has hosted zone: $ZONE_ID but zone is not enabled for auto-discovery"
+            fi
           else
             SKIPPED_DOMAINS+=("$DOMAIN")
             dokku_log_info1 "✗ $DOMAIN has no hosted zone"
@@ -446,9 +452,20 @@ dns_add_app_domains() {
   
   # Report skipped domains
   if [[ ${#SKIPPED_DOMAINS[@]} -gt 0 ]]; then
-    dokku_log_warn "Skipping domains without hosted zones:"
+    dokku_log_warn "Skipping domains without hosted zones or disabled zones:"
     for DOMAIN in "${SKIPPED_DOMAINS[@]}"; do
-      dokku_log_info1 "  ❌ $DOMAIN (no hosted zone found)"
+      # Check if it was skipped due to zone being disabled vs no hosted zone
+      local ZONE_ID
+      set +e  # Temporarily disable exit on error
+      ZONE_ID=$(dns_provider_aws_get_hosted_zone_id "$DOMAIN" 2>/dev/null)
+      local ZONE_EXISTS=$?
+      set -e  # Re-enable exit on error
+      
+      if [[ $ZONE_EXISTS -eq 0 ]] && [[ -n "$ZONE_ID" ]]; then
+        dokku_log_info1 "  ❌ $DOMAIN (zone not enabled for auto-discovery)"
+      else
+        dokku_log_info1 "  ❌ $DOMAIN (no hosted zone found)"
+      fi
     done
     echo
   fi
@@ -459,9 +476,10 @@ dns_add_app_domains() {
   
   # Check if we have any valid domains left
   if [[ ${#VALID_DOMAINS[@]} -eq 0 ]]; then
-    dokku_log_warn "No domains with hosted zones found for app: $APP"
+    dokku_log_warn "No domains with enabled hosted zones found for app: $APP"
     if [[ ${#SKIPPED_DOMAINS[@]} -gt 0 ]]; then
-      dokku_log_info1 "Create hosted zones for these domains in your DNS provider first"
+      dokku_log_info1 "Enable zones for auto-discovery with: dokku $PLUGIN_COMMAND_PREFIX:zones:add <zone>"
+      dokku_log_info1 "Or create hosted zones for these domains in your DNS provider first"
     fi
     return 0
   fi
@@ -744,3 +762,71 @@ domain_points_to_server() {
   return 1
 }
 
+# Check if a domain matches any hosted zone that has managed domains
+# Usage: dns_domain_matches_managed_zone <domain>
+# Returns: 0 if domain matches a zone with managed domains, 1 otherwise
+dns_domain_matches_managed_zone() {
+  local DOMAIN="$1"
+  
+  # Check if any apps are managed by DNS
+  local LINKS_FILE="$PLUGIN_DATA_ROOT/LINKS"
+  if [[ ! -f "$LINKS_FILE" ]] || [[ ! -s "$LINKS_FILE" ]]; then
+    # No managed apps at all
+    return 1
+  fi
+  
+  # Get all managed domains across all apps
+  local all_managed_domains=()
+  while IFS= read -r app; do
+    [[ -z "$app" ]] && continue
+    local APP_DOMAINS_FILE="$PLUGIN_DATA_ROOT/$app/DOMAINS"
+    if [[ -f "$APP_DOMAINS_FILE" ]]; then
+      while IFS= read -r domain; do
+        [[ -n "$domain" ]] && all_managed_domains+=("$domain")
+      done < "$APP_DOMAINS_FILE"
+    fi
+  done < "$LINKS_FILE"
+  
+  if [[ ${#all_managed_domains[@]} -eq 0 ]]; then
+    # No managed domains at all
+    return 1
+  fi
+  
+  # Extract the zone (root domain) from the input domain
+  local domain_zone
+  domain_zone=$(extract_root_domain "$DOMAIN")
+  
+  # Check if any managed domain shares the same zone
+  for managed_domain in "${all_managed_domains[@]}"; do
+    local managed_zone
+    managed_zone=$(extract_root_domain "$managed_domain")
+    if [[ "$domain_zone" == "$managed_zone" ]]; then
+      # Found a managed domain in the same zone
+      return 0
+    fi
+  done
+  
+  # No managed domains in the same zone
+  return 1
+}
+
+# Extract root domain from a full domain name
+# Usage: extract_root_domain <domain>
+# Returns: root domain (e.g., "example.com" from "api.example.com")
+extract_root_domain() {
+  local DOMAIN="$1"
+  
+  # Handle simple cases first
+  local part_count
+  part_count=$(echo "$DOMAIN" | tr '.' '\n' | wc -l)
+  
+  if [[ $part_count -le 2 ]]; then
+    # Already a root domain (e.g., "example.com" or "localhost")
+    echo "$DOMAIN"
+    return 0
+  fi
+  
+  # For domains with more parts, take the last two parts
+  # This works for most cases: api.example.com -> example.com
+  echo "$DOMAIN" | awk -F. '{print $(NF-1)"."$NF}'
+}

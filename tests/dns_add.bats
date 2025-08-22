@@ -45,7 +45,7 @@ teardown() {
   assert_output_contains "✅ Points to server IP"
   assert_output_contains "⚠️  Points to different IP"
   assert_output_contains "❌ No DNS record found"
-  assert_output_contains "No domains with hosted zones found for app: my-app"
+  assert_output_contains "No domains with enabled hosted zones found for app: my-app"
 }
 
 @test "(dns:add) success with specific domains shows table" {

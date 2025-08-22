@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+# DNS Plugin - Post-Delete Trigger
+# Automatically cleans up DNS management after an app has been successfully deleted
+
+# Source plugin configuration
+PLUGIN_BASE_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$PLUGIN_BASE_PATH/config"
+
+# Load functions if available
+if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
+  source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
+fi
+
+# Define missing functions if needed
+if ! declare -f dokku_log_info1 >/dev/null 2>&1; then
+  dokku_log_info1() { echo "-----> $*"; }
+fi
+
+if ! declare -f dokku_log_info2 >/dev/null 2>&1; then
+  dokku_log_info2() { echo "=====> $*"; }
+fi
+
+if ! declare -f dokku_log_warn >/dev/null 2>&1; then
+  dokku_log_warn() { echo " !     $*"; }
+fi
+
+# Load plugin functions
+TRIGGER_BASE_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$TRIGGER_BASE_PATH/functions"
+
+# Main trigger logic
+main() {
+  local APP="$1"
+  local IMAGE_TAG="$2"  # Optional second argument
+  
+  # Skip if no app provided
+  [[ -z "$APP" ]] && return 0
+  
+  # Check if app is managed by DNS
+  if ! is_app_dns_managed "$APP"; then
+    # App not managed by DNS, nothing to clean up
+    return 0
+  fi
+  
+  dokku_log_info2 "DNS: Cleaning up DNS management for app '$APP'"
+  
+  # Get domains that were managed before removal
+  local APP_DOMAINS_FILE="$PLUGIN_DATA_ROOT/$APP/DOMAINS"
+  local managed_domains=()
+  
+  if [[ -f "$APP_DOMAINS_FILE" ]]; then
+    while IFS= read -r domain; do
+      [[ -n "$domain" ]] && managed_domains+=("$domain")
+    done < "$APP_DOMAINS_FILE"
+  fi
+  
+  if [[ ${#managed_domains[@]} -gt 0 ]]; then
+    dokku_log_info1 "DNS: Removing DNS management for domains:"
+    for domain in "${managed_domains[@]}"; do
+      dokku_log_info1 "  • $domain"
+    done
+  fi
+  
+  # Remove app from DNS management
+  local LINKS_FILE="$PLUGIN_DATA_ROOT/LINKS"
+  if [[ -f "$LINKS_FILE" ]]; then
+    # Create temp file without the app
+    local TEMP_LINKS_FILE
+    TEMP_LINKS_FILE=$(mktemp)
+    grep -v "^$APP$" "$LINKS_FILE" > "$TEMP_LINKS_FILE" 2>/dev/null || true
+    mv "$TEMP_LINKS_FILE" "$LINKS_FILE"
+  fi
+  
+  # Remove app's domain tracking directory
+  if [[ -d "$PLUGIN_DATA_ROOT/$APP" ]]; then
+    rm -rf "${PLUGIN_DATA_ROOT:?}/${APP:?}"
+  fi
+  
+  if [[ ${#managed_domains[@]} -gt 0 ]]; then
+    dokku_log_info1 "DNS: App '$APP' removed from DNS management"
+    dokku_log_warn "DNS: DNS records for this app are still active in your DNS provider"
+    dokku_log_info1 "DNS: You may want to manually clean up DNS records if the app is permanently deleted"
+  else
+    dokku_log_info1 "DNS: App '$APP' removed from DNS management (no domains were managed)"
+  fi
+}
+
+# Run if called directly (not sourced)
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi
