@@ -28,7 +28,25 @@ The DNS plugin is progress! Many core features have been implemented and tested.
 
 ## Phase 7: Core Enhancements (High Priority)
 
+- [ ] **Remove concept of a global provider**
+
 - [ ] **Investigate breaking up scripts/test-integration.sh**
+
+- [ ] **Update report command**
+  - [ ] include if a sync is necessary, and if it is, clean, minimal output of what will be changed by a sync
+  - [ ] should also include same output in dns:apps:report as well
+  - [ ] should also add a dns:zones:report with same output
+
+- [ ] **Track DNS records to delete**
+  - [ ] Update triggers to log when DNS records should be deleted
+  - [ ] Records to be deleted should show up in report commands
+  - [ ] Records should be deleted by sync commands
+  - [ ] Should be included in batch commands when possible
+
+- [ ] **Add TTL support**
+  - [ ] Allow for TTL to be configured in the dns:apps:enable command
+  - [ ] Use configured TTL when syncing
+  - [ ] Display TTL in report commands
 
 - [ ] **Add domain parameter to dns:apps:sync**
   - [ ] Implement domain filtering in sync command
