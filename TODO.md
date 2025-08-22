@@ -4,25 +4,7 @@
 
 The DNS plugin is progress! Many core features have been implemented and tested. See [DONE.md](./DONE.md) for completed work.
 
-## Phase 5: Plugin Triggers (In Progress)
-- [x] **Implemented Triggers** ✅
-  - [x] `post-create` - Initialize DNS management for new apps
-  - [x] `post-delete` - Clean up DNS records after app deletion
-  - [x] `post-domains-update` - Handle domain additions and removals
-
-- [ ] **Remaining Triggers**
-  - [ ] `post-app-clone-setup` - Handle domain updates when apps are cloned
-  - [ ] `post-app-rename` - Update DNS records when app is renamed
-  - [ ] `post-proxy-ports-set` - Handle port changes that affect DNS records
-  - [ ] `post-proxy-ports-clear` - Clean up when proxy ports are removed
-
 ## Phase 6: Core Enhancements (High Priority)
-- [ ] **Update zones:enable/zones:disable**
-  - [ ] Modify commands to persist domain settings in app configuration
-  - [ ] Update other (sync, report) commands to check if domain is in an enabled hosted zone instead of just checking for the app link
-  - [ ] Implement proper error handling for invalid domains
-  - [ ] Add integration tests for new functionality
-  - [ ] Add bats tests for new functionality
 
 - [ ] **Investiate breaking up scripts/test-integration.sh**
 - [ ] **Enhance verify command**
@@ -112,7 +94,7 @@ The DNS plugin is progress! Many core features have been implemented and tested.
   - [ ] Ensure consistent formatting across all commands
   - [ ] Add helpful hints and tips in command outputs
 
-## Phase 9: DigitalOcean Provider Implementation
+## Phase 10: DigitalOcean Provider Implementation
 
 - [ ] **Credential Validation**
   - [ ] Document using `dokku config:set` for DigitalOcean credentials:
@@ -143,4 +125,10 @@ The DNS plugin is progress! Many core features have been implemented and tested.
   - [ ] Implement `dns_provider_digitalocean_sync_app()`
 
 ## Phase 9: Additional Features (Lower Priority)
+
+- [ ] **Additional Triggers** (Future Enhancement)
+  - [ ] `post-app-clone-setup` - Handle domain updates when apps are cloned
+  - [ ] `post-proxy-ports-set` - Handle port changes that affect DNS records
+  - [ ] `post-proxy-ports-clear` - Clean up when proxy ports are removed
+
 - [ ] **Add DNS record backup/restore** - Safety features for DNS changes
