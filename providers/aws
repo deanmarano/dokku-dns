@@ -143,3 +143,77 @@ dns_provider_aws_sync_app() {
     
     return 0
 }
+
+dns_provider_aws_discover_existing_domains() {
+    # Discover existing DNS records that might be Dokku-managed domains
+    
+    # Check if AWS CLI is available and configured
+    if ! command -v aws >/dev/null 2>&1; then
+        dokku_log_info1 "  AWS CLI not available for DNS record discovery"
+        return 1
+    fi
+    
+    if ! aws sts get-caller-identity >/dev/null 2>&1; then
+        dokku_log_info1 "  AWS credentials not configured for DNS record discovery"
+        return 1
+    fi
+    
+    # Get all hosted zones
+    local zones
+    zones=$(aws route53 list-hosted-zones --query 'HostedZones[].Id' --output text 2>/dev/null) || {
+        dokku_log_info1 "  Failed to list hosted zones"
+        return 1
+    }
+    
+    if [[ -z "$zones" ]]; then
+        dokku_log_info1 "  No hosted zones found"
+        return 0
+    fi
+    
+    local found_records=false
+    
+    # Check each zone for A records that might point to this server
+    for zone_id in $zones; do
+        zone_id=${zone_id#/hostedzone/}
+        
+        # Get A records from this zone
+        local records
+        # shellcheck disable=SC2016
+        records=$(aws route53 list-resource-record-sets --hosted-zone-id "$zone_id" \
+                 --query 'ResourceRecordSets[?Type==`A`].[Name,ResourceRecords[0].Value]' \
+                 --output text 2>/dev/null) || continue
+        
+        if [[ -n "$records" ]]; then
+            while IFS=$'\t' read -r domain ip; do
+                [[ -z "$domain" || -z "$ip" ]] && continue
+                
+                # Remove trailing dot from domain
+                domain=${domain%.}
+                
+                # Check if this might be a Dokku domain by seeing if it matches any known apps
+                local potential_dokku_domain=false
+                
+                # Simple heuristics: check if domain contains common Dokku patterns
+                if [[ "$domain" == *".herokuapp.com"* ]] || \
+                   [[ "$domain" == *".dokku."* ]] || \
+                   [[ "$domain" =~ ^[a-z0-9-]+\.[a-z0-9.-]+$ ]]; then
+                    potential_dokku_domain=true
+                fi
+                
+                if [[ "$potential_dokku_domain" == "true" ]]; then
+                    if [[ "$found_records" == "false" ]]; then
+                        dokku_log_info1 "  Potential Dokku domains found:"
+                        found_records=true
+                    fi
+                    dokku_log_info1 "    • $domain → $ip"
+                fi
+            done <<< "$records"
+        fi
+    done
+    
+    if [[ "$found_records" == "false" ]]; then
+        dokku_log_info1 "  No potential Dokku domains found in Route53"
+    fi
+    
+    return 0
+}
