@@ -30,46 +30,46 @@ teardown() {
 @test "(dns:help) lists available commands" {
   run dokku "$PLUGIN_COMMAND_PREFIX:help"
   assert_success
-  assert_output_contains "dns:add"
-  assert_output_contains "dns:configure"
+  assert_output_contains "dns:apps:enable"
+  assert_output_contains "dns:providers:configure"
   assert_output_contains "dns:help" 2
-  assert_output_contains "dns:remove"
+  assert_output_contains "dns:apps:disable"
   assert_output_contains "dns:report"
-  assert_output_contains "dns:sync <app>"
+  assert_output_contains "dns:apps:sync <app>"
   assert_output_contains "dns:sync-all"
-  assert_output_contains "dns:verify"
+  assert_output_contains "dns:providers:verify"
   assert_output_contains "dns:version"
 }
 
-@test "(dns:configure:help) shows subcommand help" {
-  run dokku "$PLUGIN_COMMAND_PREFIX:configure:help"
+@test "(dns:providers:configure:help) shows subcommand help" {
+  run dokku "$PLUGIN_COMMAND_PREFIX:providers:configure:help"
   assert_success
   assert_output_contains "usage"
-  assert_output_contains "dns:configure" 2
+  assert_output_contains "dns:providers:configure" 2
   assert_output_contains "configure or change the global DNS provider"
 }
 
-@test "(dns:add:help) shows add command help" {
-  run dokku "$PLUGIN_COMMAND_PREFIX:add:help"
+@test "(dns:apps:enable:help) shows add command help" {
+  run dokku "$PLUGIN_COMMAND_PREFIX:apps:enable:help"
   assert_success
   assert_output_contains "usage"
-  assert_output_contains "dns:add" 3
+  assert_output_contains "dns:apps:enable" 3
   assert_output_contains "add app domains to DNS provider for management" 2
 }
 
-@test "(dns:verify:help) shows verify command help" {
-  run dokku "$PLUGIN_COMMAND_PREFIX:verify:help"
+@test "(dns:providers:verify:help) shows verify command help" {
+  run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify:help"
   assert_success
   assert_output_contains "usage"
-  assert_output_contains "dns:verify" 2
+  assert_output_contains "dns:providers:verify" 2
   assert_output_contains "verify DNS provider setup and connectivity" 2
 }
 
-@test "(dns:sync:help) shows sync command help" {
-  run dokku "$PLUGIN_COMMAND_PREFIX:sync:help"
+@test "(dns:apps:sync:help) shows sync command help" {
+  run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync:help"
   assert_success
   assert_output_contains "usage"
-  assert_output_contains "dns:sync" 2
+  assert_output_contains "dns:apps:sync" 2
   assert_output_contains "synchronize DNS records for app"
 }
 

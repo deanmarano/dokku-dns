@@ -97,15 +97,15 @@ EOF
     echo "1. Testing dns:help"
     dokku dns:help 2>&1 || echo "Help command completed"
     
-    echo "2. Testing dns:configure"
-    dokku dns:configure aws 2>&1 || echo "Configure command completed"
+    echo "2. Testing dns:providers:configure"
+    dokku dns:providers:configure aws 2>&1 || echo "Configure command completed"
     
-    echo "3. Testing dns:verify"
-    dokku dns:verify 2>&1 || echo "Verify command completed"
+    echo "3. Testing dns:providers:verify"
+    dokku dns:providers:verify 2>&1 || echo "Verify command completed"
     
     # Test 4: DNS Add and verify in reports
-    echo "4. Testing dns:add"
-    dokku dns:add "$TEST_APP" 2>&1 || echo "Add command completed"
+    echo "4. Testing dns:apps:enable"
+    dokku dns:apps:enable "$TEST_APP" 2>&1 || echo "Add command completed"
     
     # Test 5: Verify reports after add (comprehensive verification)
     if declare -f run_comprehensive_report_verification >/dev/null 2>&1; then
@@ -124,8 +124,8 @@ EOF
     fi
     
     # Test 6: DNS Sync
-    echo "6. Testing dns:sync"
-    dokku dns:sync "$TEST_APP" 2>&1 || echo "Sync command completed"
+    echo "6. Testing dns:apps:sync"
+    dokku dns:apps:sync "$TEST_APP" 2>&1 || echo "Sync command completed"
     
     # Test 7: Verify global report shows app and domains
     if declare -f verify_app_in_global_report >/dev/null 2>&1; then
@@ -147,8 +147,8 @@ EOF
     fi
     
     # Test 8: DNS Remove
-    echo "8. Testing dns:remove"
-    dokku dns:remove "$TEST_APP" 2>&1 || echo "Remove command completed"
+    echo "8. Testing dns:apps:disable"
+    dokku dns:apps:disable "$TEST_APP" 2>&1 || echo "Remove command completed"
     
     # Test 9: Verify reports after remove (comprehensive verification)
     if declare -f run_comprehensive_report_verification >/dev/null 2>&1; then
@@ -328,7 +328,7 @@ EOF
     echo "11. Testing DNS sync-all functionality..."
     
     # Add test app to DNS for sync-all testing
-    dokku dns:add "$TEST_APP" >/dev/null 2>&1
+    dokku dns:apps:enable "$TEST_APP" >/dev/null 2>&1
     
     # Test sync-all command
     if dokku dns:sync-all 2>&1 | grep -q "DNS sync completed"; then
@@ -338,7 +338,7 @@ EOF
     fi
     
     # Test sync-all with no DNS-managed apps
-    dokku dns:remove "$TEST_APP" >/dev/null 2>&1
+    dokku dns:apps:disable "$TEST_APP" >/dev/null 2>&1
     if dokku dns:sync-all 2>&1 | grep -q "No apps are currently managed by DNS"; then
         echo "✓ Sync-all handles no DNS-managed apps correctly"
     else
@@ -421,7 +421,7 @@ EOF
     # Test sync on app not added to DNS management shows appropriate behavior
     echo "Testing sync with non-DNS-managed app..."
     local zones_sync_output
-    zones_sync_output=$(dokku dns:sync "$ZONES_TEST_APP" 2>&1)
+    zones_sync_output=$(dokku dns:apps:sync "$ZONES_TEST_APP" 2>&1)
     
     if echo "$zones_sync_output" | grep -q "No DNS provider configured\|App.*not found in DNS management\|not managed by DNS"; then
         echo "✓ Sync shows appropriate message for non-DNS-managed app"
@@ -436,38 +436,38 @@ EOF
     echo "14. Testing edge cases and error handling..."
     
     # Test commands without required arguments
-    if dokku dns:add 2>&1 | grep -q "Please specify an app name"; then
+    if dokku dns:apps:enable 2>&1 | grep -q "Please specify an app name"; then
         echo "✓ Add without app shows usage error"
     else
         echo "⚠️ Add usage error handling test inconclusive"
     fi
     
-    if dokku dns:sync 2>&1 | grep -q "Please specify an app name"; then
+    if dokku dns:apps:sync 2>&1 | grep -q "Please specify an app name"; then
         echo "✓ Sync without app shows usage error"  
     else
         echo "⚠️ Sync usage error handling test inconclusive"
     fi
     
-    if dokku dns:remove 2>&1 | grep -q "Please specify an app name"; then
+    if dokku dns:apps:disable 2>&1 | grep -q "Please specify an app name"; then
         echo "✓ Remove without app shows usage error"
     else
         echo "⚠️ Remove usage error handling test inconclusive"
     fi
     
     # Test operations on nonexistent apps
-    if dokku dns:add "nonexistent-app-12345" 2>&1 | grep -q "App does not exist"; then
+    if dokku dns:apps:enable "nonexistent-app-12345" 2>&1 | grep -q "App does not exist"; then
         echo "✓ Add nonexistent app shows error"
     else
         echo "⚠️ Add nonexistent app error handling test inconclusive"
     fi
     
-    if dokku dns:sync "nonexistent-app-12345" 2>&1 | grep -q "App.*does not exist"; then
+    if dokku dns:apps:sync "nonexistent-app-12345" 2>&1 | grep -q "App.*does not exist"; then
         echo "✓ Sync nonexistent app shows error"
     else
         echo "⚠️ Sync nonexistent app error handling test inconclusive"
     fi
     
-    if dokku dns:remove "nonexistent-app-12345" 2>&1 | grep -q "App.*does not exist"; then
+    if dokku dns:apps:disable "nonexistent-app-12345" 2>&1 | grep -q "App.*does not exist"; then
         echo "✓ Remove nonexistent app shows error"
     else
         echo "⚠️ Remove nonexistent app error handling test inconclusive"
@@ -476,7 +476,7 @@ EOF
     # Test provider configuration edge cases
     echo "Testing provider configuration edge cases..."
     
-    if dokku dns:configure "invalid-provider" 2>&1 | grep -q "Invalid provider"; then
+    if dokku dns:providers:configure "invalid-provider" 2>&1 | grep -q "Invalid provider"; then
         echo "✓ Invalid provider shows error"
     else
         echo "⚠️ Invalid provider error handling test inconclusive"

@@ -33,7 +33,7 @@ teardown() {
     run dns_cmd cron --enable
     assert_failure
     assert_output_contains "No DNS provider configured"
-    assert_output_contains "dokku dns:configure"
+    assert_output_contains "dokku dns:providers:configure"
 }
 
 @test "(dns:cron --enable) creates cron job when provider configured" {

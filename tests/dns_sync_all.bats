@@ -35,7 +35,7 @@ teardown() {
 
 @test "(dns:sync-all) error when no provider configured" {
   # Add an app to DNS management  
-  dokku "$PLUGIN_COMMAND_PREFIX:add" my-app
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app
   # Remove provider configuration
   rm -f "$PLUGIN_DATA_ROOT/PROVIDER" 2>/dev/null || true
   
@@ -46,7 +46,7 @@ teardown() {
 
 @test "(dns:sync-all) syncs all managed apps" {
   # Configure provider
-  dokku "$PLUGIN_COMMAND_PREFIX:configure" aws
+  dokku "$PLUGIN_COMMAND_PREFIX:providers:configure" aws
   
   # Add multiple apps with domains that have hosted zones
   create_service "test-app-1"
@@ -58,9 +58,9 @@ teardown() {
   add_test_domains my-app test1.com
   
   # Add apps to DNS (should succeed with hosted zones)
-  dokku "$PLUGIN_COMMAND_PREFIX:add" my-app >/dev/null 2>&1
-  dokku "$PLUGIN_COMMAND_PREFIX:add" test-app-1 >/dev/null 2>&1
-  dokku "$PLUGIN_COMMAND_PREFIX:add" test-app-2 >/dev/null 2>&1
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" test-app-1 >/dev/null 2>&1
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" test-app-2 >/dev/null 2>&1
   
   run dokku "$PLUGIN_COMMAND_PREFIX:sync-all"
   
@@ -71,11 +71,11 @@ teardown() {
 
 @test "(dns:sync-all) handles missing apps gracefully" {
   # Configure provider
-  dokku "$PLUGIN_COMMAND_PREFIX:configure" aws
+  dokku "$PLUGIN_COMMAND_PREFIX:providers:configure" aws
   
   # Add my-app with hosted zone domain
   add_test_domains my-app test1.com
-  dokku "$PLUGIN_COMMAND_PREFIX:add" my-app >/dev/null 2>&1
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1
   
   # Manually add a non-existent app to LINKS file to simulate an app that was deleted
   echo "nonexistent-app" >> "$PLUGIN_DATA_ROOT/LINKS"
@@ -89,7 +89,7 @@ teardown() {
 
 @test "(dns:sync-all) shows summary with mixed results" {
   # Configure provider  
-  dokku "$PLUGIN_COMMAND_PREFIX:configure" aws
+  dokku "$PLUGIN_COMMAND_PREFIX:providers:configure" aws
   
   # Add apps with domains that have hosted zones
   create_service "working-app"
@@ -97,8 +97,8 @@ teardown() {
   add_test_domains my-app test1.com
   
   # Add apps to DNS management
-  dokku "$PLUGIN_COMMAND_PREFIX:add" my-app >/dev/null 2>&1
-  dokku "$PLUGIN_COMMAND_PREFIX:add" working-app >/dev/null 2>&1
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" working-app >/dev/null 2>&1
   
   # Add non-existent app to simulate failure
   echo "missing-app" >> "$PLUGIN_DATA_ROOT/LINKS"
@@ -112,7 +112,7 @@ teardown() {
 
 @test "(dns:sync-all) displays start timing information" {
   # Configure provider
-  dokku "$PLUGIN_COMMAND_PREFIX:configure" aws
+  dokku "$PLUGIN_COMMAND_PREFIX:providers:configure" aws
   
   run dokku "$PLUGIN_COMMAND_PREFIX:sync-all"
   assert_success
@@ -134,7 +134,7 @@ teardown() {
 
 @test "(dns:sync-all) displays end timing information" {
   # Configure provider
-  dokku "$PLUGIN_COMMAND_PREFIX:configure" aws
+  dokku "$PLUGIN_COMMAND_PREFIX:providers:configure" aws
   
   run dokku "$PLUGIN_COMMAND_PREFIX:sync-all"
   assert_success

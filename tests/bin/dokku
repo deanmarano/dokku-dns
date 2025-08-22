@@ -18,18 +18,8 @@ else
         PLUGIN_ROOT="$(cd "$BIN_DIR/../.." && pwd)"
     fi
 fi
-if [[ "$1" == "dns:verify" ]]; then
-    exec "$PLUGIN_ROOT/subcommands/verify" "${@:2}"
-elif [[ "$1" == "dns:configure" ]]; then
-    exec "$PLUGIN_ROOT/subcommands/configure" "${@:2}"
-elif [[ "$1" == "dns:add" ]]; then
-    exec "$PLUGIN_ROOT/subcommands/add" "${@:2}"
-elif [[ "$1" == "dns:sync" ]]; then
-    exec "$PLUGIN_ROOT/subcommands/sync" "${@:2}"
-elif [[ "$1" == "dns:sync-all" ]]; then
+if [[ "$1" == "dns:sync-all" ]]; then
     exec "$PLUGIN_ROOT/subcommands/sync-all" "${@:2}"
-elif [[ "$1" == "dns:remove" ]]; then
-    exec "$PLUGIN_ROOT/subcommands/remove" "${@:2}"
 elif [[ "$1" == "dns:report" ]]; then
     exec "$PLUGIN_ROOT/subcommands/report" "${@:2}"
 elif [[ "$1" == "dns:version" ]]; then

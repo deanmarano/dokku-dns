@@ -3,7 +3,7 @@
 ## Phase 1: Core Foundation (High Priority) - COMPLETED ✅
 
 - [x] **Update core configuration** - Configure DNS plugin settings ✅
-- [x] **Create dns:configure** - Initialize global DNS configuration ✅ 
+- [x] **Create dns:providers:configure** - Initialize global DNS configuration ✅ 
 
 ## Phase 2: Integration (Medium Priority) - COMPLETED 
 
@@ -55,22 +55,22 @@ The DNS plugin is **production ready**! Real-world testing on duodeca.local show
 ### API Success Highlights
 
 The **simplified API** works exactly as designed:
-- `dns:configure aws` → Auto-detects existing AWS credentials  
-- `dns:add nextcloud` → Discovers all app domains automatically  
-- `dns:sync nextcloud` → Creates DNS records (nextcloud.deanoftech.com ✅)
+- `dns:providers:configure aws` → Auto-detects existing AWS credentials  
+- `dns:apps:enable nextcloud` → Discovers all app domains automatically  
+- `dns:apps:sync nextcloud` → Creates DNS records (nextcloud.deanoftech.com ✅)
 - `dns:report nextcloud` → Beautiful status table with hosted zone info
 
 ### Current API (Battle-Tested)
 
 ```bash
 # Core commands - ALL WORKING PERFECTLY ✅
-dokku dns:configure [provider]                     # Configure DNS provider (auto-detects AWS) ✅
-dokku dns:verify                                   # Verify provider connectivity ✅
-dokku dns:add <app>                                # Add app domains to DNS management ✅
-dokku dns:sync <app>                               # Create/update DNS records ✅
+dokku dns:providers:configure [provider]           # Configure DNS provider (auto-detects AWS) ✅
+dokku dns:providers:verify                         # Verify provider connectivity ✅
+dokku dns:apps:enable <app>                        # Add app domains to DNS management ✅
+dokku dns:apps:sync <app>                          # Create/update DNS records ✅
 dokku dns:sync-all                                 # Bulk sync all DNS-managed apps (NEW!) ✅
 dokku dns:report [app]                             # Beautiful status tables with emojis ✅
-dokku dns:remove <app>                             # Remove app from DNS tracking ✅
+dokku dns:apps:disable <app>                       # Remove app from DNS tracking ✅
 
 # Helper commands
 dokku dns:help                                     # Show all available commands ✅
@@ -80,18 +80,18 @@ dokku dns:help                                     # Show all available commands
 
 ```bash
 # One-time setup
-dokku dns:configure aws
+dokku dns:providers:configure aws
 dokku dns:provider-auth
 
 # Use with any app (domains are automatically discovered)
 dokku domains:add myapp example.com
-dokku dns:sync myapp
+dokku dns:apps:sync myapp
 
 # Check status
 dokku dns:report myapp
 
 # Change provider later if needed
-dokku dns:configure cloudflare
+dokku dns:providers:configure cloudflare
 dokku dns:provider-auth
 ```
 

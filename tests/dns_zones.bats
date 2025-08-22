@@ -642,7 +642,7 @@ assert_file_contains() {
     dns_zones_remove --all
     assert_success
     assert_output_contains "To re-enable: dokku dns:zones:add --all"
-    assert_output_contains "Or add apps individually: dokku dns:add <app>"
+    assert_output_contains "Or add apps individually: dokku dns:apps:enable <app>"
 }
 
 @test "(dns:zones:add) persists zone as enabled globally" {
@@ -754,7 +754,7 @@ assert_file_contains() {
   create_test_app "testapp"
   add_test_domains "testapp" "app1.example.com" "app2.test.org"
   
-  # Manually add app to DNS management (bypass dns:add since it might fail with no real hosted zones)
+  # Manually add app to DNS management (bypass dns:apps:enable since it might fail with no real hosted zones)
   mkdir -p "$PLUGIN_DATA_ROOT/testapp"
   echo -e "app1.example.com\napp2.test.org" > "$PLUGIN_DATA_ROOT/testapp/DOMAINS"
   echo "testapp" >> "$PLUGIN_DATA_ROOT/LINKS"
@@ -794,5 +794,5 @@ assert_file_contains() {
     assert_output_contains "Zone 'example.com' added to auto-discovery"
     
     # The implementation simply enables zones for auto-discovery without automatic domain discovery
-    # Applications must be added manually via dns:add command after zone enablement
+    # Applications must be added manually via dns:apps:enable command after zone enablement
 }

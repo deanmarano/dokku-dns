@@ -9,25 +9,25 @@ teardown() {
   cleanup_dns_data
 }
 
-@test "(dns:configure) success with no arguments (uses default)" {
-  run dokku "$PLUGIN_COMMAND_PREFIX:configure"
+@test "(dns:providers:configure) success with no arguments (uses default)" {
+  run dokku "$PLUGIN_COMMAND_PREFIX:providers:configure"
   assert_success
   assert_output_contains "DNS configured globally with provider: aws"
-  assert_output_contains "Next step: dokku dns:verify"
+  assert_output_contains "Next step: dokku dns:providers:verify"
 }
 
-@test "(dns:configure) error when invalid provider specified" {
-  run dokku "$PLUGIN_COMMAND_PREFIX:configure" invalid-provider
+@test "(dns:providers:configure) error when invalid provider specified" {
+  run dokku "$PLUGIN_COMMAND_PREFIX:providers:configure" invalid-provider
   assert_failure
   assert_output_contains "Invalid provider 'invalid-provider'"
   assert_output_contains "Supported providers: aws, cloudflare"
 }
 
-@test "(dns:configure) success with aws provider" {
-  run dokku "$PLUGIN_COMMAND_PREFIX:configure" aws
+@test "(dns:providers:configure) success with aws provider" {
+  run dokku "$PLUGIN_COMMAND_PREFIX:providers:configure" aws
   assert_success
   assert_output_contains "DNS configured globally with provider: aws"
-  assert_output_contains "Next step: dokku dns:verify"
+  assert_output_contains "Next step: dokku dns:providers:verify"
   
   # Verify the provider file was created
   assert_exists "$PLUGIN_DATA_ROOT/PROVIDER"
@@ -39,11 +39,11 @@ teardown() {
 }
 
 
-@test "(dns:configure) success with default provider (no args)" {
-  run dokku "$PLUGIN_COMMAND_PREFIX:configure"
+@test "(dns:providers:configure) success with default provider (no args)" {
+  run dokku "$PLUGIN_COMMAND_PREFIX:providers:configure"
   assert_success
   assert_output_contains "DNS configured globally with provider: aws"
-  assert_output_contains "Next step: dokku dns:verify"
+  assert_output_contains "Next step: dokku dns:providers:verify"
   
   # Check default provider was set
   run cat "$PLUGIN_DATA_ROOT/PROVIDER"
@@ -52,11 +52,11 @@ teardown() {
 }
 
 
-@test "(dns:configure) creates data directory if missing" {
+@test "(dns:providers:configure) creates data directory if missing" {
   # Ensure directory doesn't exist
   rm -rf "$PLUGIN_DATA_ROOT"
   
-  run dokku "$PLUGIN_COMMAND_PREFIX:configure" aws
+  run dokku "$PLUGIN_COMMAND_PREFIX:providers:configure" aws
   assert_success
   
   # Verify directory was created

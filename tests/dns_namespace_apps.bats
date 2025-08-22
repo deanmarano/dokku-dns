@@ -33,7 +33,7 @@ teardown() {
   # Add some domains to the app
   run dokku domains:add "$TEST_APP" "test.example.com"
   
-  # Try to enable DNS (should behave like dns:add)
+  # Try to enable DNS (should behave like dns:apps:enable)
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" "$TEST_APP"
   # This may fail without AWS credentials, but should at least try
   assert_contains "${lines[*]}" "hosted zone" || assert_contains "${lines[*]}" "AWS"
