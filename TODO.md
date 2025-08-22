@@ -4,11 +4,33 @@
 
 The DNS plugin is progress! Many core features have been implemented and tested. See [DONE.md](./DONE.md) for completed work.
 
-## Phase 6: Core Enhancements (High Priority)
+## Phase 6: Command Structure Cleanup (High Priority)
 
-- [ ] **Investiate breaking up scripts/test-integration.sh**
+- [ ] **Restructure Command Interface for Better UX**
+  - [ ] Create new command namespaces for logical grouping
+  - [ ] Implement provider namespace: `dns:providers:*`
+    - [ ] Move `dns:configure` → `dns:providers:configure`
+    - [ ] Move `dns:verify` → `dns:providers:verify`
+  - [ ] Implement apps namespace: `dns:apps:*`
+    - [ ] Move `dns:add` → `dns:apps:enable`
+    - [ ] Move `dns:remove` → `dns:apps:disable`
+    - [ ] Move `dns:sync` → `dns:apps:sync`
+    - [ ] Add `dns:apps:report` for app-specific reports
+    - [ ] Create `dns:apps` (list managed apps)
+    - [ ] Keep `dns:report` at top level for global reports
+  - [ ] Implement zones namespace: `dns:zones:*`
+    - [ ] Move `dns:zones:add` → `dns:zones:enable`
+    - [ ] Move `dns:zones:remove` → `dns:zones:disable`
+    - [ ] Keep `dns:zones` (list zones)
+  - [ ] Update all help documentation for new command structure
+  - [ ] Update all tests to use new command structure
+  - [ ] Update README and examples with new commands
 
-- [ ] **Add domain parameter to dns:sync**
+## Phase 7: Core Enhancements (High Priority)
+
+- [ ] **Investigate breaking up scripts/test-integration.sh**
+
+- [ ] **Add domain parameter to dns:apps:sync**
   - [ ] Implement domain filtering in sync command
   - [ ] Support multiple domain parameters (space-separated)
   - [ ] Optimize sync to only process specified domains
@@ -18,7 +40,7 @@ The DNS plugin is progress! Many core features have been implemented and tested.
   - [ ] Add integration tests for new functionality
   - [ ] Add bats tests for new functionality
 
-## Phase 7: AWS Provider Architecture Foundation (High Priority)
+## Phase 8: AWS Provider Architecture Foundation (High Priority)
 
 - [ ] **Restructure AWS Provider Architecture**
   - [ ] Convert `providers/aws` file into `providers/aws/` directory structure
@@ -33,7 +55,7 @@ The DNS plugin is progress! Many core features have been implemented and tested.
   - [ ] Implement graceful fallbacks for missing provider functions
   - [ ] Update core commands to use standardized provider interface
 
-## Phase 8: AWS Core Operations Modularization (High Priority)
+## Phase 9: AWS Core Operations Modularization (High Priority)
 
 - [ ] **Extract AWS Logic from Core DNS Commands**
   - [ ] **add command**: Extract AWS hosted zone checking to `providers/aws/add.sh`
@@ -47,7 +69,7 @@ The DNS plugin is progress! Many core features have been implemented and tested.
   - [ ] `providers/aws/sync-all.sh` - AWS batch operations and optimization
   - [ ] `providers/aws/report.sh` - AWS DNS record checking and IP resolution
 
-## Phase 9: AWS Management Operations Modularization (Medium Priority)
+## Phase 10: AWS Management Operations Modularization (Medium Priority)
 
 - [ ] **Extract AWS Logic from Management Commands**
   - [ ] **verify command**: Move AWS verification logic to `providers/aws/verify.sh`
@@ -72,7 +94,7 @@ The DNS plugin is progress! Many core features have been implemented and tested.
   - [ ] `providers/aws/zones-add.sh` - AWS zone addition logic
   - [ ] `providers/aws/zones-remove.sh` - AWS zone removal logic
 
-## Phase 10: AWS Provider Testing Infrastructure (Medium Priority)
+## Phase 11: AWS Provider Testing Infrastructure (Medium Priority)
 
 - [ ] **Provider Testing Infrastructure**
   - [ ] Create `tests/providers/aws/` directory structure
@@ -90,7 +112,7 @@ The DNS plugin is progress! Many core features have been implemented and tested.
   - [ ] Ensure backward compatibility during transition
   - [ ] Update integration tests to work with new provider structure
 
-## Phase 11: Cloudflare Provider Implementation
+## Phase 12: Cloudflare Provider Implementation
 
 - [ ] **Credential Validation**
   - [ ] Document using `dokku config:set` for Cloudflare credentials:
@@ -120,7 +142,7 @@ The DNS plugin is progress! Many core features have been implemented and tested.
   - [ ] Optimize for Cloudflare's API rate limits
   - [ ] Implement `dns_provider_cloudflare_sync_app()`
 
-## Phase 12: 1.0 Release Preparation
+## Phase 13: 1.0 Release Preparation
 
 - [ ] **Documentation Overhaul**
   - [ ] Create comprehensive README with:
@@ -155,7 +177,7 @@ The DNS plugin is progress! Many core features have been implemented and tested.
   - [ ] Ensure consistent formatting across all commands
   - [ ] Add helpful hints and tips in command outputs
 
-## Phase 13: DigitalOcean Provider Implementation
+## Phase 14: DigitalOcean Provider Implementation
 
 - [ ] **Credential Validation**
   - [ ] Document using `dokku config:set` for DigitalOcean credentials:
@@ -185,7 +207,7 @@ The DNS plugin is progress! Many core features have been implemented and tested.
   - [ ] Handle DigitalOcean's API rate limits
   - [ ] Implement `dns_provider_digitalocean_sync_app()`
 
-## Phase 14: Additional Features (Lower Priority)
+## Phase 15: Additional Features (Lower Priority)
 
 - [ ] **Additional Triggers** (Future Enhancement)
   - [ ] `post-app-clone-setup` - Handle domain updates when apps are cloned
