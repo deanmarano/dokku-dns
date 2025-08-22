@@ -71,24 +71,24 @@ main() {
     return 0
   fi
   
-  # Check if any domains would exist in zones that already have managed domains
-  local domains_in_managed_zones=()
+  # Check if any domains are in enabled zones
+  local domains_in_enabled_zones=()
   
-  # Parse domains and check if they match zones we're already managing
+  # Parse domains and check if they are in enabled zones  
   for domain in $APP_DOMAINS; do
-    if dns_domain_matches_managed_zone "$domain"; then
-      domains_in_managed_zones+=("$domain")
+    if is_domain_in_enabled_zone "$domain"; then
+      domains_in_enabled_zones+=("$domain")
     fi
   done
   
-  if [[ ${#domains_in_managed_zones[@]} -eq 0 ]]; then
-    dokku_log_info1 "DNS: No domains for '$APP' match zones with existing DNS management. Skipping automatic DNS setup."
-    dokku_log_info1 "DNS: Use 'dokku dns:zones --enable <zone>' to enable zones or manually add with 'dokku dns:add $APP'"
+  if [[ ${#domains_in_enabled_zones[@]} -eq 0 ]]; then
+    dokku_log_info1 "DNS: No domains for '$APP' are in enabled zones. Skipping automatic DNS setup."
+    dokku_log_info1 "DNS: Use 'dokku dns:zones:add <zone>' to enable zones or manually add with 'dokku dns:add $APP'"
     return 0
   fi
   
-  # Auto-add app to DNS management if it has domains in zones we're managing
-  dokku_log_info1 "DNS: Found ${#domains_in_managed_zones[@]} domain(s) in managed zones. Adding '$APP' to DNS management"
+  # Auto-add app to DNS management if it has domains in enabled zones
+  dokku_log_info1 "DNS: Found ${#domains_in_enabled_zones[@]} domain(s) in enabled zones. Adding '$APP' to DNS management"
   if dns_add_app_domains "$APP"; then
     dokku_log_info1 "DNS: App '$APP' added to DNS management successfully"
     

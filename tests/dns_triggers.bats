@@ -31,6 +31,11 @@ teardown() {
     assert_file_executable "$PLUGIN_ROOT/post-domains-update"
 }
 
+@test "(triggers) post-app-rename trigger exists and is executable" {
+    assert_file_exists "$PLUGIN_ROOT/post-app-rename"
+    assert_file_executable "$PLUGIN_ROOT/post-app-rename"
+}
+
 @test "(triggers) post-create works with no DNS provider configured" {
     # Should not fail even if no provider is configured
     run "$PLUGIN_ROOT/post-create" "test-app"
