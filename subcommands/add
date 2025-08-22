@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+# Load dokku functions if available
+if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
+  source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
+fi
+
+# Define missing functions if needed
+if ! declare -f verify_app_name >/dev/null 2>&1; then
+  verify_app_name() {
+    local app="$1"
+    [[ -n "$app" ]] || { echo " !     Please specify an app name" >&2; exit 1; }
+    
+    # Check if app exists (only if dokku command is available)
+    if command -v dokku >/dev/null 2>&1; then
+      if ! dokku apps:list 2>/dev/null | grep -q "^$app$"; then
+        dokku_log_fail "App $app does not exist"
+      fi
+    fi
+  }
+fi
+
+if ! declare -f dokku_log_info1 >/dev/null 2>&1; then
+  dokku_log_info1() { echo "-----> $*"; }
+fi
+
+if ! declare -f dokku_log_info2 >/dev/null 2>&1; then
+  dokku_log_info2() { echo "=====> $*"; }
+fi
+
+if ! declare -f dokku_log_warn >/dev/null 2>&1; then
+  dokku_log_warn() { echo " !     $*"; }
+fi
+
+if ! declare -f dokku_log_fail >/dev/null 2>&1; then
+  dokku_log_fail() { echo " !     $*" >&2; exit 1; }
+fi
+
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
+
+service-add-cmd() {
+  #E add app domains to DNS provider for management
+  #E dokku $PLUGIN_COMMAND_PREFIX:add nextcloud
+  #E dokku $PLUGIN_COMMAND_PREFIX:add nextcloud example.com api.example.com
+  #E by default, adds all domains configured for the app
+  #E optionally specify specific domains to add to DNS management
+  #E only domains with hosted zones in the DNS provider will be added
+  #E this registers domains with the DNS provider but doesn't update records yet
+  #E use 'dokku $PLUGIN_COMMAND_PREFIX:sync' to update DNS records
+  #A app, app to add domains for
+  #A domains, specific domains to add (optional, defaults to all app domains)
+  declare desc="add app domains to $PLUGIN_SERVICE provider for management"
+  local cmd="$PLUGIN_COMMAND_PREFIX:add" argv=("$@")
+  [[ ${argv[0]} == "$cmd" ]] && shift 1
+  declare APP="$1"
+  shift 1
+  declare DOMAINS=("$@")
+
+  [[ -z "$APP" ]] && dokku_log_fail "Please specify an app name"
+  verify_app_name "$APP"
+  
+  # Get all app domains if none specified
+  if [[ ${#DOMAINS[@]} -eq 0 ]]; then
+    # Use more compatible approach for older bash versions
+    while IFS= read -r domain; do
+      [[ -n "$domain" ]] && DOMAINS+=("$domain")
+    done < <(get_app_domains "$APP")
+    
+    if [[ ${#DOMAINS[@]} -eq 0 ]]; then
+      dokku_log_fail "No domains found for app '$APP'. Add domains first with: dokku domains:add $APP <domain>"
+    fi
+    dokku_log_info1 "Adding all domains for app '$APP':"
+    for domain in "${DOMAINS[@]}"; do
+      dokku_log_info1 "  • $domain"
+    done
+  else
+    dokku_log_info1 "Adding specified domains for app '$APP':"
+    for domain in "${DOMAINS[@]}"; do
+      dokku_log_info1 "  • $domain"
+    done
+  fi
+  
+  dns_add_app_domains "$APP" "${DOMAINS[@]}"
+}
+
+service-add-cmd "$@"

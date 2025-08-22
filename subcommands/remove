@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+# Load dokku functions if available
+if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
+  source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
+fi
+
+# Define missing functions if needed
+if ! declare -f verify_app_name >/dev/null 2>&1; then
+  verify_app_name() {
+    local app="$1"
+    [[ -n "$app" ]] || { echo " !     Please specify an app name" >&2; exit 1; }
+    
+    # Check if app exists (only if dokku command is available)
+    if command -v dokku >/dev/null 2>&1; then
+      if ! dokku apps:list 2>/dev/null | grep -q "^$app$"; then
+        dokku_log_fail "App $app does not exist"
+      fi
+    fi
+  }
+fi
+
+if ! declare -f dokku_log_info1 >/dev/null 2>&1; then
+  dokku_log_info1() { echo "-----> $*"; }
+fi
+
+if ! declare -f dokku_log_info2 >/dev/null 2>&1; then
+  dokku_log_info2() { echo "=====> $*"; }
+fi
+
+if ! declare -f dokku_log_warn >/dev/null 2>&1; then
+  dokku_log_warn() { echo " !     $*"; }
+fi
+
+if ! declare -f dokku_log_fail >/dev/null 2>&1; then
+  dokku_log_fail() { echo " !     $*" >&2; exit 1; }
+fi
+
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
+
+service-remove-cmd() {
+  #E remove app from DNS management
+  #E dokku $PLUGIN_COMMAND_PREFIX:remove nextcloud
+  #E removes app from DNS management but does not delete existing DNS records
+  #E this only removes the app from the DNS tracking system
+  #E to clean up DNS records, use 'dokku $PLUGIN_COMMAND_PREFIX:sync' before removing
+  #A app, app to remove from DNS management
+  declare desc="remove app from $PLUGIN_SERVICE management"
+  local cmd="$PLUGIN_COMMAND_PREFIX:remove" argv=("$@")
+  [[ ${argv[0]} == "$cmd" ]] && shift 1
+  declare APP="$1"
+
+  [[ -z "$APP" ]] && dokku_log_fail "Please specify an app name"
+  verify_app_name "$APP"
+  
+  # Check if app is currently added to DNS
+  if ! is_app_dns_managed "$APP"; then
+    dokku_log_warn "App '$APP' is not currently added to DNS"
+    dokku_log_info1 "Nothing to remove. Current status: not added"
+    return 0
+  fi
+  
+  dns_remove_app "$APP"
+}
+
+service-remove-cmd "$@"

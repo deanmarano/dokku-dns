@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+# Load dokku functions if available
+if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
+  source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
+fi
+
+# Define missing functions if needed
+if ! declare -f verify_app_name >/dev/null 2>&1; then
+  verify_app_name() {
+    local app="$1"
+    [[ -n "$app" ]] || { echo " !     Please specify an app name" >&2; exit 1; }
+  }
+fi
+
+if ! declare -f dokku_log_info1 >/dev/null 2>&1; then
+  dokku_log_info1() { echo "-----> $*"; }
+fi
+
+if ! declare -f dokku_log_info2 >/dev/null 2>&1; then
+  dokku_log_info2() { echo "=====> $*"; }
+fi
+
+if ! declare -f dokku_log_warn >/dev/null 2>&1; then
+  dokku_log_warn() { echo " !     $*"; }
+fi
+
+if ! declare -f dokku_log_fail >/dev/null 2>&1; then
+  dokku_log_fail() { echo " !     $*" >&2; exit 1; }
+fi
+
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
+
+service-configure-cmd() {
+  #E configure the global DNS provider
+  #E dokku $PLUGIN_COMMAND_PREFIX:configure [aws|cloudflare]
+  #E this sets up or changes the DNS provider for all DNS management.
+  #E if no provider is specified, defaults to '$DNS_DEFAULT_PROVIDER'
+  #E if provider is already configured, this will change to the new provider
+  #E after configuration, use other commands to:
+  #E - configure credentials: dokku $PLUGIN_COMMAND_PREFIX:verify
+  #E - sync an app: dokku $PLUGIN_COMMAND_PREFIX:sync myapp
+  #A provider, DNS provider (aws, cloudflare) - optional, defaults to aws
+  declare desc="configure or change the global $PLUGIN_SERVICE provider"
+  local cmd="$PLUGIN_COMMAND_PREFIX:configure" argv=("$@")
+  [[ ${argv[0]} == "$cmd" ]] && shift 1
+  declare PROVIDER="$1"
+
+  # Check if already configured
+  local GLOBAL_CONFIG_ROOT="$PLUGIN_DATA_ROOT"
+  local PROVIDER_FILE="$GLOBAL_CONFIG_ROOT/PROVIDER"
+  local CURRENT_PROVIDER=""
+  
+  if [[ -f "$PROVIDER_FILE" ]]; then
+    CURRENT_PROVIDER=$(cat "$PROVIDER_FILE" 2>/dev/null || echo "")
+  fi
+  
+  # Use default provider if not specified
+  if [[ -z "$PROVIDER" ]]; then
+    PROVIDER="$DNS_DEFAULT_PROVIDER"
+  fi
+  
+  # Validate provider
+  case "$PROVIDER" in
+    aws|cloudflare)
+      ;;
+    *)
+      dokku_log_fail "Invalid provider '$PROVIDER'. Supported providers: aws, cloudflare"
+      ;;
+  esac
+  
+  # Show if changing provider
+  if [[ -n "$CURRENT_PROVIDER" ]] && [[ "$CURRENT_PROVIDER" != "$PROVIDER" ]]; then
+    dokku_log_info1 "Changing DNS provider from '$CURRENT_PROVIDER' to '$PROVIDER'"
+    dokku_log_info1 "You may need to reconfigure credentials with: dokku $PLUGIN_COMMAND_PREFIX:verify"
+  fi
+  
+  dns_configure_global "$PROVIDER"
+}
+
+service-configure-cmd "$@"

@@ -18,20 +18,21 @@ sudo dokku plugin:install https://github.com/deanmarano/dokku-dns.git --name dns
 
 ```
 dns:apps                                           # list DNS-managed applications
-dns:apps:disable <app>                             # disable DNS management for an application
-dns:apps:enable <app>                              # enable DNS management for an application
-dns:apps:report <app>                              # display DNS status for a specific application
-dns:apps:sync <app>                                # synchronize DNS records for an application
+dns:apps:disable                                   # disable DNS management for an application
+dns:apps:enable                                    # enable DNS management for an application
+dns:apps:report                                    # display DNS status for a specific application
+dns:apps:sync                                      # synchronize DNS records for an application
 dns:cron [--enable|--disable|--schedule "CRON_SCHEDULE"] # manage automated DNS synchronization cron job
-dns:help [<command>]                               # show help for DNS commands or specific subcommand
-dns:providers:configure [<provider>]               # configure or change the global DNS provider
-dns:providers:verify [<provider>]                  # verify DNS provider setup and connectivity
-dns:report [<app>]                                 # display DNS status and domain information for app(s)
+dns:providers:configure                            # configure or change the global DNS provider
+dns:providers:verify                               # verify DNS provider setup and connectivity
+dns:report <app>                                   # display DNS status and domain information for app(s)
 dns:sync-all                                       # synchronize DNS records for all DNS-managed apps
 dns:version                                        # show DNS plugin version and dependency versions
 dns:zones [<zone>]                                 # list DNS zones and their auto-discovery status
-dns:zones:disable <zone>                           # disable DNS zone and remove managed domains
-dns:zones:enable <zone>                            # enable DNS zone for automatic app domain management
+dns:zones:add <zone>                               # add DNS zone to auto-discovery for automatic app domain management
+dns:zones:disable                                  # disable DNS zone and remove managed domains
+dns:zones:enable                                   # enable DNS zone for automatic app domain management
+dns:zones:remove <zone>                            # remove DNS zone from auto-discovery and optionally remove managed domains
 ```
 
 ## Usage
@@ -44,116 +45,76 @@ Help for any commands can be displayed by specifying the command as an argument 
 
 ```shell
 # usage
-dokku dns:apps:enable <app>
-
-# example  
-dokku dns:apps:enable nextcloud
+dokku dns:apps:enable
 ```
 
-Enable DNS management for an application. This will add the app to DNS tracking and prepare it for DNS record synchronization.
-
-### disable DNS management for an application
+Enable `DNS` management for an application:
 
 ```shell
-# usage
-dokku dns:apps:disable <app>
-
-# example
-dokku dns:apps:disable nextcloud
+dokku dns:apps:enable <app> [domains...]
 ```
 
-Disable DNS management for an application and remove it from DNS tracking.
+Add application domains to `DNS` provider for management:
 
 ### configure or change the global DNS provider
 
 ```shell
 # usage
-dokku dns:providers:configure [<provider>]
-
-# examples
 dokku dns:providers:configure
-dokku dns:providers:configure aws
 ```
 
-Configure the global DNS provider. Defaults to AWS if no provider is specified.
-
-### manage automated DNS synchronization cron job
+Configure or change the global `DNS` provider:
 
 ```shell
-# usage
-dokku dns:cron [--enable|--disable|--schedule "CRON_SCHEDULE"]
-
-# examples
-dokku dns:cron
-dokku dns:cron --enable
-dokku dns:cron --disable
-dokku dns:cron --schedule "0 6 * * *"
+dokku dns:providers:configure <provider>
 ```
 
-Manage automated DNS synchronization cron job that syncs all DNS-managed apps.
-
-### show help for DNS commands or specific subcommand
-
-```shell
-# usage
-dokku dns:help [<command>]
-
-# examples
-dokku dns:help
-dokku dns:help apps:enable
-```
-
-Show help for DNS commands. Can show general help or help for a specific subcommand.
-
-### display DNS status for a specific application
-
-```shell
-# usage
-dokku dns:apps:report <app>
-
-# example
-dokku dns:apps:report nextcloud
-```
-
-Display DNS status and configuration for a specific application.
-
-### synchronize DNS records for an application
-
-```shell
-# usage
-dokku dns:apps:sync <app>
-
-# example
-dokku dns:apps:sync nextcloud
-```
-
-Synchronize DNS records for an application with the configured DNS provider.
+Configure the `DNS` provider for all `DNS` management:
 
 ### verify DNS provider setup and connectivity
 
 ```shell
 # usage
-dokku dns:providers:verify [<provider>]
-
-# examples
 dokku dns:providers:verify
-dokku dns:providers:verify aws
 ```
 
-Verify DNS provider setup and connectivity. Can verify the global provider or a specific provider.
+Verify `DNS` provider setup and connectivity:
+
+```shell
+dokku dns:providers:verify [provider]
+```
+
+Verify configured provider or specific provider if specified:
 
 ### display DNS status and domain information for app(s)
 
 ```shell
 # usage
-dokku dns:report [<app>]
-
-# examples
-dokku dns:report
-dokku dns:report nextcloud
+dokku dns:report <app>
 ```
 
-Display DNS status and domain information. Without arguments, shows all DNS-managed apps. With an app name, shows detailed information for that app.
+Display `DNS` status and domain information for app(s):
+
+```shell
+dokku dns:report [app]
+```
+
+Shows server `IP,` domains, `DNS` status with emojis, and hosted zones without app: shows all apps and their domains with app: shows detailed report for specific app `DNS` status: ✅ correct, ⚠️ wrong `IP,` ❌ no record:
+
+### synchronize DNS records for an application
+
+```shell
+# usage
+dokku dns:apps:sync
+```
+
+Synchronize `DNS` records for an application:
+
+```shell
+dokku dns:apps:sync <app>
+```
+
+Synchronize `DNS` records for an application using the configured provider:
 
 ### synchronize DNS records for all DNS-managed apps
 
@@ -162,50 +123,16 @@ Display DNS status and domain information. Without arguments, shows all DNS-mana
 dokku dns:sync-all
 ```
 
-Synchronize DNS records for all applications currently under DNS management.
-
-### show DNS plugin version and dependency versions
+Synchronize `DNS` records for all apps with `DNS` management enabled:
 
 ```shell
-# usage
-dokku dns:version
+dokku dns:sync-all
 ```
 
-Show the DNS plugin version and versions of dependencies like AWS CLI.
+This will iterate through all apps that have `DNS` management enabled and sync their `DNS` records using the configured provider. `AWS` Route53 uses efficient batch `API` calls grouped by hosted zone. Other providers sync each app individually for compatibility.
 
-### list DNS zones and their auto-discovery status
+### Disabling `docker image pull` calls
 
-```shell
-# usage
-dokku dns:zones [<zone>]
+If you wish to disable the `docker image pull` calls that the plugin triggers, you may set the `DNS_DISABLE_PULL` environment variable to `true`. Once disabled, you will need to pull the service image you wish to deploy as shown in the `stderr` output.
 
-# examples
-dokku dns:zones
-dokku dns:zones example.com
-```
-
-List DNS zones and their auto-discovery status. Can show all zones or details for a specific zone.
-
-### enable DNS zone for automatic app domain management
-
-```shell
-# usage
-dokku dns:zones:enable <zone>
-
-# example
-dokku dns:zones:enable example.com
-```
-
-Enable DNS zone for automatic app domain management.
-
-### disable DNS zone and remove managed domains
-
-```shell
-# usage
-dokku dns:zones:disable <zone>
-
-# example
-dokku dns:zones:disable example.com
-```
-
-Disable DNS zone and remove managed domains.
+Please ensure the proper images are in place when `docker image pull` is disabled.
