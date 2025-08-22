@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+service-providers-verify-cmd() {
+  #E verify DNS provider setup and connectivity
+  #E dokku $PLUGIN_COMMAND_PREFIX:providers:verify [provider]
+  #E verify configured provider or specific provider if specified
+  #A provider, optional DNS provider to verify (defaults to configured provider)
+  declare desc="verify DNS provider setup and connectivity"
+  local cmd="$PLUGIN_COMMAND_PREFIX:providers:verify"
+  
+  # Forward to the existing verify command
+  exec "$(dirname "${BASH_SOURCE[0]}")/verify" "$@"
+}
+
+service-providers-verify-cmd "$@"

@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+service-apps-enable-cmd() {
+  #E enable DNS management for an application
+  #E dokku $PLUGIN_COMMAND_PREFIX:apps:enable <app> [domains...]
+  #E add application domains to DNS provider for management
+  #A app, application name
+  #A domains, optional specific domains to add (defaults to all app domains)
+  declare desc="enable DNS management for an application"
+  local cmd="$PLUGIN_COMMAND_PREFIX:apps:enable"
+  
+  # Forward to the existing add command
+  exec "$(dirname "${BASH_SOURCE[0]}")/add" "$@"
+}
+
+service-apps-enable-cmd "$@"

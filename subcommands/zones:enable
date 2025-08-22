@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+service-zones-enable-cmd() {
+  #E enable DNS zone for automatic app domain management
+  #E dokku $PLUGIN_COMMAND_PREFIX:zones:enable <zone>
+  #E add DNS zone to auto-discovery for automatic app domain management
+  #A zone, DNS zone to enable for automatic management
+  declare desc="enable DNS zone for automatic app domain management"
+  local cmd="$PLUGIN_COMMAND_PREFIX:zones:enable"
+  
+  # Forward to the existing zones:add command
+  exec "$(dirname "${BASH_SOURCE[0]}")/zones:add" "$@"
+}
+
+service-zones-enable-cmd "$@"

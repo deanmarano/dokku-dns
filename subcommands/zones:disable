@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+service-zones-disable-cmd() {
+  #E disable DNS zone and remove managed domains
+  #E dokku $PLUGIN_COMMAND_PREFIX:zones:disable <zone>
+  #E remove DNS zone from auto-discovery and optionally remove managed domains
+  #A zone, DNS zone to disable
+  declare desc="disable DNS zone and remove managed domains"
+  local cmd="$PLUGIN_COMMAND_PREFIX:zones:disable"
+  
+  # Forward to the existing zones:remove command
+  exec "$(dirname "${BASH_SOURCE[0]}")/zones:remove" "$@"
+}
+
+service-zones-disable-cmd "$@"

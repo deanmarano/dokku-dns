@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+service-apps-report-cmd() {
+  #E display DNS status for a specific application
+  #E dokku $PLUGIN_COMMAND_PREFIX:apps:report <app>
+  #E show DNS status and domain information for a specific application
+  #A app, application name
+  declare desc="display DNS status for a specific application"
+  local cmd="$PLUGIN_COMMAND_PREFIX:apps:report"
+  
+  # Forward to the existing report command
+  exec "$(dirname "${BASH_SOURCE[0]}")/report" "$@"
+}
+
+service-apps-report-cmd "$@"

@@ -18,8 +18,15 @@ sudo dokku plugin:install https://github.com/deanmarano/dokku-dns.git --name dns
 
 ```
 dns:add <app>                                      # add app domains to dns provider for management
+dns:apps                                           # list DNS-managed applications
+dns:apps:disable                                   # disable DNS management for an application
+dns:apps:enable                                    # enable DNS management for an application
+dns:apps:report                                    # display DNS status for a specific application
+dns:apps:sync                                      # synchronize DNS records for an application
 dns:configure <provider>                           # configure or change the global dns provider
 dns:cron [--enable|--disable|--schedule "CRON_SCHEDULE"] # manage automated DNS synchronization cron job
+dns:providers:configure                            # configure or change the global DNS provider
+dns:providers:verify                               # verify DNS provider setup and connectivity
 dns:remove <app>                                   # remove app from dns management
 dns:report <app>                                   # display DNS status and domain information for app(s)
 dns:sync <app>                                     # synchronize DNS records for app
@@ -28,6 +35,8 @@ dns:verify <provider-arg>                          # verify DNS provider setup a
 dns:version                                        # show DNS plugin version and dependency versions
 dns:zones [<zone>]                                 # list DNS zones and their auto-discovery status
 dns:zones:add <zone>                               # add DNS zone to auto-discovery for automatic app domain management
+dns:zones:disable                                  # disable DNS zone and remove managed domains
+dns:zones:enable                                   # enable DNS zone for automatic app domain management
 dns:zones:remove <zone>                            # remove DNS zone from auto-discovery and optionally remove managed domains
 ```
 

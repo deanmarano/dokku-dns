@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+service-apps-sync-cmd() {
+  #E synchronize DNS records for an application
+  #E dokku $PLUGIN_COMMAND_PREFIX:apps:sync <app>
+  #E synchronize DNS records for an application using the configured provider
+  #A app, application name
+  declare desc="synchronize DNS records for an application"
+  local cmd="$PLUGIN_COMMAND_PREFIX:apps:sync"
+  
+  # Forward to the existing sync command
+  exec "$(dirname "${BASH_SOURCE[0]}")/sync" "$@"
+}
+
+service-apps-sync-cmd "$@"

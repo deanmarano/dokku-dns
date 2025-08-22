@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+service-providers-configure-cmd() {
+  #E configure or change the global DNS provider
+  #E dokku $PLUGIN_COMMAND_PREFIX:providers:configure <provider>
+  #E configure the DNS provider for all DNS management
+  #A provider, DNS provider to configure (aws, cloudflare)
+  declare desc="configure or change the global DNS provider"
+  local cmd="$PLUGIN_COMMAND_PREFIX:providers:configure"
+  
+  # Forward to the existing configure command
+  exec "$(dirname "${BASH_SOURCE[0]}")/configure" "$@"
+}
+
+service-providers-configure-cmd "$@"

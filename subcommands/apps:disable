@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+service-apps-disable-cmd() {
+  #E disable DNS management for an application
+  #E dokku $PLUGIN_COMMAND_PREFIX:apps:disable <app>
+  #E remove application from DNS management
+  #A app, application name
+  declare desc="disable DNS management for an application"
+  local cmd="$PLUGIN_COMMAND_PREFIX:apps:disable"
+  
+  # Forward to the existing remove command
+  exec "$(dirname "${BASH_SOURCE[0]}")/remove" "$@"
+}
+
+service-apps-disable-cmd "$@"

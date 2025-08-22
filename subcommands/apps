@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+# Load dokku functions if available
+if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
+  source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
+fi
+
+# Define missing functions if needed
+if ! declare -f dokku_log_info1 >/dev/null 2>&1; then
+  dokku_log_info1() { echo "-----> $*"; }
+fi
+
+if ! declare -f dokku_log_info2 >/dev/null 2>&1; then
+  dokku_log_info2() { echo "=====> $*"; }
+fi
+
+if ! declare -f dokku_log_fail >/dev/null 2>&1; then
+  dokku_log_fail() { echo " !     $*" >&2; exit 1; }
+fi
+
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
+
+service-apps-cmd() {
+  #E list DNS-managed applications
+  #E dokku $PLUGIN_COMMAND_PREFIX:apps
+  #E shows all applications that have DNS management enabled
+  declare desc="list DNS-managed applications"
+  local cmd="$PLUGIN_COMMAND_PREFIX:apps" argv=("$@")
+  [[ ${argv[0]} == "$cmd" ]] && shift 1
+
+  local PLUGIN_DATA_ROOT="${DNS_ROOT:-${DOKKU_LIB_ROOT:-/var/lib/dokku}/services/dns}"
+  
+  if [[ ! -d "$PLUGIN_DATA_ROOT" ]]; then
+    dokku_log_fail "DNS plugin not configured. Run: dokku $PLUGIN_COMMAND_PREFIX:providers:configure <provider>"
+  fi
+  
+  dokku_log_info2 "DNS-managed applications:"
+  echo
+  
+  # List all apps that have DNS management enabled
+  local apps_found=false
+  
+  if [[ -d "$PLUGIN_DATA_ROOT" ]]; then
+    for app_dir in "$PLUGIN_DATA_ROOT"/*; do
+      if [[ -d "$app_dir" ]]; then
+        local app_name
+        app_name=$(basename "$app_dir")
+        
+        # Skip non-app directories
+        if [[ "$app_name" == "credentials" ]] || [[ -f "$app_dir" ]]; then
+          continue
+        fi
+        
+        apps_found=true
+        
+        # Get domain count
+        local domain_count=0
+        if [[ -f "$app_dir/DOMAINS" ]]; then
+          domain_count=$(wc -l < "$app_dir/DOMAINS" 2>/dev/null || echo "0")
+        fi
+        
+        if [[ "$domain_count" -eq 0 ]]; then
+          dokku_log_info1 "  $app_name (no domains)"
+        elif [[ "$domain_count" -eq 1 ]]; then
+          dokku_log_info1 "  $app_name (1 domain)"
+        else
+          dokku_log_info1 "  $app_name ($domain_count domains)"
+        fi
+      fi
+    done
+  fi
+  
+  if [[ "$apps_found" == "false" ]]; then
+    dokku_log_info1 "  No DNS-managed applications found"
+    echo
+    dokku_log_info1 "To add an app to DNS management:"
+    dokku_log_info1 "  dokku $PLUGIN_COMMAND_PREFIX:apps:enable <app>"
+  fi
+  
+  echo
+}
+
+service-apps-cmd "$@"
