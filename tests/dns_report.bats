@@ -29,7 +29,7 @@ teardown() {
 
 @test "(dns:report) app-specific report works" {
   # Add app to DNS management first (will fail due to no hosted zones, which is expected in test)
-  dokku "$PLUGIN_COMMAND_PREFIX:add" my-app >/dev/null 2>&1 || true
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1 || true
   
   run dokku "$PLUGIN_COMMAND_PREFIX:report" my-app
   assert_success
@@ -113,7 +113,7 @@ teardown() {
 
 @test "(dns:report) shows provider status" {
   # Add app to DNS management first  
-  dokku "$PLUGIN_COMMAND_PREFIX:add" my-app >/dev/null 2>&1 || true
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1 || true
   
   run dokku "$PLUGIN_COMMAND_PREFIX:report" my-app
   assert_success

@@ -58,7 +58,7 @@ teardown() {
 
 @test "(dns:apps:sync) attempts AWS sync when configured" {
   # Add app to DNS management first
-  dokku "$PLUGIN_COMMAND_PREFIX:add" my-app >/dev/null 2>&1
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1
   
   run dokku "$PLUGIN_COMMAND_PREFIX:sync" my-app
   
@@ -92,7 +92,7 @@ teardown() {
 @test "(dns:apps:sync) attempts sync with multiple domains" {
   add_test_domains my-app test2.com working.com
   # Add app to DNS first
-  dokku "$PLUGIN_COMMAND_PREFIX:add" my-app >/dev/null 2>&1
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1
   
   run dokku "$PLUGIN_COMMAND_PREFIX:sync" my-app
   

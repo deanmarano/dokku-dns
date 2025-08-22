@@ -10,7 +10,7 @@ teardown() {
 }
 
 @test "(dns:providers:verify) error when no provider configured" {
-  run dokku "$PLUGIN_COMMAND_PREFIX:verify"
+  run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify"
   assert_failure
   assert_output_contains "No provider configured"
   assert_output_contains "Configure a provider: dokku dns:providers:configure <provider>"
@@ -22,7 +22,7 @@ teardown() {
   mkdir -p "$PLUGIN_DATA_ROOT"
   touch "$PLUGIN_DATA_ROOT/PROVIDER"
   
-  run dokku "$PLUGIN_COMMAND_PREFIX:verify"
+  run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify"
   assert_failure
   assert_output_contains "Provider not set"
   assert_output_contains "Configure a provider: dokku dns:providers:configure <provider>"
@@ -34,7 +34,7 @@ teardown() {
   mkdir -p "$PLUGIN_DATA_ROOT"
   echo "invalid" > "$PLUGIN_DATA_ROOT/PROVIDER"
   
-  run dokku "$PLUGIN_COMMAND_PREFIX:verify"
+  run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify"
   assert_failure
   assert_output_contains "Provider 'invalid' is not supported"
   assert_output_contains "Available providers: aws"
@@ -43,7 +43,7 @@ teardown() {
 @test "(dns:providers:verify) attempts AWS verification when configured" {
   setup_dns_provider aws
   
-  run dokku "$PLUGIN_COMMAND_PREFIX:verify"
+  run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify"
   assert_success
   
   # With mock AWS CLI, verification should succeed
@@ -56,7 +56,7 @@ teardown() {
 @test "(dns:providers:verify) shows AWS setup instructions when CLI not configured" {
   setup_dns_provider aws
   
-  run dokku "$PLUGIN_COMMAND_PREFIX:verify"
+  run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify"
   assert_success
   
   # With mock AWS CLI, should show successful verification
@@ -68,7 +68,7 @@ teardown() {
 @test "(dns:providers:verify) provides helpful guidance" {
   setup_dns_provider aws
   
-  run dokku "$PLUGIN_COMMAND_PREFIX:verify"
+  run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify"
   assert_success
   
   # Should provide next steps and helpful guidance
@@ -83,7 +83,7 @@ teardown() {
 # New tests for enhanced functionality
 @test "(dns:providers:verify) accepts provider argument" {
   # Test without configuring provider first
-  run dokku "$PLUGIN_COMMAND_PREFIX:verify" aws
+  run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify" aws
   assert_success
   assert_output_contains "Verifying specific provider: aws"
   assert_output_contains "Verifying AWS Route53 Setup"
@@ -92,7 +92,7 @@ teardown() {
 @test "(dns:providers:verify) shows credential detection" {
   setup_dns_provider aws
   
-  run dokku "$PLUGIN_COMMAND_PREFIX:verify"
+  run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify"
   assert_success
   
   # Should show detailed credential detection
@@ -105,7 +105,7 @@ teardown() {
 @test "(dns:providers:verify) shows AWS account details" {
   setup_dns_provider aws
   
-  run dokku "$PLUGIN_COMMAND_PREFIX:verify"
+  run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify"
   assert_success
   
   # Should show AWS account information
@@ -118,7 +118,7 @@ teardown() {
 @test "(dns:providers:verify) tests Route53 permissions" {
   setup_dns_provider aws
   
-  run dokku "$PLUGIN_COMMAND_PREFIX:verify"
+  run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify"
   assert_success
   
   # Should test Route53 API access
@@ -130,7 +130,7 @@ teardown() {
 @test "(dns:providers:verify) shows hosted zones discovery" {
   setup_dns_provider aws
   
-  run dokku "$PLUGIN_COMMAND_PREFIX:verify"
+  run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify"
   assert_success
   
   # Should show zones discovery

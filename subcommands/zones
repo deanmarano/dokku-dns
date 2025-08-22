@@ -74,7 +74,7 @@ zones_list_status() {
   # Check if DNS provider is configured
   local PROVIDER_FILE="$PLUGIN_DATA_ROOT/PROVIDER"
   if [[ ! -f "$PROVIDER_FILE" ]]; then
-    dokku_log_fail "No DNS provider configured. Run: dokku $PLUGIN_COMMAND_PREFIX:configure [provider]"
+    dokku_log_fail "No DNS provider configured. Run: dokku $PLUGIN_COMMAND_PREFIX:providers:configure [provider]"
   fi
   
   local PROVIDER
@@ -110,8 +110,8 @@ zones_list_aws_zones() {
     dokku_log_info1 "No hosted zones found in Route53"
     echo
     dokku_log_info2 "Management Commands"
-    dokku_log_info1 "• Configure provider: dokku $PLUGIN_COMMAND_PREFIX:configure aws"
-    dokku_log_info1 "• Verify setup: dokku $PLUGIN_COMMAND_PREFIX:verify"
+    dokku_log_info1 "• Configure provider: dokku $PLUGIN_COMMAND_PREFIX:providers:configure aws"
+    dokku_log_info1 "• Verify setup: dokku $PLUGIN_COMMAND_PREFIX:providers:verify"
     return 0
   fi
   
@@ -211,7 +211,7 @@ zones_show_zone() {
   # Check if DNS provider is configured
   local PROVIDER_FILE="$PLUGIN_DATA_ROOT/PROVIDER"
   if [[ ! -f "$PROVIDER_FILE" ]]; then
-    dokku_log_fail "No DNS provider configured. Run: dokku $PLUGIN_COMMAND_PREFIX:configure [provider]"
+    dokku_log_fail "No DNS provider configured. Run: dokku $PLUGIN_COMMAND_PREFIX:providers:configure [provider]"
   fi
   
   local PROVIDER

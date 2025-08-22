@@ -279,7 +279,7 @@ zones_remove_all() {
     dokku_log_info2 "Note"
     dokku_log_info1 "DNS records remain in your provider but are no longer managed by Dokku."
     dokku_log_info1 "• To re-enable: dokku $PLUGIN_COMMAND_PREFIX:zones:add --all"
-    dokku_log_info1 "• Or add apps individually: dokku $PLUGIN_COMMAND_PREFIX:add <app>"
+    dokku_log_info1 "• Or add apps individually: dokku $PLUGIN_COMMAND_PREFIX:apps:enable <app>"
   fi
 }
 
