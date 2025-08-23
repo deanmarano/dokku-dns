@@ -14,12 +14,12 @@ teardown() {
   assert_contains "${lines[*]}" "Please specify a zone"
 }
 
-@test "(dns:zones:enable) forwards to zones:add functionality" {
+@test "(dns:zones:enable) forwards to zones:enable functionality" {
   # Configure DNS first
   run dokku "$PLUGIN_COMMAND_PREFIX:providers:configure" aws
   assert_success
   
-  # Try to enable a zone (should behave like dns:zones:add)
+  # Try to enable a zone (should behave like dns:zones:enable)
   run dokku "$PLUGIN_COMMAND_PREFIX:zones:enable" "example.com"
   # This may fail without AWS credentials, but should at least try
   assert_contains "${lines[*]}" "zone" || assert_contains "${lines[*]}" "AWS"
@@ -30,12 +30,12 @@ teardown() {
   assert_contains "${lines[*]}" "Please specify a zone"
 }
 
-@test "(dns:zones:disable) forwards to zones:remove functionality" {
+@test "(dns:zones:disable) forwards to zones:disable functionality" {
   # Configure DNS first
   run dokku "$PLUGIN_COMMAND_PREFIX:providers:configure" aws
   assert_success
   
-  # Try to disable a zone (should behave like dns:zones:remove)
+  # Try to disable a zone (should behave like dns:zones:disable)
   run dokku "$PLUGIN_COMMAND_PREFIX:zones:disable" "example.com"
   # This may fail without AWS credentials or zone, but should at least try
   assert_contains "${lines[*]}" "zone" || assert_contains "${lines[*]}" "AWS" || assert_contains "${lines[*]}" "not found"
@@ -51,7 +51,7 @@ teardown() {
   assert_contains "$output" "disable DNS zone and remove managed domains"
 }
 
-@test "(dns:zones:enable/disable) backward compatibility with zones:add/remove" {
+@test "(dns:zones:enable/disable) backward compatibility with zones:enable/remove" {
   # Configure DNS first
   run dokku "$PLUGIN_COMMAND_PREFIX:providers:configure" aws
   assert_success
@@ -60,7 +60,7 @@ teardown() {
   run dokku "$PLUGIN_COMMAND_PREFIX:zones:enable" "example.com"
   local enable_output="$output"
   
-  run dokku "$PLUGIN_COMMAND_PREFIX:zones:add" "example.com"  
+  run dokku "$PLUGIN_COMMAND_PREFIX:zones:enable" "example.com"  
   local add_output="$output"
   
   # The outputs should be similar since they forward to the same command

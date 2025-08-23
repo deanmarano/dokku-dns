@@ -14,13 +14,13 @@ teardown() {
 }
 
 @test "(dns:apps:sync) error when there are no arguments" {
-  run dokku "$PLUGIN_COMMAND_PREFIX:sync"
+  run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync"
   assert_failure
   assert_output_contains "Please specify an app name"
 }
 
 @test "(dns:apps:sync) error when app does not exist" {
-  run dokku "$PLUGIN_COMMAND_PREFIX:sync" nonexistent-app
+  run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" nonexistent-app
   assert_failure
   assert_output_contains "App nonexistent-app does not exist"
 }
@@ -28,7 +28,7 @@ teardown() {
 @test "(dns:apps:sync) error when no provider configured" {
   cleanup_dns_data  # Remove provider configuration
   
-  run dokku "$PLUGIN_COMMAND_PREFIX:sync" my-app
+  run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" my-app
   assert_failure
   assert_output_contains "No DNS provider configured"
   assert_output_contains "Run: dokku dns:providers:configure <provider>"
@@ -39,7 +39,7 @@ teardown() {
   mkdir -p "$PLUGIN_DATA_ROOT"
   echo "" > "$PLUGIN_DATA_ROOT/PROVIDER"
   
-  run dokku "$PLUGIN_COMMAND_PREFIX:sync" my-app
+  run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" my-app
   assert_failure
   assert_output_contains "DNS provider not set"
   assert_output_contains "Run: dokku dns:providers:configure <provider>"
@@ -50,7 +50,7 @@ teardown() {
   mkdir -p "$PLUGIN_DATA_ROOT"
   echo "invalid" > "$PLUGIN_DATA_ROOT/PROVIDER"
   
-  run dokku "$PLUGIN_COMMAND_PREFIX:sync" my-app
+  run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" my-app
   assert_failure
   assert_output_contains "Provider 'invalid' not found"
   assert_output_contains "Available providers: aws, cloudflare"
@@ -60,7 +60,7 @@ teardown() {
   # Add app to DNS management first
   dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1
   
-  run dokku "$PLUGIN_COMMAND_PREFIX:sync" my-app
+  run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" my-app
   
   # Test passes if command runs (may succeed or fail depending on environment)
   # The important thing is the command doesn't crash
@@ -70,7 +70,7 @@ teardown() {
 @test "(dns:apps:sync) handles app with no domains" {
   create_test_app empty-app
   
-  run dokku "$PLUGIN_COMMAND_PREFIX:sync" empty-app
+  run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" empty-app
   
   # Test passes if command runs (may succeed or fail depending on environment)
   # The important thing is the command doesn't crash
@@ -80,7 +80,7 @@ teardown() {
 }
 
 @test "(dns:apps:sync) shows helpful error when AWS not accessible" {
-  run dokku "$PLUGIN_COMMAND_PREFIX:sync" my-app
+  run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" my-app
   
   # In test environment, likely to fail with auth issues
   if [[ "$status" -ne 0 ]]; then
@@ -94,7 +94,7 @@ teardown() {
   # Add app to DNS first
   dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1
   
-  run dokku "$PLUGIN_COMMAND_PREFIX:sync" my-app
+  run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" my-app
   
   # Test passes if command runs (may succeed or fail depending on environment)
   # The important thing is the command doesn't crash

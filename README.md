@@ -18,21 +18,19 @@ sudo dokku plugin:install https://github.com/deanmarano/dokku-dns.git --name dns
 
 ```
 dns:apps                                           # list DNS-managed applications
-dns:apps:disable                                   # disable DNS management for an application
-dns:apps:enable                                    # enable DNS management for an application
+dns:apps:disable <app>                             # disable DNS management for an application
+dns:apps:enable <app>                              # enable DNS management for an application
 dns:apps:report                                    # display DNS status for a specific application
-dns:apps:sync                                      # synchronize DNS records for an application
+dns:apps:sync <app>                                # synchronize DNS records for an application
 dns:cron [--enable|--disable|--schedule "CRON_SCHEDULE"] # manage automated DNS synchronization cron job
-dns:providers:configure                            # configure or change the global DNS provider
-dns:providers:verify                               # verify DNS provider setup and connectivity
+dns:providers:configure <provider>                 # configure or change the global dns provider
+dns:providers:verify <provider-arg>                # verify DNS provider setup and connectivity
 dns:report <app>                                   # display DNS status and domain information for app(s)
 dns:sync-all                                       # synchronize DNS records for all DNS-managed apps
 dns:version                                        # show DNS plugin version and dependency versions
 dns:zones [<zone>]                                 # list DNS zones and their auto-discovery status
-dns:zones:add <zone>                               # add DNS zone to auto-discovery for automatic app domain management
-dns:zones:disable                                  # disable DNS zone and remove managed domains
-dns:zones:enable                                   # enable DNS zone for automatic app domain management
-dns:zones:remove <zone>                            # remove DNS zone from auto-discovery and optionally remove managed domains
+dns:zones:disable <zone>                           # disable DNS zone and remove managed domains
+dns:zones:enable <zone>                            # enable DNS zone for automatic app domain management
 ```
 
 ## Usage
@@ -45,46 +43,47 @@ Help for any commands can be displayed by specifying the command as an argument 
 
 ```shell
 # usage
-dokku dns:apps:enable
+dokku dns:apps:enable <app>
 ```
 
 Enable `DNS` management for an application:
 
 ```shell
-dokku dns:apps:enable <app> [domains...]
+dokku dns:apps:enable nextcloud
+dokku dns:apps:enable nextcloud example.com api.example.com
 ```
 
-Add application domains to `DNS` provider for management:
+By default, adds all domains configured for the app optionally specify specific domains to add to `DNS` management only domains with hosted zones in the `DNS` provider will be added this registers domains with the `DNS` provider but doesn`t update records yet use `dokku dns:apps:sync` to update `DNS` records:
 
-### configure or change the global DNS provider
+### configure or change the global dns provider
 
 ```shell
 # usage
-dokku dns:providers:configure
-```
-
-Configure or change the global `DNS` provider:
-
-```shell
 dokku dns:providers:configure <provider>
 ```
 
-Configure the `DNS` provider for all `DNS` management:
+Configure the global `DNS` provider:
+
+```shell
+dokku dns:providers:configure [aws|cloudflare]
+```
+
+This sets up or changes the `DNS` provider for all `DNS` management. If no provider is specified, defaults to `$DNS_DEFAULT_PROVIDER` if provider is already configured, this will change to the new provider after configuration, use other commands to: - configure credentials: dokku dns:providers:verify - sync an app: dokku dns:apps:sync myapp:
 
 ### verify DNS provider setup and connectivity
 
 ```shell
 # usage
-dokku dns:providers:verify
+dokku dns:providers:verify <provider-arg>
 ```
 
-Verify `DNS` provider setup and connectivity:
+Verify `DNS` provider setup and connectivity, discover existing `DNS` records:
 
 ```shell
 dokku dns:providers:verify [provider]
 ```
 
-Verify configured provider or specific provider if specified:
+Verify configured provider or specific provider if specified for `AWS`:` checks if `AWS` `CLI` is configured, tests Route53 access, shows existing `DNS` records for Dokku domains:
 
 ### display DNS status and domain information for app(s)
 
@@ -105,16 +104,16 @@ Shows server `IP,` domains, `DNS` status with emojis, and hosted zones without a
 
 ```shell
 # usage
-dokku dns:apps:sync
-```
-
-Synchronize `DNS` records for an application:
-
-```shell
 dokku dns:apps:sync <app>
 ```
 
 Synchronize `DNS` records for an application using the configured provider:
+
+```shell
+dokku dns:apps:sync nextcloud
+```
+
+This will discover all domains from the app and update `DNS` records to point to the current server's `IP` address using the configured provider:
 
 ### synchronize DNS records for all DNS-managed apps
 

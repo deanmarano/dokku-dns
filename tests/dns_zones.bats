@@ -21,14 +21,14 @@ dns_zones() {
     run "$PLUGIN_ROOT/subcommands/zones" "$@"
 }
 
-# Helper function to run dns:zones:add command
+# Helper function to run dns:zones:enable command
 dns_zones_add() {
-    run "$PLUGIN_ROOT/subcommands/zones:add" "$@"
+    run "$PLUGIN_ROOT/subcommands/zones:enable" "$@"
 }
 
-# Helper function to run dns:zones:remove command
+# Helper function to run dns:zones:disable command
 dns_zones_remove() {
-    run "$PLUGIN_ROOT/subcommands/zones:remove" "$@"
+    run "$PLUGIN_ROOT/subcommands/zones:disable" "$@"
 }
 
 # Helper function to setup a mock provider
@@ -327,7 +327,7 @@ EOF
     assert_output_contains "Unsupported provider for zones management: unsupported"
 }
 
-@test "(dns:zones:add) requires zone name argument" {
+@test "(dns:zones:enable) requires zone name argument" {
     setup_mock_provider "aws"
     
     dns_zones_add
@@ -335,7 +335,7 @@ EOF
     assert_output_contains "Please specify a zone name or use --all flag"
 }
 
-@test "(dns:zones:remove) requires zone name argument" {
+@test "(dns:zones:disable) requires zone name argument" {
     setup_mock_provider "aws"
     
     dns_zones_remove
@@ -343,7 +343,7 @@ EOF
     assert_output_contains "Please specify a zone name or use --all flag"
 }
 
-@test "(dns:zones:add) fails with both zone and --all" {
+@test "(dns:zones:enable) fails with both zone and --all" {
     setup_mock_provider "aws"
     
     dns_zones_add example.com --all
@@ -351,7 +351,7 @@ EOF
     assert_output_contains "Cannot specify both zone name and --all flag together"
 }
 
-@test "(dns:zones:remove) fails with both zone and --all" {
+@test "(dns:zones:disable) fails with both zone and --all" {
     setup_mock_provider "aws"
     
     dns_zones_remove example.com --all
@@ -359,7 +359,7 @@ EOF
     assert_output_contains "Cannot specify both zone name and --all flag together"
 }
 
-@test "(dns:zones:add) fails when zone not found" {
+@test "(dns:zones:enable) fails when zone not found" {
     setup_mock_provider "aws"
     create_mock_aws
     
@@ -368,7 +368,7 @@ EOF
     assert_output_contains "Zone 'nonexistent.com' not found in Route53"
 }
 
-@test "(dns:zones:add) works with valid zone" {
+@test "(dns:zones:enable) works with valid zone" {
     setup_mock_provider "aws"
     create_mock_aws
     create_mock_dokku
@@ -379,7 +379,7 @@ EOF
     assert_output_contains "Zone 'example.com' added to auto-discovery"
 }
 
-@test "(dns:zones:remove) removes domains from zone" {
+@test "(dns:zones:disable) removes domains from zone" {
     setup_mock_provider "aws"
     
     # Setup some managed domains first
@@ -396,7 +396,7 @@ EOF
     assert_output_contains "Removed 2 domains from 1 app"
 }
 
-@test "(dns:zones:add --all) processes all zones" {
+@test "(dns:zones:enable --all) processes all zones" {
     setup_mock_provider "aws"
     create_mock_aws
     create_mock_dokku
@@ -415,9 +415,9 @@ EOF
     dns_zones
     assert_success
     assert_output_contains "Management Commands"
-    assert_output_contains "Add zone to auto-discovery: dokku dns:zones:add"
-    assert_output_contains "Remove zone from auto-discovery: dokku dns:zones:remove"
-    assert_output_contains "Add all zones to auto-discovery: dokku dns:zones:add --all"
+    assert_output_contains "Add zone to auto-discovery: dokku dns:zones:enable"
+    assert_output_contains "Remove zone from auto-discovery: dokku dns:zones:disable"
+    assert_output_contains "Add all zones to auto-discovery: dokku dns:zones:enable --all"
 }
 
 @test "(dns:zones) handles zones with managed domains" {
@@ -458,10 +458,10 @@ EOF
     
     dns_zones --invalid-flag
     assert_failure
-    assert_output_contains "Flags are no longer supported. Use 'dokku dns:zones:add' or 'dokku dns:zones:remove' instead."
+    assert_output_contains "Flags are no longer supported. Use 'dokku dns:zones:enable' or 'dokku dns:zones:disable' instead."
 }
 
-@test "(dns:zones:add) fails with non-AWS provider" {
+@test "(dns:zones:enable) fails with non-AWS provider" {
     setup_mock_provider "cloudflare"
     
     dns_zones_add "example.com"
@@ -469,7 +469,7 @@ EOF
     assert_output_contains "Zone management is currently only supported for AWS Route53 provider"
 }
 
-@test "(dns:zones:remove) works without provider restriction" {
+@test "(dns:zones:disable) works without provider restriction" {
     setup_mock_provider "cloudflare"
     
     # Setup some managed domains
@@ -482,7 +482,7 @@ EOF
     assert_output_contains "Removing zone from auto-discovery: example.com"
 }
 
-@test "(dns:zones:remove) handles empty LINKS file" {
+@test "(dns:zones:disable) handles empty LINKS file" {
     setup_mock_provider "aws"
     
     # Create empty LINKS file
@@ -493,7 +493,7 @@ EOF
     assert_output_contains "No apps are currently managed by DNS"
 }
 
-@test "(dns:zones:add) handles no Dokku apps" {
+@test "(dns:zones:enable) handles no Dokku apps" {
     setup_mock_provider "aws"
     create_mock_aws
     
@@ -567,7 +567,7 @@ assert_file_contains() {
     fi
 }
 
-@test "(dns:zones:remove --all) removes all apps from DNS management" {
+@test "(dns:zones:disable --all) removes all apps from DNS management" {
     setup_mock_provider "aws"
     
     # Setup some managed domains
@@ -597,7 +597,7 @@ assert_file_contains() {
     assert_output ""
 }
 
-@test "(dns:zones:remove --all) handles no managed apps gracefully" {
+@test "(dns:zones:disable --all) handles no managed apps gracefully" {
     setup_mock_provider "aws"
     
     dns_zones_remove --all
@@ -620,7 +620,7 @@ assert_file_contains() {
     
     dns_zones --enable
     assert_failure
-    assert_output_contains "Flags are no longer supported. Use 'dokku dns:zones:add' or 'dokku dns:zones:remove' instead."
+    assert_output_contains "Flags are no longer supported. Use 'dokku dns:zones:enable' or 'dokku dns:zones:disable' instead."
 }
 
 @test "(dns:zones) rejects old disable flags with helpful message" {
@@ -628,10 +628,10 @@ assert_file_contains() {
     
     dns_zones --disable
     assert_failure
-    assert_output_contains "Flags are no longer supported. Use 'dokku dns:zones:add' or 'dokku dns:zones:remove' instead."
+    assert_output_contains "Flags are no longer supported. Use 'dokku dns:zones:enable' or 'dokku dns:zones:disable' instead."
 }
 
-@test "(dns:zones:remove --all) shows helpful next steps" {
+@test "(dns:zones:disable --all) shows helpful next steps" {
     setup_mock_provider "aws"
     
     # Setup some managed domains
@@ -641,11 +641,11 @@ assert_file_contains() {
     
     dns_zones_remove --all
     assert_success
-    assert_output_contains "To re-enable: dokku dns:zones:add --all"
+    assert_output_contains "To re-enable: dokku dns:zones:enable --all"
     assert_output_contains "Or add apps individually: dokku dns:apps:enable <app>"
 }
 
-@test "(dns:zones:add) persists zone as enabled globally" {
+@test "(dns:zones:enable) persists zone as enabled globally" {
   setup_mock_provider "aws"
   create_mock_aws
   
@@ -668,7 +668,7 @@ assert_file_contains() {
   assert_output_contains "test.org"
 }
 
-@test "(dns:zones:remove) removes zone from enabled zones" {
+@test "(dns:zones:disable) removes zone from enabled zones" {
   setup_mock_provider "aws"
   create_mock_aws
   
@@ -763,7 +763,7 @@ assert_file_contains() {
   touch "$PLUGIN_DATA_ROOT/ENABLED_ZONES"
   
   # Sync should work regardless of zone enablement for explicitly added apps
-  run dokku "$PLUGIN_COMMAND_PREFIX:sync" "testapp"
+  run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" "testapp"
   assert_success
   assert_output_contains "Syncing domain: app1.example.com"
   assert_output_contains "Syncing domain: app2.test.org"
@@ -775,7 +775,7 @@ assert_file_contains() {
   assert_success
   
   # Sync should still work for all domains
-  run dokku "$PLUGIN_COMMAND_PREFIX:sync" "testapp"
+  run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" "testapp"
   assert_success
   assert_output_contains "Syncing domain: app1.example.com"
   assert_output_contains "Syncing domain: app2.test.org"
@@ -783,7 +783,7 @@ assert_file_contains() {
   cleanup_test_app "testapp"
 }
 
-@test "(dns:zones:add) implements simple zone enablement" {
+@test "(dns:zones:enable) implements simple zone enablement" {
     setup_mock_provider "aws"
     create_mock_aws
     create_mock_dokku

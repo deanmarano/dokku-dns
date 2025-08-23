@@ -45,10 +45,10 @@ elif [[ "$1" == "dns:zones:disable" ]]; then
     exec "$PLUGIN_ROOT/subcommands/zones:disable" "${@:2}"
 elif [[ "$1" == "dns:zones" ]]; then
     exec "$PLUGIN_ROOT/subcommands/zones" "${@:2}"
-elif [[ "$1" == "dns:zones:add" ]]; then
-    exec "$PLUGIN_ROOT/subcommands/zones:add" "${@:2}"
-elif [[ "$1" == "dns:zones:remove" ]]; then
-    exec "$PLUGIN_ROOT/subcommands/zones:remove" "${@:2}"
+elif [[ "$1" == "dns:zones:enable" ]]; then
+    exec "$PLUGIN_ROOT/subcommands/zones:enable" "${@:2}"
+elif [[ "$1" == "dns:zones:disable" ]]; then
+    exec "$PLUGIN_ROOT/subcommands/zones:disable" "${@:2}"
 elif [[ "$1" == "dns:cron" ]]; then
     exec "$PLUGIN_ROOT/subcommands/cron" "${@:2}"
 elif [[ "$1" == "dns:help" ]] || [[ "$1" == "dns" ]]; then

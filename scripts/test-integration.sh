@@ -134,13 +134,13 @@ cleanup_test_environment() {
     log_info "Cleaning up test environment..."
     
     # Clean up any cron jobs that might have been created during testing
-    if crontab -l 2>/dev/null | grep -q "dokku dns:sync-all"; then
-        crontab -l 2>/dev/null | grep -v "dokku dns:sync-all" | crontab - 2>/dev/null || true
+    if crontab -l 2>/dev/null | grep -q "dokku dns:apps:sync-all"; then
+        crontab -l 2>/dev/null | grep -v "dokku dns:apps:sync-all" | crontab - 2>/dev/null || true
         log_info "Cleaned up DNS cron jobs"
     fi
     
     # Remove from DNS management if added
-    dokku dns:remove "$TEST_APP" >/dev/null 2>&1 || true
+    dokku dns:apps:disable "$TEST_APP" >/dev/null 2>&1 || true
     
     # Remove test app
     if dokku apps:list | grep -q "^$TEST_APP$"; then
@@ -154,9 +154,9 @@ test_dns_help() {
     log_info "Testing DNS help commands..."
     
     assert_output_contains "Main help shows usage" "usage:" dokku dns:help
-    assert_output_contains "Main help shows available commands" "dns:add" dokku dns:help
-    assert_output_contains "Configure help works" "configure or change the global DNS provider" dokku dns:help configure
-    assert_output_contains "Add help works" "add app domains to DNS provider" dokku dns:help add
+    assert_output_contains "Main help shows available commands" "dns:apps:enable" dokku dns:help
+    assert_output_contains "Configure help works" "configure or change the global DNS provider" dokku dns:help providers:configure
+    assert_output_contains "Add help works" "enable DNS management for an application" dokku dns:help apps:enable
     assert_output_contains "Version shows plugin version" "dokku-dns plugin version" dokku dns:version
 }
 
@@ -164,45 +164,45 @@ test_dns_configuration() {
     log_info "Testing DNS configuration..."
     
     # Test invalid provider
-    assert_failure "Invalid provider should fail" dokku dns:configure invalid-provider
+    assert_failure "Invalid provider should fail" dokku dns:providers:configure invalid-provider
     
     # Test AWS configuration
-    assert_success "AWS provider configuration should succeed" dokku dns:configure aws
+    assert_success "AWS provider configuration should succeed" dokku dns:providers:configure aws
     assert_output_contains "Provider configured as AWS" "Global DNS Provider: aws" dokku dns:report
     
     # Test provider switching - skip cloudflare since provider script doesn't exist yet
-    # assert_success "Can switch to cloudflare provider" dokku dns:configure cloudflare
+    # assert_success "Can switch to cloudflare provider" dokku dns:providers:configure cloudflare
     # assert_output_contains "Provider switched to cloudflare" "cloudflare" dokku dns:report
     
     # Ensure AWS remains configured for other tests
-    dokku dns:configure aws >/dev/null 2>&1
+    dokku dns:providers:configure aws >/dev/null 2>&1
 }
 
 test_dns_verify() {
     log_info "Testing DNS verification..."
     
     # Configure AWS first
-    dokku dns:configure aws >/dev/null 2>&1
+    dokku dns:providers:configure aws >/dev/null 2>&1
     
     # Test verification (will show AWS CLI not configured, which is expected)
-    assert_output_contains_ignore_exit "Verify shows AWS CLI status" "AWS CLI is not installed. Please install it first:" dokku dns:verify
+    assert_output_contains_ignore_exit "Verify shows AWS CLI status" "AWS CLI is not installed. Please install it first:" dokku dns:providers:verify
     
     # Test with no provider (remove provider configuration)
     rm -f /var/lib/dokku/services/dns/PROVIDER 2>/dev/null || true
-    assert_output_contains_ignore_exit "Verify with no provider shows error" "No provider configured" dokku dns:verify
+    assert_output_contains_ignore_exit "Verify with no provider shows error" "No provider configured" dokku dns:providers:verify
     
     # Restore AWS provider
-    dokku dns:configure aws >/dev/null 2>&1
+    dokku dns:providers:configure aws >/dev/null 2>&1
 }
 
 test_dns_app_management() {
     log_info "Testing DNS app management..."
     
     # Ensure AWS provider is configured
-    dokku dns:configure aws >/dev/null 2>&1
+    dokku dns:providers:configure aws >/dev/null 2>&1
     
     # Test adding app to DNS
-    assert_output_contains "Can add app to DNS" "added to DNS" dokku dns:add "$TEST_APP"
+    assert_output_contains "Can add app to DNS" "added to DNS" dokku dns:apps:enable "$TEST_APP"
     
     # Test app appears in global report
     assert_output_contains "App appears in global report" "$TEST_APP" dokku dns:report
@@ -211,17 +211,17 @@ test_dns_app_management() {
     assert_output_contains "App-specific report works" "Domain Analysis:" dokku dns:report "$TEST_APP"
     
     # Test sync (should work with mock provider)
-    assert_output_contains "Sync shows expected message" "Syncing domains for app" dokku dns:sync "$TEST_APP"
+    assert_output_contains "Sync shows expected message" "Syncing domains for app" dokku dns:apps:sync "$TEST_APP"
     
     # Test removing app from DNS
-    assert_output_contains "Can remove app from DNS" "removed from DNS" dokku dns:remove "$TEST_APP"
+    assert_output_contains "Can remove app from DNS" "removed from DNS" dokku dns:apps:disable "$TEST_APP"
 }
 
 test_dns_cron() {
     log_info "Testing DNS cron functionality..."
     
     # Ensure AWS provider is configured (required for cron operations)
-    dokku dns:configure aws >/dev/null 2>&1
+    dokku dns:providers:configure aws >/dev/null 2>&1
     
     # Test cron command parsing and validation first
     assert_failure "Invalid cron flag should fail" dokku dns:cron --invalid-flag
@@ -271,7 +271,7 @@ test_dns_cron() {
         assert_output_contains "Cron shows disabled status after disable" "Status: ❌ DISABLED" dokku dns:cron
         # Only test crontab removal if we're in an environment that supports it
         if command -v crontab >/dev/null 2>&1 && su - dokku -c 'crontab -l >/dev/null 2>&1' 2>/dev/null; then
-            assert_failure "Cron job removed from system crontab" bash -c "su - dokku -c 'crontab -l 2>/dev/null | grep -q \"dokku dns:sync-all\"'"
+            assert_failure "Cron job removed from system crontab" bash -c "su - dokku -c 'crontab -l 2>/dev/null | grep -q \"dokku dns:apps:sync-all\"'"
         else
             log_info "Skipping crontab removal verification (not available in this environment)"
         fi
@@ -280,7 +280,7 @@ test_dns_cron() {
         assert_output_contains "Can enable cron automation" "✅ DNS cron job.*successfully!" dokku dns:cron --enable
         # Only test crontab if we're in an environment that supports it
         if command -v crontab >/dev/null 2>&1 && su - dokku -c 'crontab -l >/dev/null 2>&1' 2>/dev/null; then
-            assert_success "Cron job exists in system crontab" bash -c "su - dokku -c 'crontab -l 2>/dev/null | grep -q \"dokku dns:sync-all\"'"
+            assert_success "Cron job exists in system crontab" bash -c "su - dokku -c 'crontab -l 2>/dev/null | grep -q \"dokku dns:apps:sync-all\"'"
         else
             log_info "Skipping crontab verification (not available in this environment)"
         fi
@@ -296,7 +296,7 @@ test_dns_cron() {
         assert_output_contains_ignore_exit "Can enable cron automation" "✅ DNS cron job.*successfully!" dokku dns:cron --enable
         # Only test crontab if we're in an environment that supports it
         if command -v crontab >/dev/null 2>&1 && su - dokku -c 'crontab -l >/dev/null 2>&1' 2>/dev/null; then
-            assert_success "Cron job exists in system crontab" bash -c "su - dokku -c 'crontab -l 2>/dev/null | grep -q \"dokku dns:sync-all\"'"
+            assert_success "Cron job exists in system crontab" bash -c "su - dokku -c 'crontab -l 2>/dev/null | grep -q \"dokku dns:apps:sync-all\"'"
         else
             log_info "Skipping crontab verification (not available in this environment)"
         fi
@@ -309,7 +309,7 @@ test_dns_cron() {
         assert_output_contains "Can disable cron automation" "Disabling DNS Cron Job" dokku dns:cron --disable
         # Only test crontab removal if we're in an environment that supports it
         if command -v crontab >/dev/null 2>&1 && su - dokku -c 'crontab -l >/dev/null 2>&1' 2>/dev/null; then
-            assert_failure "Cron job removed from system crontab" bash -c "su - dokku -c 'crontab -l 2>/dev/null | grep -q \"dokku dns:sync-all\"'"
+            assert_failure "Cron job removed from system crontab" bash -c "su - dokku -c 'crontab -l 2>/dev/null | grep -q \"dokku dns:apps:sync-all\"'"
         else
             log_info "Skipping crontab removal verification (not available in this environment)"
         fi
@@ -346,7 +346,7 @@ test_dns_zones() {
     log_info "Testing DNS zones functionality..."
     
     # Ensure AWS provider is configured (required for zones operations)
-    dokku dns:configure aws >/dev/null 2>&1
+    dokku dns:providers:configure aws >/dev/null 2>&1
     
     # Check if AWS CLI and credentials are available
     local aws_available=false
@@ -384,29 +384,29 @@ test_dns_zones() {
     fi
     
     # Test zones flag validation (these should work regardless of AWS availability)
-    assert_failure "Add zone requires argument or --all" dokku dns:zones:add
-    assert_failure "Remove zone requires argument or --all" dokku dns:zones:remove
-    assert_failure "Add zone fails with both name and --all" dokku dns:zones:add example.com --all
-    assert_failure "Remove zone fails with both name and --all" dokku dns:zones:remove example.com --all
+    assert_failure "Add zone requires argument or --all" dokku dns:zones:enable
+    assert_failure "Remove zone requires argument or --all" dokku dns:zones:disable
+    assert_failure "Add zone fails with both name and --all" dokku dns:zones:enable example.com --all
+    assert_failure "Remove zone fails with both name and --all" dokku dns:zones:disable example.com --all
     
     # Test add/remove zone functionality
     if [[ "$aws_available" == "true" && -n "$test_zone" ]]; then
         # These will work but may not find matching Dokku apps, which is expected
-        assert_output_contains_ignore_exit "Add zone processes real zone" "Adding zone to auto-discovery: $test_zone" dokku dns:zones:add "$test_zone"
-        assert_output_contains "Remove zone works with real zone" "Removing zone from auto-discovery: $test_zone" dokku dns:zones:remove "$test_zone"
+        assert_output_contains_ignore_exit "Add zone processes real zone" "Adding zone to auto-discovery: $test_zone" dokku dns:zones:enable "$test_zone"
+        assert_output_contains "Remove zone works with real zone" "Removing zone from auto-discovery: $test_zone" dokku dns:zones:disable "$test_zone"
         
         # Test add-all
-        assert_output_contains_ignore_exit "Add-all processes real zones" "Adding all zones to auto-discovery" dokku dns:zones:add --all
+        assert_output_contains_ignore_exit "Add-all processes real zones" "Adding all zones to auto-discovery" dokku dns:zones:enable --all
         
         # Test remove-all
-        assert_output_contains "Remove-all works with AWS CLI" "Removing all zones from auto-discovery" dokku dns:zones:remove --all
+        assert_output_contains "Remove-all works with AWS CLI" "Removing all zones from auto-discovery" dokku dns:zones:disable --all
     else
-        assert_output_contains_ignore_exit "Add zone shows AWS CLI requirement" "AWS CLI is not installed" dokku dns:zones:add example.com
-        assert_output_contains "Remove zone works without AWS CLI" "No apps are currently managed by DNS" dokku dns:zones:remove example.com
-        assert_output_contains_ignore_exit "Add-all shows AWS CLI requirement" "AWS CLI is not installed" dokku dns:zones:add --all
+        assert_output_contains_ignore_exit "Add zone shows AWS CLI requirement" "AWS CLI is not installed" dokku dns:zones:enable example.com
+        assert_output_contains "Remove zone works without AWS CLI" "No apps are currently managed by DNS" dokku dns:zones:disable example.com
+        assert_output_contains_ignore_exit "Add-all shows AWS CLI requirement" "AWS CLI is not installed" dokku dns:zones:enable --all
         
         # Test remove-all (should work without AWS CLI)
-        assert_output_contains "Remove-all works without AWS CLI" "No apps are currently managed by DNS" dokku dns:zones:remove --all
+        assert_output_contains "Remove-all works without AWS CLI" "No apps are currently managed by DNS" dokku dns:zones:disable --all
     fi
     
     # Test unknown flag (should work regardless of AWS availability)
@@ -418,7 +418,7 @@ test_zones_with_report_sync() {
     log_info "Testing zones functionality with report and sync..."
     
     # Ensure AWS provider is configured
-    dokku dns:configure aws >/dev/null 2>&1
+    dokku dns:providers:configure aws >/dev/null 2>&1
     
     # Create a test app with domains that would be in example.com zone
     local ZONES_TEST_APP="zones-report-test"
@@ -462,7 +462,7 @@ test_zones_with_report_sync() {
     TESTS_TOTAL=$((TESTS_TOTAL + 1))
     
     # Ensure app is not in DNS management (triggers might have added it)
-    dokku dns:remove "$ZONES_TEST_APP" >/dev/null 2>&1 || true
+    dokku dns:apps:disable "$ZONES_TEST_APP" >/dev/null 2>&1 || true
     
     # Test report shows domains even when app is not in DNS management
     assert_output_contains "Report shows 'Not added' status for non-DNS-managed app" "DNS Status: Not added" dokku dns:report "$ZONES_TEST_APP"
@@ -472,7 +472,7 @@ test_zones_with_report_sync() {
     # Test sync on app not added to DNS management
     # This should work with the mock provider and show appropriate behavior
     local sync_output
-    sync_output=$(dokku dns:sync "$ZONES_TEST_APP" 2>&1) || true
+    sync_output=$(dokku dns:apps:sync "$ZONES_TEST_APP" 2>&1) || true
     if echo "$sync_output" | grep -q "No DNS-managed domains found for app"; then
         log_success "Sync shows appropriate message for non-DNS-managed app"
         TESTS_PASSED=$((TESTS_PASSED + 1))
@@ -492,14 +492,14 @@ test_zones_with_report_sync() {
         echo "example.com" > /var/lib/dokku/services/dns/ENABLED_ZONES
         
         # Now add the app to DNS and test sync behavior with enabled zones
-        assert_success "Add app to DNS management after zone enabled" dokku dns:add "$ZONES_TEST_APP"
+        assert_success "Add app to DNS management after zone enabled" dokku dns:apps:enable "$ZONES_TEST_APP"
         
         # Test sync with enabled zone
-        assert_output_contains "Sync works with enabled zone" "Syncing domains for app" dokku dns:sync "$ZONES_TEST_APP"
+        assert_output_contains "Sync works with enabled zone" "Syncing domains for app" dokku dns:apps:sync "$ZONES_TEST_APP"
         
         # Clean up
         rm -f /var/lib/dokku/services/dns/ENABLED_ZONES
-        dokku dns:remove "$ZONES_TEST_APP" >/dev/null 2>&1 || true
+        dokku dns:apps:disable "$ZONES_TEST_APP" >/dev/null 2>&1 || true
     fi
     
     # Clean up the test app - make cleanup more robust
@@ -521,7 +521,7 @@ test_dns_triggers() {
     log_info "Testing DNS triggers with app lifecycle..."
     
     # Ensure AWS provider is configured for trigger tests
-    dokku dns:configure aws >/dev/null 2>&1
+    dokku dns:providers:configure aws >/dev/null 2>&1
     
     local TRIGGER_TEST_APP
     TRIGGER_TEST_APP="trigger-test-app-$(date +%s)"
@@ -628,14 +628,14 @@ test_error_conditions() {
     log_info "Testing error conditions..."
     
     # Test commands with nonexistent apps
-    assert_failure "Add nonexistent app should fail" dokku dns:add nonexistent-app
-    assert_failure "Sync nonexistent app should fail" dokku dns:sync nonexistent-app
-    assert_failure "Remove nonexistent app should fail" dokku dns:remove nonexistent-app
+    assert_failure "Add nonexistent app should fail" dokku dns:apps:enable nonexistent-app
+    assert_failure "Sync nonexistent app should fail" dokku dns:apps:sync nonexistent-app
+    assert_failure "Remove nonexistent app should fail" dokku dns:apps:disable nonexistent-app
     
     # Test missing arguments
-    assert_failure "Add without app should fail" dokku dns:add
-    assert_failure "Sync without app should fail" dokku dns:sync
-    assert_failure "Remove without app should fail" dokku dns:remove
+    assert_failure "Add without app should fail" dokku dns:apps:enable
+    assert_failure "Sync without app should fail" dokku dns:apps:sync
+    assert_failure "Remove without app should fail" dokku dns:apps:disable
 }
 
 # Main test execution
