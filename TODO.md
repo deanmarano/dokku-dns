@@ -1,10 +1,6 @@
-# DNS Plugin Development TODO
-
-## Current Status
+# TODO
 
 The DNS plugin is in progress! Many core features have been implemented and tested. See [DONE.md](./DONE.md) for completed work.
-
-**Latest Update**: Pre-commit hook now skips tests for documentation-only changes, speeding up documentation commits.
 
 ## Phase 7: Remove Global Provider Concept (High Priority)
 
