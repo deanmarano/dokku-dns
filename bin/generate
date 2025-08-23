@@ -130,28 +130,18 @@ def commands_section(service, variable, alias, image, scheme, ports, unimplement
     subcommands = os.listdir("subcommands")
     subcommands.sort()
 
-    # Exclude old commands that are superseded by namespace commands
-    excluded_commands = {"add", "configure", "remove", "sync", "verify"}
-
     command_list = []
     descriptions = []
     for filename in subcommands:
-        if filename in unimplemented or filename in excluded_commands:
+        if filename in unimplemented:
             continue
-        # Skip files that don't exist or aren't readable
-        subcommand_path = os.path.join("subcommands", filename)
-        if not os.path.isfile(subcommand_path):
-            continue
-        try:
-            data = command_data(filename, service, variable, alias, image, scheme, ports)
-            description = data["description"]
-            arguments = data["arguments_string"]
+            
+        data = command_data(filename, service, variable, alias, image, scheme, ports)
+        description = data["description"]
+        arguments = data["arguments_string"]
 
-            command_list.append(f"{service}:{filename} {arguments}")
-            descriptions.append(description)
-        except (IOError, OSError):
-            # Skip commands that can't be read
-            continue
+        command_list.append(f"{service}:{filename} {arguments}")
+        descriptions.append(description)
 
     maxlen = max(map(len, command_list))
     if maxlen > 50:
@@ -420,15 +410,7 @@ def command_help(
     if command in unimplemented:
         return ""
 
-    # Skip commands that don't have corresponding files
-    subcommand_path = os.path.join("subcommands", command)
-    if not os.path.isfile(subcommand_path):
-        return ""
-
-    try:
-        data = command_data(command, service, variable, alias, image, scheme, ports)
-    except (IOError, OSError):
-        return ""
+    data = command_data(command, service, variable, alias, image, scheme, ports)
     content = [
         f"### {data['description']}",
         "",
@@ -475,11 +457,7 @@ def command_data(command, service, variable, alias, image, scheme, ports):
     flags = []
     optional_arguments = set()
     
-    subcommand_path = os.path.join("subcommands", command)
-    if not os.path.isfile(subcommand_path):
-        raise IOError(f"Command file not found: {subcommand_path}")
-    
-    with open(subcommand_path) as f:
+    with open(os.path.join("subcommands", command)) as f:
         for line in f.readlines():
             line = line.strip()
             line = line.replace("$PLUGIN_SERVICE", service)
