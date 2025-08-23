@@ -125,35 +125,33 @@ get_crontab_cmd() {
   current_user=$(id -un)
   
   if [[ "$current_user" == "root" ]] && id -u dokku >/dev/null 2>&1; then
-    # Running as root and dokku user exists - try different approaches
-    
-    # Try sudo first (most secure)
-    if command -v sudo >/dev/null 2>&1 && sudo -u dokku true >/dev/null 2>&1 && sudo -u dokku crontab -l >/dev/null 2>&1; then
+    # Running as root and dokku user exists - use crontab -u to directly manage dokku's crontab
+    # This avoids sudo authentication issues in containerized environments
+    echo "crontab -u dokku"
+    return 0
+  elif [[ "$current_user" == "dokku" ]]; then
+    # Running as dokku user - use direct crontab access
+    echo "crontab"
+    return 0
+  else
+    # Other user contexts - try sudo to dokku user only if not root
+    if command -v sudo >/dev/null 2>&1 && id -u dokku >/dev/null 2>&1 && sudo -u dokku true >/dev/null 2>&1 && sudo -u dokku crontab -l >/dev/null 2>&1; then
       echo "sudo -u dokku crontab"
       return 0
     fi
     
-    # Try su (fallback)
-    if su dokku -c 'crontab -l >/dev/null 2>&1' 2>/dev/null; then
-      echo "su dokku -c 'crontab"
-      return 0
-    fi
-    
-    # If dokku user exists but can't access crontab, use root crontab
-    # This handles Docker environments where dokku user may not have cron permissions
+    # If no dokku user access, fall back to current user
     echo "crontab"
-    return 0
   fi
-  
-  # Fallback to current user's crontab
-  echo "crontab"
 }
 
 list_cron_jobs() {
   local crontab_cmd
   crontab_cmd=$(get_crontab_cmd)
   
-  if [[ "$crontab_cmd" == "sudo -u dokku crontab" ]]; then
+  if [[ "$crontab_cmd" == "crontab -u dokku" ]]; then
+    crontab -u dokku -l 2>/dev/null
+  elif [[ "$crontab_cmd" == "sudo -u dokku crontab" ]]; then
     sudo -u dokku crontab -l 2>/dev/null
   elif [[ "$crontab_cmd" == "su dokku -c 'crontab" ]]; then
     su dokku -c 'crontab -l 2>/dev/null' 2>/dev/null
@@ -167,7 +165,9 @@ install_cron_job() {
   local crontab_cmd
   crontab_cmd=$(get_crontab_cmd)
   
-  if [[ "$crontab_cmd" == "sudo -u dokku crontab" ]]; then
+  if [[ "$crontab_cmd" == "crontab -u dokku" ]]; then
+    (crontab -u dokku -l 2>/dev/null || echo "") | { cat; echo "$entry"; } | crontab -u dokku -
+  elif [[ "$crontab_cmd" == "sudo -u dokku crontab" ]]; then
     (sudo -u dokku crontab -l 2>/dev/null || echo "") | { cat; echo "$entry"; } | sudo -u dokku crontab -
   elif [[ "$crontab_cmd" == "su dokku -c 'crontab" ]]; then
     (su dokku -c 'crontab -l 2>/dev/null' 2>/dev/null || echo "") | { cat; echo "$entry"; } | su dokku -c 'crontab -' 2>/dev/null
@@ -181,7 +181,9 @@ remove_cron_jobs() {
   local crontab_cmd
   crontab_cmd=$(get_crontab_cmd)
   
-  if [[ "$crontab_cmd" == "sudo -u dokku crontab" ]]; then
+  if [[ "$crontab_cmd" == "crontab -u dokku" ]]; then
+    (crontab -u dokku -l 2>/dev/null || echo "") | (grep -v "$pattern" || true) | crontab -u dokku -
+  elif [[ "$crontab_cmd" == "sudo -u dokku crontab" ]]; then
     (sudo -u dokku crontab -l 2>/dev/null || echo "") | (grep -v "$pattern" || true) | sudo -u dokku crontab -
   elif [[ "$crontab_cmd" == "su dokku -c 'crontab" ]]; then
     (su dokku -c 'crontab -l 2>/dev/null' 2>/dev/null || echo "") | (grep -v "$pattern" || true) | su dokku -c 'crontab -' 2>/dev/null
