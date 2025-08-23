@@ -281,7 +281,7 @@ test_dns_cron() {
         # Now test enabling 
         assert_output_contains "Can enable cron automation" "✅ DNS cron job.*successfully!" dokku dns:cron --enable
         # Only test crontab if we're in an environment that supports it
-        if command -v crontab >/dev/null 2>&1 && crontab -l >/dev/null 2>&1; then
+        if command -v crontab >/dev/null 2>&1; then
             assert_success "Cron job exists in system crontab" bash -c "crontab -l 2>/dev/null | grep -q \"dokku dns:sync-all\" || (command -v sudo >/dev/null 2>&1 && sudo -u dokku crontab -l 2>/dev/null | grep -q \"dokku dns:sync-all\" 2>/dev/null)"
         else
             log_info "Skipping crontab verification (not available in this environment)"
@@ -297,7 +297,7 @@ test_dns_cron() {
         # Test enabling cron
         assert_output_contains_ignore_exit "Can enable cron automation" "✅ DNS cron job.*successfully!" dokku dns:cron --enable
         # Only test crontab if we're in an environment that supports it
-        if command -v crontab >/dev/null 2>&1 && crontab -l >/dev/null 2>&1; then
+        if command -v crontab >/dev/null 2>&1; then
             assert_success "Cron job exists in system crontab" bash -c "crontab -l 2>/dev/null | grep -q \"dokku dns:sync-all\" || (command -v sudo >/dev/null 2>&1 && sudo -u dokku crontab -l 2>/dev/null | grep -q \"dokku dns:sync-all\" 2>/dev/null)"
         else
             log_info "Skipping crontab verification (not available in this environment)"
