@@ -155,7 +155,6 @@ test_dns_help() {
     
     assert_output_contains "Main help shows usage" "usage:" dokku dns:help
     assert_output_contains "Main help shows available commands" "dns:apps:enable" dokku dns:help
-    assert_output_contains "Configure help works" "configure or change the global DNS provider" dokku dns:help providers:configure
     assert_output_contains "Add help works" "enable DNS management for an application" dokku dns:help apps:enable
     assert_output_contains "Version shows plugin version" "dokku-dns plugin version" dokku dns:version
 }
@@ -163,26 +162,14 @@ test_dns_help() {
 test_dns_configuration() {
     log_info "Testing DNS configuration..."
     
-    # Test invalid provider
-    assert_failure "Invalid provider should fail" dokku dns:providers:configure invalid-provider
-    
-    # Test AWS configuration
-    assert_success "AWS provider configuration should succeed" dokku dns:providers:configure aws
-    assert_output_contains "Provider configured as AWS" "Global DNS Provider: aws" dokku dns:report
-    
-    # Test provider switching - skip cloudflare since provider script doesn't exist yet
-    # assert_success "Can switch to cloudflare provider" dokku dns:providers:configure cloudflare
-    # assert_output_contains "Provider switched to cloudflare" "cloudflare" dokku dns:report
-    
-    # Ensure AWS remains configured for other tests
-    dokku dns:providers:configure aws >/dev/null 2>&1
+    # AWS is now the only supported provider - no configuration needed
+    assert_output_contains "AWS provider is always available" "DNS Provider: AWS" dokku dns:report
 }
 
 test_dns_verify() {
     log_info "Testing DNS verification..."
     
     # Configure AWS first
-    dokku dns:providers:configure aws >/dev/null 2>&1
     
     # Test verification (will show AWS CLI not configured, which is expected)
     assert_output_contains_ignore_exit "Verify shows AWS CLI status" "AWS CLI is not installed. Please install it first:" dokku dns:providers:verify
@@ -192,14 +179,12 @@ test_dns_verify() {
     assert_output_contains_ignore_exit "Verify with no provider shows error" "No provider configured" dokku dns:providers:verify
     
     # Restore AWS provider
-    dokku dns:providers:configure aws >/dev/null 2>&1
 }
 
 test_dns_app_management() {
     log_info "Testing DNS app management..."
     
     # Ensure AWS provider is configured
-    dokku dns:providers:configure aws >/dev/null 2>&1
     
     # Test adding app to DNS
     assert_output_contains "Can add app to DNS" "added to DNS" dokku dns:apps:enable "$TEST_APP"
@@ -221,7 +206,6 @@ test_dns_cron() {
     log_info "Testing DNS cron functionality..."
     
     # Ensure AWS provider is configured (required for cron operations)
-    dokku dns:providers:configure aws >/dev/null 2>&1
     
     # Test cron command parsing and validation first
     assert_failure "Invalid cron flag should fail" dokku dns:cron --invalid-flag
@@ -348,7 +332,6 @@ test_dns_zones() {
     log_info "Testing DNS zones functionality..."
     
     # Ensure AWS provider is configured (required for zones operations)
-    dokku dns:providers:configure aws >/dev/null 2>&1
     
     # Check if AWS CLI and credentials are available
     local aws_available=false
@@ -420,7 +403,6 @@ test_zones_with_report_sync() {
     log_info "Testing zones functionality with report and sync..."
     
     # Ensure AWS provider is configured
-    dokku dns:providers:configure aws >/dev/null 2>&1
     
     # Create a test app with domains that would be in example.com zone
     local ZONES_TEST_APP="zones-report-test"
@@ -523,7 +505,6 @@ test_dns_triggers() {
     log_info "Testing DNS triggers with app lifecycle..."
     
     # Ensure AWS provider is configured for trigger tests
-    dokku dns:providers:configure aws >/dev/null 2>&1
     
     local TRIGGER_TEST_APP
     TRIGGER_TEST_APP="trigger-test-app-$(date +%s)"

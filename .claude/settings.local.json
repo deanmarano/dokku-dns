@@ -63,7 +63,11 @@
       "Bash(cp:*)",
       "Bash(sed:*)",
       "Bash(mkdir:*)",
-      "Bash(./subcommands/apps:enable my-app)"
+      "Bash(./subcommands/apps:enable my-app)",
+      "Bash(./test_helper.bash)",
+      "Bash(dns_cmd cron:*)",
+      "Bash(docker rm:*)",
+      "Bash(./scripts/test-docker.sh:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"
