@@ -23,7 +23,6 @@ dns:apps:enable <app>                              # enable DNS management for a
 dns:apps:report <app>                              # display DNS status for a specific application
 dns:apps:sync <app>                                # synchronize DNS records for an application
 dns:cron [--enable|--disable|--schedule "CRON_SCHEDULE"] # manage automated DNS synchronization cron job
-dns:providers:configure <provider>                 # configure or change the global dns provider
 dns:providers:verify <provider-arg>                # verify DNS provider setup and connectivity
 dns:report <app>                                   # display DNS status and domain information for app(s)
 dns:sync-all                                       # synchronize DNS records for all DNS-managed apps
@@ -54,21 +53,6 @@ dokku dns:apps:enable nextcloud example.com api.example.com
 ```
 
 By default, adds all domains configured for the app optionally specify specific domains to add to `DNS` management only domains with hosted zones in the `DNS` provider will be added this registers domains with the `DNS` provider but doesn`t update records yet use `dokku dns:apps:sync` to update `DNS` records:
-
-### configure or change the global dns provider
-
-```shell
-# usage
-dokku dns:providers:configure <provider>
-```
-
-Configure the global `DNS` provider:
-
-```shell
-dokku dns:providers:configure [aws|cloudflare]
-```
-
-This sets up or changes the `DNS` provider for all `DNS` management. If no provider is specified, defaults to `$DNS_DEFAULT_PROVIDER` if provider is already configured, this will change to the new provider after configuration, use other commands to: - configure credentials: dokku dns:providers:verify - sync an app: dokku dns:apps:sync myapp:
 
 ### verify DNS provider setup and connectivity
 

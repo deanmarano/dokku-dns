@@ -31,7 +31,7 @@ teardown() {
   run dokku "$PLUGIN_COMMAND_PREFIX:help"
   assert_success
   assert_output_contains "dns:apps:enable"
-  assert_output_contains "dns:providers:configure"
+  # providers:configure command removed
   assert_output_contains "dns:help" 2
   assert_output_contains "dns:apps:disable"
   assert_output_contains "dns:report"
@@ -43,13 +43,7 @@ teardown() {
   assert_output_contains "dns:version"
 }
 
-@test "(dns:help providers:configure) shows subcommand help" {
-  run dokku "$PLUGIN_COMMAND_PREFIX:help" "providers:configure"
-  assert_success
-  assert_output_contains "usage"
-  assert_output_contains "dns:providers:configure" 2
-  assert_output_contains "configure or change the global DNS provider"
-}
+# providers:configure command removed - test no longer needed
 
 @test "(dns:help apps:enable) shows add command help" {
   run dokku "$PLUGIN_COMMAND_PREFIX:help" "apps:enable"
@@ -88,7 +82,7 @@ teardown() {
   assert_success
   # Check that all main commands have consistent descriptions - using new namespace commands
   assert_output_contains "enable DNS management for an application"
-  assert_output_contains "configure or change the global DNS provider"
+  # providers:configure command removed - AWS is always the provider
   assert_output_contains "show help for DNS commands or specific subcommand"
   assert_output_contains "disable DNS management for an application"
   assert_output_contains "display DNS status and domain information for app(s)"

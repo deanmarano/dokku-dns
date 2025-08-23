@@ -60,12 +60,9 @@ dns_cmd() {
 
 setup_dns_provider() {
   local provider="${1:-aws}"
-  # In Docker test environment, use real dokku commands
-  if [[ -d "/var/lib/dokku" ]] && [[ -w "/var/lib/dokku" ]]; then
-    dokku dns:providers:configure "$provider" >/dev/null 2>&1 || true
-  else
-    dns_cmd providers:configure "$provider" >/dev/null 2>&1 || true
-  fi
+  # Since global provider concept is removed, this function is now a no-op
+  # AWS is always the provider - no setup needed
+  return 0
 }
 
 cleanup_dns_data() {

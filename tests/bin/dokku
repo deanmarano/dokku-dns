@@ -25,8 +25,6 @@ elif [[ "$1" == "dns:report" ]]; then
 elif [[ "$1" == "dns:version" ]]; then
     exec "$PLUGIN_ROOT/subcommands/version" "${@:2}"
 # New namespace commands
-elif [[ "$1" == "dns:providers:configure" ]]; then
-    exec "$PLUGIN_ROOT/subcommands/providers:configure" "${@:2}"
 elif [[ "$1" == "dns:providers:verify" ]]; then
     exec "$PLUGIN_ROOT/subcommands/providers:verify" "${@:2}"
 elif [[ "$1" == "dns:apps" ]]; then

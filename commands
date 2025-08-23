@@ -9,6 +9,7 @@ fi
 
 # Define missing functions if needed
 if ! declare -f dokku_log_fail >/dev/null 2>&1; then
+  # shellcheck disable=SC2317
   dokku_log_fail() { echo " !     $*" >&2; exit 1; }
 fi
 
@@ -25,7 +26,7 @@ if [[ "$1" == "help" || "$1" == "$PLUGIN_COMMAND_PREFIX:help" ]]; then
 fi
 
 if [[ ! -d $PLUGIN_DATA_ROOT ]]; then
-  dokku_log_fail "$PLUGIN_SERVICE: Plugin data directory not found. Run: dokku $PLUGIN_COMMAND_PREFIX:providers:configure <provider>"
+  mkdir -p "$PLUGIN_DATA_ROOT"
 fi
 
 fn-help "$@"

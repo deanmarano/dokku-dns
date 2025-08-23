@@ -163,49 +163,20 @@ is_zone_enabled() {
   fi
 }
 
-# Configure global DNS provider (internal function)
-# Usage: dns_configure_global <provider>
-# Note: This is an internal function, use dns:configure command instead
-dns_configure_global() {
-  local PROVIDER="$1"
-  local GLOBAL_CONFIG_ROOT="$PLUGIN_DATA_ROOT"
-  local PROVIDER_FILE="$GLOBAL_CONFIG_ROOT/PROVIDER"
-  
-  # Validate provider
-  case "$PROVIDER" in
-    aws|cloudflare)
-      ;;
-    *)
-      dokku_log_fail "Invalid provider '$PROVIDER'. Supported providers: aws, cloudflare"
-      ;;
-  esac
-  
-  # Create data directory if it doesn't exist
-  mkdir -p "$GLOBAL_CONFIG_ROOT"
-  
-  # Set the provider
-  echo "$PROVIDER" > "$PROVIDER_FILE"
-  
-  dokku_log_info2 "DNS configured globally with provider: $PROVIDER"
-  dokku_log_info1 "Next step: dokku $PLUGIN_COMMAND_PREFIX:providers:verify"
-}
 
 dns_get_record_ip() {
   local DOMAIN="$1"
-  local PROVIDER="$2"
   
-  # Try provider-specific DNS checking first (bypasses DNS caching)
-  if [[ "$PROVIDER" == "aws" ]]; then
-    local PROVIDER_SCRIPT
-    PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/aws"
-    if [[ -f "$PROVIDER_SCRIPT" ]]; then
-      source "$PROVIDER_SCRIPT"
-      if declare -f "dns_provider_aws_get_record_ip" >/dev/null 2>&1; then
-        local provider_ip
-        if provider_ip=$(dns_provider_aws_get_record_ip "$DOMAIN") && [[ -n "$provider_ip" ]]; then
-          echo "$provider_ip"
-          return 0
-        fi
+  # Try AWS provider DNS checking first (bypasses DNS caching)
+  local PROVIDER_SCRIPT
+  PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/aws"
+  if [[ -f "$PROVIDER_SCRIPT" ]]; then
+    source "$PROVIDER_SCRIPT"
+    if declare -f "dns_provider_aws_get_record_ip" >/dev/null 2>&1; then
+      local provider_ip
+      if provider_ip=$(dns_provider_aws_get_record_ip "$DOMAIN") && [[ -n "$provider_ip" ]]; then
+        echo "$provider_ip"
+        return 0
       fi
     fi
   fi
@@ -253,34 +224,21 @@ dns_get_server_ip() {
 
 dns_app() {
   local APP="$1"
-  local GLOBAL_CONFIG_ROOT="$PLUGIN_DATA_ROOT"
-  local PROVIDER_FILE="$GLOBAL_CONFIG_ROOT/PROVIDER"
   
-  if [[ ! -f "$PROVIDER_FILE" ]]; then
-    dokku_log_fail "No DNS provider configured. Run: dokku $PLUGIN_COMMAND_PREFIX:providers:configure <provider>"
-  fi
-  
-  local PROVIDER
-  PROVIDER="$(cat "$PROVIDER_FILE")"
-  
-  if [[ -z "$PROVIDER" ]]; then
-    dokku_log_fail "DNS provider not set. Run: dokku $PLUGIN_COMMAND_PREFIX:providers:configure <provider>"
-  fi
-  
-  # Load the provider functions
+  # Load AWS provider functions
   local PROVIDER_SCRIPT
-  PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/$PROVIDER"
+  PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/aws"
   if [[ ! -f "$PROVIDER_SCRIPT" ]]; then
-    dokku_log_fail "Provider '$PROVIDER' not found. Available providers: aws, cloudflare"
+    dokku_log_fail "AWS provider not found at $PROVIDER_SCRIPT"
   fi
   source "$PROVIDER_SCRIPT"
   
-  # Call the provider-specific sync function
-  if declare -f "dns_provider_${PROVIDER}_sync_app" >/dev/null 2>&1; then
-    "dns_provider_${PROVIDER}_sync_app" "$APP"
+  # Call the AWS sync function
+  if declare -f "dns_provider_aws_sync_app" >/dev/null 2>&1; then
+    dns_provider_aws_sync_app "$APP"
     return 0
   else
-    dokku_log_fail "Provider '$PROVIDER' does not support sync operations"
+    dokku_log_fail "AWS provider does not support sync operations"
   fi
 }
 
@@ -311,14 +269,6 @@ dns_add_app_domains() {
     return 0
   fi
   
-  # Check if DNS provider is configured
-  local GLOBAL_CONFIG_ROOT="$PLUGIN_DATA_ROOT"
-  local PROVIDER_FILE="$GLOBAL_CONFIG_ROOT/PROVIDER"
-  local PROVIDER="None"
-  
-  if [[ -f "$PROVIDER_FILE" ]]; then
-    PROVIDER="$(cat "$PROVIDER_FILE")"
-  fi
   
   # Check which domains are already added to DNS for this app
   local APP_DOMAINS_FILE="$PLUGIN_DATA_ROOT/$APP/DOMAINS"
@@ -392,15 +342,14 @@ dns_add_app_domains() {
   local VALID_DOMAINS=()
   local SKIPPED_DOMAINS=()
   
-  dokku_log_info1 "Filtering domains - Provider: $PROVIDER, New domains: ${#NEW_DOMAINS[@]}"
+  dokku_log_info1 "Filtering domains - Provider: AWS, New domains: ${#NEW_DOMAINS[@]}"
   
-  if [[ "$PROVIDER" == "aws" ]]; then
-    # Load AWS provider functions to check hosted zones
-    local PROVIDER_SCRIPT
-  PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/$PROVIDER"
-    if [[ -f "$PROVIDER_SCRIPT" ]]; then
-      source "$PROVIDER_SCRIPT"
-      dns_provider_aws_setup_env
+  # Load AWS provider functions to check hosted zones
+  local PROVIDER_SCRIPT
+  PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/aws"
+  if [[ -f "$PROVIDER_SCRIPT" ]]; then
+    source "$PROVIDER_SCRIPT"
+    dns_provider_aws_setup_env
       
       # Check if AWS is properly configured before filtering
       dokku_log_info1 "Testing AWS credentials..."
@@ -444,11 +393,6 @@ dns_add_app_domains() {
       dokku_log_warn "AWS provider script not found, adding all new domains"
       VALID_DOMAINS=("${NEW_DOMAINS[@]}")
     fi
-  else
-    # For other providers or no provider configured, add all new domains
-    # Other providers can implement their own hosted zone checking logic
-    VALID_DOMAINS=("${NEW_DOMAINS[@]}")
-  fi
   
   # Report skipped domains
   if [[ ${#SKIPPED_DOMAINS[@]} -gt 0 ]]; then
@@ -566,53 +510,25 @@ dns_display_domains_table() {
   local SERVER_IP
   SERVER_IP=$(dns_get_server_ip)
   
-  # Get global configuration
-  local GLOBAL_CONFIG_ROOT="$PLUGIN_DATA_ROOT"
-  local PROVIDER_FILE="$GLOBAL_CONFIG_ROOT/PROVIDER"
-  local PROVIDER="None"
+  # Check AWS provider status
   local SYNC_STATUS="Not configured"
+  local CREDENTIALS_DIR="$PLUGIN_DATA_ROOT/credentials"
   
-  if [[ -f "$PROVIDER_FILE" ]]; then
-    PROVIDER="$(cat "$PROVIDER_FILE")"
-    
-    # Check provider status
-    local CREDENTIALS_DIR="$GLOBAL_CONFIG_ROOT/credentials"
-    if [[ "$PROVIDER" != "None" ]]; then
-      case "$PROVIDER" in
-        aws)
-          if [[ -d "$CREDENTIALS_DIR" ]] && [[ -f "$CREDENTIALS_DIR/AWS_ACCESS_KEY_ID" ]]; then
-            SYNC_STATUS="Ready"
-          elif aws sts get-caller-identity >/dev/null 2>&1; then
-            SYNC_STATUS="Ready"
-          else
-            SYNC_STATUS="Missing auth"
-          fi
-          ;;
-        cloudflare)
-          if [[ -d "$CREDENTIALS_DIR" ]] && [[ -f "$CREDENTIALS_DIR/CLOUDFLARE_API_TOKEN" ]]; then
-            SYNC_STATUS="Ready"
-          else
-            SYNC_STATUS="Missing auth"
-          fi
-          ;;
-        *)
-          SYNC_STATUS="Unknown provider"
-          ;;
-      esac
-    else
-      SYNC_STATUS="Missing auth"
-    fi
+  if [[ -d "$CREDENTIALS_DIR" ]] && [[ -f "$CREDENTIALS_DIR/AWS_ACCESS_KEY_ID" ]]; then
+    SYNC_STATUS="Ready"
+  elif aws sts get-caller-identity >/dev/null 2>&1; then
+    SYNC_STATUS="Ready"
+  else
+    SYNC_STATUS="Missing auth"
   fi
   
-  # Load provider functions if available
-  if [[ "$PROVIDER" != "None" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
+  # Load AWS provider functions if available
+  if [[ "$SYNC_STATUS" == "Ready" ]]; then
     local PROVIDER_SCRIPT
-  PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/$PROVIDER"
+    PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/aws"
     if [[ -f "$PROVIDER_SCRIPT" ]]; then
       source "$PROVIDER_SCRIPT"
-      if [[ "$PROVIDER" == "aws" ]]; then
-        dns_provider_aws_setup_env
-      fi
+      dns_provider_aws_setup_env
     fi
   fi
   
@@ -626,7 +542,7 @@ dns_display_domains_table() {
     
     # Get current DNS resolution (using provider-specific checking if available)
     local CURRENT_IP
-    CURRENT_IP=$(dns_get_record_ip "$DOMAIN" "$PROVIDER" || echo "")
+    CURRENT_IP=$(dns_get_record_ip "$DOMAIN" || echo "")
     
     # Determine DNS status emoji
     local DNS_EMOJI="❌"
@@ -638,10 +554,10 @@ dns_display_domains_table() {
       fi
     fi
     
-    # Try to get hosted zone if provider is AWS and ready
+    # Try to get hosted zone if AWS is ready
     local HOSTED_ZONE="-"
     local ZONE_ID=""
-    if [[ "$PROVIDER" == "aws" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
+    if [[ "$SYNC_STATUS" == "Ready" ]]; then
       if declare -f "dns_provider_aws_get_hosted_zone_id" >/dev/null 2>&1; then
         ZONE_ID=$(dns_provider_aws_get_hosted_zone_id "$DOMAIN" 2>/dev/null || echo "")
         if [[ -n "$ZONE_ID" ]]; then
@@ -662,7 +578,7 @@ dns_display_domains_table() {
     
     # Check if domain is enabled based on zone enablement
     local ENABLED_STATUS="No"
-    if [[ "$PROVIDER" == "aws" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
+    if [[ "$SYNC_STATUS" == "Ready" ]]; then
       if [[ -n "$ZONE_ID" ]]; then
         # Check if the zone is enabled
         if is_domain_in_enabled_zone "$DOMAIN"; then
@@ -673,18 +589,11 @@ dns_display_domains_table() {
       else
         ENABLED_STATUS="No (no hosted zone)"
       fi
-    elif [[ "$PROVIDER" != "None" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
-      # For other providers, check enabled zones
-      if is_domain_in_enabled_zone "$DOMAIN"; then
-        ENABLED_STATUS="Yes"
-      else
-        ENABLED_STATUS="No (zone disabled)"
-      fi
     else
       ENABLED_STATUS="No (provider not ready)"
     fi
     
-    printf "%-30s %-8s %-15s %-15s %s\n" "$DOMAIN" "$DNS_EMOJI" "$ENABLED_STATUS" "$PROVIDER" "$HOSTED_ZONE"
+    printf "%-30s %-8s %-15s %-15s %s\n" "$DOMAIN" "$DNS_EMOJI" "$ENABLED_STATUS" "AWS" "$HOSTED_ZONE"
   done
   
   echo

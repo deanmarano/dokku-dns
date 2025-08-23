@@ -39,40 +39,13 @@ service-providers-verify-cmd() {
   
   local PROVIDER_ARG="$1"
   local GLOBAL_CONFIG_ROOT="$PLUGIN_DATA_ROOT"
-  local PROVIDER_FILE="$GLOBAL_CONFIG_ROOT/PROVIDER"
   
-  # Determine which provider(s) to verify
-  local PROVIDER
-  if [[ -n "$PROVIDER_ARG" ]]; then
-    # Specific provider requested
-    PROVIDER="$PROVIDER_ARG"
-    dokku_log_info2 "Verifying specific provider: $PROVIDER"
-  else
-    # Use configured provider
-    if [[ ! -f "$PROVIDER_FILE" ]]; then
-      dokku_log_fail "No provider configured. Please specify a provider to verify or configure one first:
+  # Always verify AWS (the only supported provider)
+  local PROVIDER="aws"
+  dokku_log_info2 "Verifying AWS Route53 provider"
   
-  Configure a provider: dokku $PLUGIN_COMMAND_PREFIX:providers:configure <provider>
-  Verify specific provider: dokku $PLUGIN_COMMAND_PREFIX:providers:verify <provider>
-  Available providers: aws"
-    fi
-    
-    PROVIDER="$(cat "$PROVIDER_FILE")"
-    
-    if [[ -z "$PROVIDER" ]]; then
-      dokku_log_fail "Provider not set. Please specify a provider to verify or configure one first:
-  
-  Configure a provider: dokku $PLUGIN_COMMAND_PREFIX:providers:configure <provider>
-  Verify specific provider: dokku $PLUGIN_COMMAND_PREFIX:providers:verify <provider>
-  Available providers: aws"
-    fi
-    
-    dokku_log_info2 "Verifying configured provider: $PROVIDER"
-  fi
-  
-  # Validate provider
-  if [[ "$PROVIDER" != "aws" ]]; then
-    dokku_log_fail "Provider '$PROVIDER' is not supported. Available providers: aws"
+  if [[ -n "$PROVIDER_ARG" ]] && [[ "$PROVIDER_ARG" != "aws" ]]; then
+    dokku_log_fail "Provider '$PROVIDER_ARG' is not supported. Only AWS is supported."
   fi
   
   # Load the provider functions
@@ -94,11 +67,7 @@ service-providers-verify-cmd() {
       
       # Show current configuration status
       dokku_log_info1 "Current Configuration:"
-      if [[ -f "$PROVIDER_FILE" ]] && [[ "$(cat "$PROVIDER_FILE" 2>/dev/null)" == "aws" ]]; then
-        dokku_log_info1 "  ✓ DNS Provider: aws (configured)"
-      else
-        dokku_log_info1 "  ⚠ DNS Provider: aws (not configured as default)"
-      fi
+      dokku_log_info1 "  ✓ DNS Provider: AWS (only supported provider)"
       
       # Check if AWS CLI is installed
       if ! command -v aws >/dev/null 2>&1; then

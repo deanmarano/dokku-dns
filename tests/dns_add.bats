@@ -40,7 +40,7 @@ teardown() {
   [[ "$output" =~ example\.com ]]
   [[ "$output" =~ api\.example\.com ]]
   assert_output_contains "No (no hosted zone)" 2  # Enabled column - appears once per domain
-  assert_output_contains "aws" 3
+  assert_output_contains "AWS" 5
   assert_output_contains "Status Legend:"
   assert_output_contains "✅ Points to server IP"
   assert_output_contains "⚠️  Points to different IP"
@@ -55,7 +55,7 @@ teardown() {
   assert_output_contains "Domain Status Table for app 'my-app':"
   [[ "$output" =~ example\.com ]]
   assert_output_contains "No (no hosted zone)" 1  # Enabled column - appears in table
-  assert_output_contains "aws" 2
+  assert_output_contains "AWS" 4
   assert_output_contains "Status Legend:"
 }
 
@@ -66,7 +66,7 @@ teardown() {
   assert_output_contains "Domain Status Table for app 'my-app':"
   [[ "$output" =~ example\.com ]]
   [[ "$output" =~ api\.example\.com ]]
-  assert_output_contains "aws" 3  # appears multiple times
+  assert_output_contains "AWS" 5  # appears multiple times
 }
 
 @test "(dns:apps:enable) handles app with no domains gracefully" {
@@ -87,7 +87,7 @@ teardown() {
   
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app
   assert_success
-  assert_output_contains "Provider: None"
+  assert_output_contains "Provider: AWS"
   assert_output_contains "No (provider not ready)" 2  # Appears for each domain in table
   assert_output_contains "Next step: dokku dns:apps:sync my-app"
 }
