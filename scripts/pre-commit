@@ -81,18 +81,34 @@ if [[ "${SKIP_TESTS:-}" == "1" ]]; then
     exit 0
 fi
 
-# Always run linting first
-log "INFO" "Running shellcheck linting..."
-if make lint >/dev/null 2>&1; then
-    log "SUCCESS" "Linting passed"
+# Check if this is a documentation-only change (excluding README.md since it's generated)
+if git diff --cached --name-only | grep -qv -E '^(TODO\.md|DONE\.md|.*\.txt|.*\.rst)$'; then
+    CODE_CHANGES=true
 else
-    log "ERROR" "Linting failed"
-    echo "To fix linting issues, run: make lint"
-    echo "To skip this check: SKIP_TESTS=1 git commit"
-    exit 1
+    CODE_CHANGES=false
 fi
 
-# Check README generation
+# Skip tests for documentation-only changes
+if [[ "$CODE_CHANGES" == "false" ]]; then
+    log "INFO" "Documentation-only change detected (TODO.md, DONE.md), skipping tests but running basic checks"
+fi
+
+# Run linting for code changes
+if [[ "$CODE_CHANGES" == "true" ]]; then
+    log "INFO" "Running shellcheck linting..."
+    if make lint >/dev/null 2>&1; then
+        log "SUCCESS" "Linting passed"
+    else
+        log "ERROR" "Linting failed"
+        echo "To fix linting issues, run: make lint"
+        echo "To skip this check: SKIP_TESTS=1 git commit"
+        exit 1
+    fi
+else
+    log "INFO" "Skipping linting for documentation-only change"
+fi
+
+# Check README generation for any changes (including documentation changes)
 log "INFO" "Checking README generation..."
 make generate >/dev/null 2>&1
 
@@ -104,9 +120,11 @@ else
     exit 1
 fi
 
-# Run tests in parallel if Docker is available
-if command -v docker >/dev/null 2>&1 && [[ "${RUN_DOCKER_TESTS:-1}" == "1" ]]; then
-    log "INFO" "Running BATS and Docker tests in parallel..."
+# Run tests for code changes
+if [[ "$CODE_CHANGES" == "true" ]]; then
+    # Run tests in parallel if Docker is available
+    if command -v docker >/dev/null 2>&1 && [[ "${RUN_DOCKER_TESTS:-1}" == "1" ]]; then
+        log "INFO" "Running BATS and Docker tests in parallel..."
     
     # Create unique temporary files
     bats_result_file=$(mktemp "/tmp/bats-result-$$.XXXXXX")
@@ -228,6 +246,9 @@ else
     else
         log "WARNING" "BATS not found, skipping unit tests"
     fi
+    fi
+else
+    log "INFO" "Documentation-only change - skipping tests"
 fi
 
 log "SUCCESS" "All pre-commit checks passed!"
