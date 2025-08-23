@@ -82,10 +82,10 @@ teardown() {
 @test "(dns:apps:sync) shows helpful error when AWS not accessible" {
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" my-app
   
-  # In test environment, likely to fail with auth issues
+  # In test environment, likely to fail with provider not configured
   if [[ "$status" -ne 0 ]]; then
-    assert_output_contains "AWS CLI is not configured" || assert_output_contains "credentials"
-    assert_output_contains "Run: dokku dns:providers:verify"
+    assert_output_contains "No DNS provider configured" || assert_output_contains "credentials"
+    assert_output_contains "dokku dns:providers:configure"
   fi
 }
 

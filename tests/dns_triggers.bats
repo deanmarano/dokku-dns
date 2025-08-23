@@ -60,6 +60,7 @@ teardown() {
     setup_dns_provider "aws"
     
     # Simulate app being managed by DNS
+    mkdir -p "$PLUGIN_DATA_ROOT"
     echo "test-app" > "$PLUGIN_DATA_ROOT/LINKS"
     mkdir -p "$PLUGIN_DATA_ROOT/test-app"
     echo "example.com" > "$PLUGIN_DATA_ROOT/test-app/DOMAINS"
