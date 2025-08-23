@@ -44,7 +44,18 @@ service-apps-report-cmd() {
   [[ ${argv[0]} == "$cmd" ]] && shift 1
   declare APP="$1"
 
-  [[ -z "$APP" ]] && dokku_log_fail "Please specify an app name"
+  if [[ -z "$APP" ]]; then
+    echo "Usage: dokku $PLUGIN_COMMAND_PREFIX:apps:report <app>"
+    echo "Show DNS status and domain information for a specific application"
+    echo ""
+    echo "Arguments:"
+    echo "  <app>    Application name to generate DNS report for"
+    echo ""
+    echo "Examples:"
+    echo "  dokku $PLUGIN_COMMAND_PREFIX:apps:report myapp"
+    echo ""
+    exit 1
+  fi
   verify_app_name "$APP"
   dns_report "$APP"
 }
