@@ -20,7 +20,7 @@ sudo dokku plugin:install https://github.com/deanmarano/dokku-dns.git --name dns
 dns:apps                                           # list DNS-managed applications
 dns:apps:disable <app>                             # disable DNS management for an application
 dns:apps:enable <app>                              # enable DNS management for an application
-dns:apps:report                                    # display DNS status for a specific application
+dns:apps:report <app>                              # display DNS status for a specific application
 dns:apps:sync <app>                                # synchronize DNS records for an application
 dns:cron [--enable|--disable|--schedule "CRON_SCHEDULE"] # manage automated DNS synchronization cron job
 dns:providers:configure <provider>                 # configure or change the global dns provider

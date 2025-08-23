@@ -49,14 +49,14 @@ teardown() {
   assert_contains "${lines[*]}" "Please specify an app name"
 }
 
-@test "(dns:apps:report) shows global report with no arguments" {
+@test "(dns:apps:report) requires app name and shows error without it" {
   # Configure DNS first so report command works
   run dokku "$PLUGIN_COMMAND_PREFIX:providers:configure" aws
   assert_success
   
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:report"
-  assert_success
-  assert_contains "${lines[*]}" "DNS Global Report"
+  assert_failure
+  assert_contains "${lines[*]}" "Please specify an app name"
 }
 
 @test "(dns:apps:*) help shows correct descriptions" {
