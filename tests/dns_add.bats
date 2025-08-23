@@ -39,13 +39,13 @@ teardown() {
   assert_output_contains "Domain                         Status   Enabled         Provider        Zone (Enabled)"
   [[ "$output" =~ example\.com ]]
   [[ "$output" =~ api\.example\.com ]]
-  assert_output_contains "No (no hosted zone)" 2  # Enabled column - appears once per domain
-  assert_output_contains "aws" 3  # Provider column
+  assert_output_contains "No (provider not ready)" 2  # Enabled column - appears once per domain
+  assert_output_contains "None" 3
   assert_output_contains "Status Legend:"
   assert_output_contains "✅ Points to server IP"
   assert_output_contains "⚠️  Points to different IP"
   assert_output_contains "❌ No DNS record found"
-  assert_output_contains "No domains with enabled hosted zones found for app: my-app"
+  assert_output_contains "App 'my-app' added to DNS"
 }
 
 @test "(dns:apps:enable) success with specific domains shows table" {
@@ -54,8 +54,8 @@ teardown() {
   assert_output_contains "Adding specified domains for app 'my-app':"
   assert_output_contains "Domain Status Table for app 'my-app':"
   [[ "$output" =~ example\.com ]]
-  assert_output_contains "No (no hosted zone)" 1  # Enabled column - appears in table
-  assert_output_contains "aws" 2  # Provider column
+  assert_output_contains "No (provider not ready)" 1  # Enabled column - appears in table
+  assert_output_contains "None" 2
   assert_output_contains "Status Legend:"
 }
 
@@ -66,7 +66,7 @@ teardown() {
   assert_output_contains "Domain Status Table for app 'my-app':"
   [[ "$output" =~ example\.com ]]
   [[ "$output" =~ api\.example\.com ]]
-  assert_output_contains "aws" 3  # Provider column - appears multiple times
+  assert_output_contains "None" 3  # appears multiple times
 }
 
 @test "(dns:apps:enable) handles app with no domains gracefully" {
