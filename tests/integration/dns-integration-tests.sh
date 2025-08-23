@@ -254,7 +254,7 @@ EOF
             test_failed=true
         fi
         
-        if echo "$disable_output" | grep -q "Current:.*6.*custom"; then
+        if echo "$disable_output" | grep -q "Current:.*0 6.*custom"; then
             echo "✓ Cron disable shows current schedule"
         else
             echo "❌ Cron disable doesn't show current schedule"
