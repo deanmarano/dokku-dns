@@ -26,14 +26,12 @@ teardown() {
     assert_output_contains "Enable cron: dokku dns:cron --enable"
 }
 
-@test "(dns:cron --enable) fails when no DNS provider configured" {
-    # Remove provider file if it exists
-    rm -f "$PLUGIN_DATA_ROOT/PROVIDER" >/dev/null 2>&1 || true
+@test "(dns:cron --enable) works without explicit provider configuration" {
+    cleanup_dns_data
     
     run dns_cmd cron --enable
-    assert_failure
-    assert_output_contains "No DNS provider configured"
-    assert_output_contains "dokku dns:providers:configure"
+    assert_success
+    assert_output_contains "DNS sync cron job enabled"
 }
 
 @test "(dns:cron --enable) creates cron job when provider configured" {

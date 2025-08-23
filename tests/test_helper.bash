@@ -66,11 +66,12 @@ setup_dns_provider() {
 }
 
 cleanup_dns_data() {
-  # In Docker test environment, preserve provider configuration but clean app data
+  # Clean up all DNS data including cron jobs
   if [[ -d "/var/lib/dokku" ]] && [[ -w "/var/lib/dokku" ]]; then
-    # Only clean up app-specific data, preserve global provider config
+    # Clean up app-specific data and cron data
     find "$PLUGIN_DATA_ROOT" -name "LINKS" -delete 2>/dev/null || true
     find "$PLUGIN_DATA_ROOT" -maxdepth 1 -type d -name "*-*" -exec rm -rf {} + 2>/dev/null || true
+    rm -rf "$PLUGIN_DATA_ROOT/cron" 2>/dev/null || true
   else
     rm -rf "$PLUGIN_DATA_ROOT" >/dev/null 2>&1 || true
   fi

@@ -82,13 +82,13 @@ teardown() {
   cleanup_test_app empty-app
 }
 
-@test "(dns:apps:enable) fails when no provider configured" {
-  cleanup_dns_data  # Remove provider configuration
+@test "(dns:apps:enable) works without credentials configured" {
+  cleanup_dns_data  # Clear any existing data
   
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app
   assert_success
   assert_output_contains "Provider: AWS"
-  assert_output_contains "No (provider not ready)" 2  # Appears for each domain in table
+  assert_output_contains "No (no hosted zone)" 2  # Appears for each domain in table
   assert_output_contains "Next step: dokku dns:apps:sync my-app"
 }
 
