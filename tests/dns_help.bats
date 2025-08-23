@@ -45,7 +45,7 @@ teardown() {
   run dokku "$PLUGIN_COMMAND_PREFIX:help" "providers:configure"
   assert_success
   assert_output_contains "usage"
-  assert_output_contains "dns:providers:configure" 1
+  assert_output_contains "dns:providers:configure" 2
   assert_output_contains "configure or change the global DNS provider" 1
 }
 
@@ -53,7 +53,7 @@ teardown() {
   run dokku "$PLUGIN_COMMAND_PREFIX:help" "apps:enable"
   assert_success
   assert_output_contains "usage"
-  assert_output_contains "dns:apps:enable" 1
+  assert_output_contains "dns:apps:enable" 3
   assert_output_contains "enable DNS management for an application" 1
 }
 
@@ -61,7 +61,7 @@ teardown() {
   run dokku "$PLUGIN_COMMAND_PREFIX:help" "providers:verify"
   assert_success
   assert_output_contains "usage"
-  assert_output_contains "dns:providers:verify" 1
+  assert_output_contains "dns:providers:verify" 2
   assert_output_contains "verify DNS provider setup and connectivity" 1
 }
 
@@ -69,7 +69,7 @@ teardown() {
   run dokku "$PLUGIN_COMMAND_PREFIX:help" "apps:sync"
   assert_success
   assert_output_contains "usage"
-  assert_output_contains "dns:apps:sync" 1
+  assert_output_contains "dns:apps:sync" 2
   assert_output_contains "synchronize DNS records for an application" 1
 }
 

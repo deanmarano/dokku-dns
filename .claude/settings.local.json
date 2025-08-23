@@ -61,7 +61,8 @@
       "Bash(printf:*)",
       "Bash(./subcommands/configure:*)",
       "Bash(cp:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

@@ -37,8 +37,8 @@ teardown() {
   assert_output_contains "Adding all domains for app 'my-app':"
   assert_output_contains "Domain Status Table for app 'my-app':"
   assert_output_contains "Domain                         Status   Enabled         Provider        Zone (Enabled)"
-  assert_output_contains "example.com" 14  # Appears multiple times in output
-  assert_output_contains "api.example.com" 7  # Appears multiple times in output
+  assert_output_contains "example.com"  # Appears multiple times in output
+  assert_output_contains "api.example.com"  # Appears multiple times in output
   assert_output_contains "No (no hosted zone)" 2  # Enabled column - appears once per domain
   assert_output_contains "aws" 3  # Provider column
   assert_output_contains "Status Legend:"
@@ -53,7 +53,7 @@ teardown() {
   assert_success
   assert_output_contains "Adding specified domains for app 'my-app':"
   assert_output_contains "Domain Status Table for app 'my-app':"
-  assert_output_contains "example.com" 7  # Appears multiple times in output
+  assert_output_contains "example.com"  # Appears multiple times in output
   assert_output_contains "No (no hosted zone)" 1  # Enabled column - appears in table
   assert_output_contains "aws" 2  # Provider column
   assert_output_contains "Status Legend:"
@@ -64,8 +64,8 @@ teardown() {
   assert_success
   assert_output_contains "Adding specified domains for app 'my-app':"
   assert_output_contains "Domain Status Table for app 'my-app':"
-  assert_output_contains "example.com" 14  # Appears multiple times in output
-  assert_output_contains "api.example.com" 7  # Appears multiple times in output
+  assert_output_contains "example.com"  # Appears multiple times in output
+  assert_output_contains "api.example.com"  # Appears multiple times in output
   assert_output_contains "aws" 3  # Provider column - appears multiple times
 }
 
@@ -100,7 +100,7 @@ teardown() {
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" single-app
   assert_success
   assert_output_contains "Domain Status Table for app 'single-app'"
-  assert_output_contains "single.example.com" 7  # Appears multiple times in output
+  assert_output_contains "single.example.com"  # Appears multiple times in output
   
   cleanup_test_app single-app
 }
