@@ -83,7 +83,7 @@ main() {
   
   if [[ ${#domains_in_enabled_zones[@]} -eq 0 ]]; then
     dokku_log_info1 "DNS: No domains for '$APP' are in enabled zones. Skipping automatic DNS setup."
-    dokku_log_info1 "DNS: Use 'dokku dns:zones:add <zone>' to enable zones or manually add with 'dokku dns:add $APP'"
+    dokku_log_info1 "DNS: Use 'dokku dns:zones:enable <zone>' to enable zones or manually add with 'dokku dns:apps:enable $APP'"
     return 0
   fi
   

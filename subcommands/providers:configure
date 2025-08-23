@@ -34,18 +34,18 @@ fi
 
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
 
-service-configure-cmd() {
+service-providers-configure-cmd() {
   #E configure the global DNS provider
-  #E dokku $PLUGIN_COMMAND_PREFIX:configure [aws|cloudflare]
+  #E dokku $PLUGIN_COMMAND_PREFIX:providers:configure [aws|cloudflare]
   #E this sets up or changes the DNS provider for all DNS management.
   #E if no provider is specified, defaults to '$DNS_DEFAULT_PROVIDER'
   #E if provider is already configured, this will change to the new provider
   #E after configuration, use other commands to:
-  #E - configure credentials: dokku $PLUGIN_COMMAND_PREFIX:verify
-  #E - sync an app: dokku $PLUGIN_COMMAND_PREFIX:sync myapp
+  #E - configure credentials: dokku $PLUGIN_COMMAND_PREFIX:providers:verify
+  #E - sync an app: dokku $PLUGIN_COMMAND_PREFIX:apps:sync myapp
   #A provider, DNS provider (aws, cloudflare) - optional, defaults to aws
   declare desc="configure or change the global $PLUGIN_SERVICE provider"
-  local cmd="$PLUGIN_COMMAND_PREFIX:configure" argv=("$@")
+  local cmd="$PLUGIN_COMMAND_PREFIX:providers:configure" argv=("$@")
   [[ ${argv[0]} == "$cmd" ]] && shift 1
   declare PROVIDER="$1"
 
@@ -75,10 +75,10 @@ service-configure-cmd() {
   # Show if changing provider
   if [[ -n "$CURRENT_PROVIDER" ]] && [[ "$CURRENT_PROVIDER" != "$PROVIDER" ]]; then
     dokku_log_info1 "Changing DNS provider from '$CURRENT_PROVIDER' to '$PROVIDER'"
-    dokku_log_info1 "You may need to reconfigure credentials with: dokku $PLUGIN_COMMAND_PREFIX:verify"
+    dokku_log_info1 "You may need to reconfigure credentials with: dokku $PLUGIN_COMMAND_PREFIX:providers:verify"
   fi
   
   dns_configure_global "$PROVIDER"
 }
 
-service-configure-cmd "$@"
+service-providers-configure-cmd "$@"

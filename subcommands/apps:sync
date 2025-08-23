@@ -41,14 +41,14 @@ fi
 
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
 
-service-sync-cmd() {
-  #E synchronize DNS records for an app using the configured provider
-  #E dokku $PLUGIN_COMMAND_PREFIX:sync nextcloud
+service-apps-sync-cmd() {
+  #E synchronize DNS records for an application using the configured provider
+  #E dokku $PLUGIN_COMMAND_PREFIX:apps:sync nextcloud
   #E this will discover all domains from the app and update DNS records
   #E to point to the current server's IP address using the configured provider
   #A app, app to sync DNS records for
-  declare desc="synchronize DNS records for app"
-  local cmd="$PLUGIN_COMMAND_PREFIX:sync" argv=("$@")
+  declare desc="synchronize DNS records for an application"
+  local cmd="$PLUGIN_COMMAND_PREFIX:apps:sync" argv=("$@")
   [[ ${argv[0]} == "$cmd" ]] && shift 1
   declare APP="$1"
 
@@ -58,4 +58,4 @@ service-sync-cmd() {
   dns_app "$APP" || true
 }
 
-service-sync-cmd "$@"
+service-apps-sync-cmd "$@"

@@ -62,9 +62,9 @@ setup_dns_provider() {
   local provider="${1:-aws}"
   # In Docker test environment, use real dokku commands
   if [[ -d "/var/lib/dokku" ]] && [[ -w "/var/lib/dokku" ]]; then
-    dokku dns:configure "$provider" >/dev/null 2>&1 || true
+    dokku dns:providers:configure "$provider" >/dev/null 2>&1 || true
   else
-    dns_cmd configure "$provider" >/dev/null 2>&1 || true
+    dns_cmd providers:configure "$provider" >/dev/null 2>&1 || true
   fi
 }
 

@@ -32,8 +32,8 @@ service-zones-cmd() {
   #E dokku $PLUGIN_COMMAND_PREFIX:zones [<zone>]
   #E without arguments: displays all available DNS zones and their auto-discovery status
   #E <zone>: show detailed information about a specific zone
-  #E use 'dokku $PLUGIN_COMMAND_PREFIX:zones:add' to enable auto-discovery for zones
-  #E use 'dokku $PLUGIN_COMMAND_PREFIX:zones:remove' to disable auto-discovery for zones
+  #E use 'dokku $PLUGIN_COMMAND_PREFIX:zones:enable' to enable auto-discovery for zones
+  #E use 'dokku $PLUGIN_COMMAND_PREFIX:zones:disable' to disable auto-discovery for zones
   #A zone, zone name to show detailed information for (optional)
   declare desc="list DNS zones and their auto-discovery status"
   local cmd="$PLUGIN_COMMAND_PREFIX:zones" argv=("$@")
@@ -49,7 +49,7 @@ service-zones-cmd() {
   while [[ $# -gt 0 ]]; do
     case $1 in
       --*)
-        dokku_log_fail "Flags are no longer supported. Use 'dokku $PLUGIN_COMMAND_PREFIX:zones:add' or 'dokku $PLUGIN_COMMAND_PREFIX:zones:remove' instead."
+        dokku_log_fail "Flags are no longer supported. Use 'dokku $PLUGIN_COMMAND_PREFIX:zones:enable' or 'dokku $PLUGIN_COMMAND_PREFIX:zones:disable' instead."
         ;;
       *)
         if [[ -z "$ZONE" ]]; then
@@ -74,7 +74,7 @@ zones_list_status() {
   # Check if DNS provider is configured
   local PROVIDER_FILE="$PLUGIN_DATA_ROOT/PROVIDER"
   if [[ ! -f "$PROVIDER_FILE" ]]; then
-    dokku_log_fail "No DNS provider configured. Run: dokku $PLUGIN_COMMAND_PREFIX:configure [provider]"
+    dokku_log_fail "No DNS provider configured. Run: dokku $PLUGIN_COMMAND_PREFIX:providers:configure [provider]"
   fi
   
   local PROVIDER
@@ -110,8 +110,8 @@ zones_list_aws_zones() {
     dokku_log_info1 "No hosted zones found in Route53"
     echo
     dokku_log_info2 "Management Commands"
-    dokku_log_info1 "• Configure provider: dokku $PLUGIN_COMMAND_PREFIX:configure aws"
-    dokku_log_info1 "• Verify setup: dokku $PLUGIN_COMMAND_PREFIX:verify"
+    dokku_log_info1 "• Configure provider: dokku $PLUGIN_COMMAND_PREFIX:providers:configure aws"
+    dokku_log_info1 "• Verify setup: dokku $PLUGIN_COMMAND_PREFIX:providers:verify"
     return 0
   fi
   
@@ -193,10 +193,10 @@ zones_list_aws_zones() {
   # Show summary and management commands
   echo
   dokku_log_info2 "Management Commands"
-  dokku_log_info1 "• Add zone to auto-discovery: dokku $PLUGIN_COMMAND_PREFIX:zones:add <zone-name>"
-  dokku_log_info1 "• Remove zone from auto-discovery: dokku $PLUGIN_COMMAND_PREFIX:zones:remove <zone-name>"
-  dokku_log_info1 "• Add all zones to auto-discovery: dokku $PLUGIN_COMMAND_PREFIX:zones:add --all"
-  dokku_log_info1 "• Remove all zones from auto-discovery: dokku $PLUGIN_COMMAND_PREFIX:zones:remove --all"
+  dokku_log_info1 "• Add zone to auto-discovery: dokku $PLUGIN_COMMAND_PREFIX:zones:enable <zone-name>"
+  dokku_log_info1 "• Remove zone from auto-discovery: dokku $PLUGIN_COMMAND_PREFIX:zones:disable <zone-name>"
+  dokku_log_info1 "• Add all zones to auto-discovery: dokku $PLUGIN_COMMAND_PREFIX:zones:enable --all"
+  dokku_log_info1 "• Remove all zones from auto-discovery: dokku $PLUGIN_COMMAND_PREFIX:zones:disable --all"
   dokku_log_info1 "• Show zone details: dokku $PLUGIN_COMMAND_PREFIX:zones <zone-name>"
 }
 
@@ -211,7 +211,7 @@ zones_show_zone() {
   # Check if DNS provider is configured
   local PROVIDER_FILE="$PLUGIN_DATA_ROOT/PROVIDER"
   if [[ ! -f "$PROVIDER_FILE" ]]; then
-    dokku_log_fail "No DNS provider configured. Run: dokku $PLUGIN_COMMAND_PREFIX:configure [provider]"
+    dokku_log_fail "No DNS provider configured. Run: dokku $PLUGIN_COMMAND_PREFIX:providers:configure [provider]"
   fi
   
   local PROVIDER
@@ -332,7 +332,7 @@ zones_show_zone() {
     echo
     dokku_log_info1 "To manage these domains:"
     dokku_log_info1 "• Individual: dokku $PLUGIN_COMMAND_PREFIX:add <app>"
-    dokku_log_info1 "• All in zone: dokku $PLUGIN_COMMAND_PREFIX:zones:add $ZONE"
+    dokku_log_info1 "• All in zone: dokku $PLUGIN_COMMAND_PREFIX:zones:enable $ZONE"
   else
     dokku_log_info1 "All potential domains for this zone are already managed"
   fi
@@ -374,8 +374,8 @@ zones_show_zone() {
   # Show management commands
   echo
   dokku_log_info2 "Management Commands"
-  dokku_log_info1 "• Add zone to auto-discovery: dokku $PLUGIN_COMMAND_PREFIX:zones:add $ZONE"
-  dokku_log_info1 "• Remove zone from auto-discovery: dokku $PLUGIN_COMMAND_PREFIX:zones:remove $ZONE"
+  dokku_log_info1 "• Add zone to auto-discovery: dokku $PLUGIN_COMMAND_PREFIX:zones:enable $ZONE"
+  dokku_log_info1 "• Remove zone from auto-discovery: dokku $PLUGIN_COMMAND_PREFIX:zones:disable $ZONE"
   dokku_log_info1 "• Sync records: dokku $PLUGIN_COMMAND_PREFIX:sync-all"
   dokku_log_info1 "• List all zones: dokku $PLUGIN_COMMAND_PREFIX:zones"
 }

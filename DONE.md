@@ -3,7 +3,7 @@
 ## Phase 1: Core Foundation (High Priority) - COMPLETED ✅
 
 - [x] **Update core configuration** - Configure DNS plugin settings ✅
-- [x] **Create dns:configure** - Initialize global DNS configuration ✅ 
+- [x] **Create dns:providers:configure** - Initialize global DNS configuration ✅ 
 
 ## Phase 2: Integration (Medium Priority) - COMPLETED 
 
@@ -55,22 +55,22 @@ The DNS plugin is **production ready**! Real-world testing on duodeca.local show
 ### API Success Highlights
 
 The **simplified API** works exactly as designed:
-- `dns:configure aws` → Auto-detects existing AWS credentials  
-- `dns:add nextcloud` → Discovers all app domains automatically  
-- `dns:sync nextcloud` → Creates DNS records (nextcloud.deanoftech.com ✅)
+- `dns:providers:configure aws` → Auto-detects existing AWS credentials  
+- `dns:apps:enable nextcloud` → Discovers all app domains automatically  
+- `dns:apps:sync nextcloud` → Creates DNS records (nextcloud.deanoftech.com ✅)
 - `dns:report nextcloud` → Beautiful status table with hosted zone info
 
 ### Current API (Battle-Tested)
 
 ```bash
 # Core commands - ALL WORKING PERFECTLY ✅
-dokku dns:configure [provider]                     # Configure DNS provider (auto-detects AWS) ✅
-dokku dns:verify                                   # Verify provider connectivity ✅
-dokku dns:add <app>                                # Add app domains to DNS management ✅
-dokku dns:sync <app>                               # Create/update DNS records ✅
+dokku dns:providers:configure [provider]           # Configure DNS provider (auto-detects AWS) ✅
+dokku dns:providers:verify                         # Verify provider connectivity ✅
+dokku dns:apps:enable <app>                        # Add app domains to DNS management ✅
+dokku dns:apps:sync <app>                          # Create/update DNS records ✅
 dokku dns:sync-all                                 # Bulk sync all DNS-managed apps (NEW!) ✅
 dokku dns:report [app]                             # Beautiful status tables with emojis ✅
-dokku dns:remove <app>                             # Remove app from DNS tracking ✅
+dokku dns:apps:disable <app>                       # Remove app from DNS tracking ✅
 
 # Helper commands
 dokku dns:help                                     # Show all available commands ✅
@@ -80,18 +80,18 @@ dokku dns:help                                     # Show all available commands
 
 ```bash
 # One-time setup
-dokku dns:configure aws
+dokku dns:providers:configure aws
 dokku dns:provider-auth
 
 # Use with any app (domains are automatically discovered)
 dokku domains:add myapp example.com
-dokku dns:sync myapp
+dokku dns:apps:sync myapp
 
 # Check status
 dokku dns:report myapp
 
 # Change provider later if needed
-dokku dns:configure cloudflare
+dokku dns:providers:configure cloudflare
 dokku dns:provider-auth
 ```
 
@@ -158,3 +158,24 @@ The triggers provide seamless automatic DNS management:
 - **Real AWS Route53 Integration**: Actual DNS record creation using UPSERT operations
 - **DNS Caching Bypass**: Uses AWS CLI for authoritative Route53 queries instead of cached DNS
 - **Dynamic Server IP Detection**: Removed hardcoded IP addresses, uses actual server IP
+
+## Phase 7: Enhanced Verify Command - COMPLETED ✅ (2025-08-22)
+
+- [x] **Comprehensive Verify Command Enhancement** ✅
+  - [x] Add optional provider argument: `dns:verify [provider]` 
+  - [x] Document using `dokku config:set` for AWS credentials (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+  - [x] Enhance `dns:verify` to perform comprehensive checks for specified provider
+  - [x] Add detailed output showing current configuration and detected credentials
+  - [x] Test connection to provider API using configured credentials
+  - [x] Update help text and documentation with provider-specific setup instructions
+  - [x] Add 11 comprehensive BATS tests for enhanced verify functionality
+  - [x] All 122 unit tests passing with full backward compatibility
+
+### Enhanced DNS Verification ✅
+The enhanced verify command provides comprehensive AWS Route53 diagnostics:
+- **Multiple Credential Sources**: Detects environment variables, AWS config files, and IAM roles
+- **Detailed Account Information**: Shows AWS account ID, user/role ARN, user ID, and region
+- **Route53 Permission Testing**: Tests specific permissions with detailed feedback
+- **Enhanced Setup Guidance**: Includes `dokku config:set` examples and multiple credential methods
+- **Improved User Experience**: Clear status indicators, structured output, and comprehensive error messages
+- **Provider Flexibility**: Can verify specific providers without configuring them first

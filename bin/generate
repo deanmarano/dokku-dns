@@ -135,6 +135,7 @@ def commands_section(service, variable, alias, image, scheme, ports, unimplement
     for filename in subcommands:
         if filename in unimplemented:
             continue
+            
         data = command_data(filename, service, variable, alias, image, scheme, ports)
         description = data["description"]
         arguments = data["arguments_string"]
@@ -183,7 +184,7 @@ def usage_section(
 
 
 def usage_intro(service, variable, alias, image, scheme, ports, options, unimplemented):
-    commands = ["add", "configure", "verify", "report", "sync", "sync-all"]
+    commands = ["apps:enable", "providers:configure", "providers:verify", "report", "apps:sync", "sync-all"]
     content = ["### Basic Usage"]
 
     return fetch_commands_content(
@@ -455,6 +456,7 @@ def command_data(command, service, variable, alias, image, scheme, ports):
     example_lines = []
     flags = []
     optional_arguments = set()
+    
     with open(os.path.join("subcommands", command)) as f:
         for line in f.readlines():
             line = line.strip()

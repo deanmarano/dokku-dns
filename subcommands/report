@@ -90,7 +90,7 @@ dns_global_report() {
   
   if [[ -z "$APPS_LIST" ]]; then
     dokku_log_warn "No apps have been added to DNS"
-    dokku_log_info1 "Add an app to DNS with: dokku $PLUGIN_COMMAND_PREFIX:add <app-name>"
+    dokku_log_info1 "Add an app to DNS with: dokku $PLUGIN_COMMAND_PREFIX:apps:enable <app-name>"
     return 0
   fi
   
@@ -286,15 +286,15 @@ dns_global_report() {
   echo
   dokku_log_info2 "Actions available:"
   if [[ "$PROVIDER" == "None" ]]; then
-    dokku_log_info1 "1. Configure DNS provider: dokku $PLUGIN_COMMAND_PREFIX:configure [aws|cloudflare]"
-    dokku_log_info1 "2. Configure credentials: dokku $PLUGIN_COMMAND_PREFIX:verify"
+    dokku_log_info1 "1. Configure DNS provider: dokku $PLUGIN_COMMAND_PREFIX:providers:configure [aws|cloudflare]"
+    dokku_log_info1 "2. Configure credentials: dokku $PLUGIN_COMMAND_PREFIX:providers:verify"
     dokku_log_info1 "3. Add domains to apps: dokku domains:add <app> <domain>"
-    dokku_log_info1 "4. Update DNS records: dokku $PLUGIN_COMMAND_PREFIX:sync <app>"
+    dokku_log_info1 "4. Update DNS records: dokku $PLUGIN_COMMAND_PREFIX:apps:sync <app>"
   elif [[ "$SYNC_STATUS" == "Missing auth" ]]; then
-    dokku_log_info1 "Configure credentials: dokku $PLUGIN_COMMAND_PREFIX:verify"
-    dokku_log_info1 "Then update DNS: dokku $PLUGIN_COMMAND_PREFIX:sync <app>"
+    dokku_log_info1 "Configure credentials: dokku $PLUGIN_COMMAND_PREFIX:providers:verify"
+    dokku_log_info1 "Then update DNS: dokku $PLUGIN_COMMAND_PREFIX:apps:sync <app>"
   elif [[ "$SYNC_STATUS" == "Ready" ]]; then
-    dokku_log_info1 "Update all apps: for app in \$(dokku apps:list 2>/dev/null | grep -v ====); do dokku $PLUGIN_COMMAND_PREFIX:sync \$app; done"
+    dokku_log_info1 "Update all apps: for app in \$(dokku apps:list 2>/dev/null | grep -v ====); do dokku $PLUGIN_COMMAND_PREFIX:apps:sync \$app; done"
     dokku_log_info1 "View app details: dokku $PLUGIN_COMMAND_PREFIX:report <app>"
   else
     dokku_log_info1 "Fix configuration issues, then update apps individually"
@@ -358,7 +358,7 @@ dns_report() {
   if [[ "$APP_IS_ADDED" == "true" ]]; then
     dokku_log_info1 "DNS Status: Added"
   else
-    dokku_log_info1 "DNS Status: Not added (add with: dokku $PLUGIN_COMMAND_PREFIX:add $APP)"
+    dokku_log_info1 "DNS Status: Not added (add with: dokku $PLUGIN_COMMAND_PREFIX:apps:enable $APP)"
   fi
   
   echo
@@ -484,16 +484,16 @@ dns_report() {
   echo
   dokku_log_info2 "Actions available:"
   if [[ "$PROVIDER" == "None" ]]; then
-    dokku_log_info1 "1. Configure DNS provider: dokku $PLUGIN_COMMAND_PREFIX:configure [aws|cloudflare]"
-    dokku_log_info1 "2. Configure credentials: dokku $PLUGIN_COMMAND_PREFIX:verify"
-    dokku_log_info1 "3. Update DNS records: dokku $PLUGIN_COMMAND_PREFIX:sync $APP"
+    dokku_log_info1 "1. Configure DNS provider: dokku $PLUGIN_COMMAND_PREFIX:providers:configure [aws|cloudflare]"
+    dokku_log_info1 "2. Configure credentials: dokku $PLUGIN_COMMAND_PREFIX:providers:verify"
+    dokku_log_info1 "3. Update DNS records: dokku $PLUGIN_COMMAND_PREFIX:apps:sync $APP"
   elif [[ "$SYNC_STATUS" == "Missing auth" ]]; then
-    dokku_log_info1 "Configure credentials: dokku $PLUGIN_COMMAND_PREFIX:verify"
-    dokku_log_info1 "Then update DNS: dokku $PLUGIN_COMMAND_PREFIX:sync $APP"
+    dokku_log_info1 "Configure credentials: dokku $PLUGIN_COMMAND_PREFIX:providers:verify"
+    dokku_log_info1 "Then update DNS: dokku $PLUGIN_COMMAND_PREFIX:apps:sync $APP"
   elif [[ "$SYNC_STATUS" == "Ready" ]]; then
-    dokku_log_info1 "Update DNS records: dokku $PLUGIN_COMMAND_PREFIX:sync $APP"
+    dokku_log_info1 "Update DNS records: dokku $PLUGIN_COMMAND_PREFIX:apps:sync $APP"
   else
-    dokku_log_info1 "Fix configuration issues, then update: dokku $PLUGIN_COMMAND_PREFIX:sync $APP"
+    dokku_log_info1 "Fix configuration issues, then update: dokku $PLUGIN_COMMAND_PREFIX:apps:sync $APP"
   fi
 }
 

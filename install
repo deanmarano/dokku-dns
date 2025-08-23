@@ -112,10 +112,10 @@ plugin-install() {
   
   echo ""
   echo "Next steps:"
-  echo "  1. Configure DNS provider:     dokku $PLUGIN_COMMAND_PREFIX:configure [aws|cloudflare]"
-  echo "  2. Set up credentials:         dokku $PLUGIN_COMMAND_PREFIX:verify"
-  echo "  3. Add app domains:            dokku $PLUGIN_COMMAND_PREFIX:add <app>"
-  echo "  4. Sync DNS records:           dokku $PLUGIN_COMMAND_PREFIX:sync <app>"
+  echo "  1. Configure DNS provider:     dokku $PLUGIN_COMMAND_PREFIX:providers:configure [aws|cloudflare]"
+  echo "  2. Set up credentials:         dokku $PLUGIN_COMMAND_PREFIX:providers:verify"
+  echo "  3. Add app domains:            dokku $PLUGIN_COMMAND_PREFIX:apps:enable <app>"
+  echo "  4. Sync DNS records:           dokku $PLUGIN_COMMAND_PREFIX:apps:sync <app>"
   echo ""
   
   # Show the help output directly

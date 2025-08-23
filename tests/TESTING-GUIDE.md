@@ -33,7 +33,7 @@ scripts/test-server.sh your-server.com root nextcloud
 
 **What it tests:**
 - Plugin installation and configuration
-- All DNS commands (add, sync, report, remove, configure, verify)
+- All DNS commands (apps:enable, apps:sync, report, apps:disable, providers:configure, providers:verify)
 - Domain parsing for multiple domains
 - DNS management tracking with LINKS file
 - Hosted zone validation
@@ -124,7 +124,7 @@ test.example.com          ❌     Yes                 aws         example.com
 ### Without AWS Credentials:
 ```
  !     AWS CLI is not configured or credentials are invalid.
-       Run: dokku dns:verify
+       Run: dokku dns:providers:verify
 ```
 
 ## Troubleshooting

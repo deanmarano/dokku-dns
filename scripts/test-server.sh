@@ -246,13 +246,13 @@ log_remote "INFO" "=== TESTING PROVIDER CAPABILITIES ==="
 if command -v aws >/dev/null 2>&1 && \aws sts get-caller-identity >/dev/null 2>&1; then
     echo "✓ AWS CLI is installed and configured - should be ready to use"
     \aws route53 list-hosted-zones >/dev/null 2>&1 && echo 'Route53 access confirmed' || echo 'Route53 access limited'
-    sudo dokku dns:verify 2>&1 || true
+    sudo dokku dns:providers:verify 2>&1 || true
 elif command -v aws >/dev/null 2>&1; then
     echo "🔧 AWS CLI is installed but not configured"
-    timeout 10s sudo dokku dns:verify < /dev/null 2>&1 || true
+    timeout 10s sudo dokku dns:providers:verify < /dev/null 2>&1 || true
 else
     echo "⚙️ AWS CLI not installed"
-    sudo dokku dns:verify 2>&1 || true
+    sudo dokku dns:providers:verify 2>&1 || true
 fi
 
 # Test implemented DNS commands only
@@ -282,27 +282,27 @@ log_remote "INFO" "Testing implemented DNS commands..."
 echo "1. Testing dns:help"
 sudo dokku dns:help 2>&1 || echo "Help command failed"
 
-echo "2. Testing dns:verify (verify DNS provider setup and connectivity + discover existing records)"
-sudo dokku dns:verify 2>&1 || echo "Verify command completed"
+echo "2. Testing dns:providers:verify (verify DNS provider setup and connectivity + discover existing records)"
+sudo dokku dns:providers:verify 2>&1 || echo "Verify command completed"
 
-echo "3. Testing dns:configure (configure global DNS provider)"
+echo "3. Testing dns:providers:configure (configure global DNS provider)"
 if command -v aws >/dev/null 2>&1 && \aws sts get-caller-identity >/dev/null 2>&1; then
     echo "   Configuring with AWS provider (auto-detected)..."
-    sudo dokku dns:configure aws 2>&1 || echo "Configure command completed"
+    sudo dokku dns:providers:configure aws 2>&1 || echo "Configure command completed"
 else
     echo "   Testing default configuration..."
-    sudo dokku dns:configure 2>&1 || echo "Configure command completed"
+    sudo dokku dns:providers:configure 2>&1 || echo "Configure command completed"
 fi
 
-echo "4. Testing dns:add $TEST_APP (add app domains to DNS management)"
+echo "4. Testing dns:apps:enable $TEST_APP (add app domains to DNS management)"
 echo "   This should show the new domain status table with hosted zones!"
-sudo dokku dns:add "$TEST_APP" 2>&1 || echo "Add command completed"
+sudo dokku dns:apps:enable "$TEST_APP" 2>&1 || echo "Add command completed"
 
 echo "4a. Testing dns:report $TEST_APP after adding (should show 'DNS Status: Added')"
 sudo dokku dns:report "$TEST_APP" 2>&1 || echo "Report after add completed"
 
-echo "5. Testing dns:sync $TEST_APP (synchronize DNS records for app)"
-sudo dokku dns:sync "$TEST_APP" 2>&1 || echo "Sync command completed"
+echo "5. Testing dns:apps:sync $TEST_APP (synchronize DNS records for app)"
+sudo dokku dns:apps:sync "$TEST_APP" 2>&1 || echo "Sync command completed"
 
 echo "6. Testing dns:report (global report - all apps and domains)"
 sudo dokku dns:report 2>&1 || echo "Global report command completed"
@@ -310,8 +310,8 @@ sudo dokku dns:report 2>&1 || echo "Global report command completed"
 echo "7. Testing dns:report $TEST_APP (app-specific DNS status and domain info)"
 sudo dokku dns:report "$TEST_APP" 2>&1 || echo "App report command completed"
 
-echo "8. Testing dns:remove $TEST_APP (remove app from DNS management)"
-sudo dokku dns:remove "$TEST_APP" 2>&1 || echo "Remove command completed"
+echo "8. Testing dns:apps:disable $TEST_APP (remove app from DNS management)"
+sudo dokku dns:apps:disable "$TEST_APP" 2>&1 || echo "Remove command completed"
 
 echo "8a. Testing dns:report $TEST_APP after removal (should show 'DNS Status: Not added')"
 sudo dokku dns:report "$TEST_APP" 2>&1 || echo "Report after remove completed"
@@ -319,19 +319,19 @@ sudo dokku dns:report "$TEST_APP" 2>&1 || echo "Report after remove completed"
 echo "8b. Testing global dns:report after removal (should not show $TEST_APP)"
 sudo dokku dns:report 2>&1 || echo "Global report after remove completed"
 
-echo "9. Testing dns:verify again (should show updated status after configuration)"
-sudo dokku dns:verify 2>&1 || echo "Verify command completed"
+echo "9. Testing dns:providers:verify again (should show updated status after configuration)"
+sudo dokku dns:providers:verify 2>&1 || echo "Verify command completed"
 
 # Test cleanup and edge cases
 echo "10. Testing edge cases and error handling..."
-echo "   Testing dns:add without arguments (should show usage):"
-sudo dokku dns:add 2>&1 || echo "Add command shows usage as expected"
+echo "   Testing dns:apps:enable without arguments (should show usage):"
+sudo dokku dns:apps:enable 2>&1 || echo "Add command shows usage as expected"
 
-echo "   Testing dns:sync without arguments (should show usage):"
-sudo dokku dns:sync 2>&1 || echo "Sync command shows usage as expected"
+echo "   Testing dns:apps:sync without arguments (should show usage):"
+sudo dokku dns:apps:sync 2>&1 || echo "Sync command shows usage as expected"
 
-echo "   Testing dns:remove without arguments (should show usage):"
-sudo dokku dns:remove 2>&1 || echo "Remove command shows usage as expected"
+echo "   Testing dns:apps:disable without arguments (should show usage):"
+sudo dokku dns:apps:disable 2>&1 || echo "Remove command shows usage as expected"
 
 echo "   Testing dns:report with nonexistent app:"
 sudo dokku dns:report nonexistent-test-app 2>&1 || echo "App report shows error as expected"
@@ -362,7 +362,7 @@ echo "   Testing report for non-DNS-managed app (should show warning):"
 sudo dokku dns:report tracking-test 2>&1 || echo "Report correctly showed app not under DNS management"
 
 echo "   Adding app to DNS management..."
-sudo dokku dns:add tracking-test 2>&1 || echo "DNS add completed"
+sudo dokku dns:apps:enable tracking-test 2>&1 || echo "DNS add completed"
 
 echo "   Testing report for DNS-managed app (should now show details):"
 sudo dokku dns:report tracking-test 2>&1 || echo "Report completed for DNS-managed app"
@@ -401,15 +401,15 @@ sudo dokku dns:report 2>&1 || echo "Global report handled no managed apps case"
 # Restore the LINKS file
 sudo mv /var/lib/dokku/services/dns/LINKS.backup /var/lib/dokku/services/dns/LINKS 2>/dev/null || true
 
-echo "Testing dns:remove command..."
-echo "   Testing dns:remove for app that is in DNS management:"
-sudo dokku dns:remove tracking-test 2>&1 || echo "DNS remove completed"
+echo "Testing dns:apps:disable command..."
+echo "   Testing dns:apps:disable for app that is in DNS management:"
+sudo dokku dns:apps:disable tracking-test 2>&1 || echo "DNS remove completed"
 
 echo "   Verifying app was removed from DNS management:"
 sudo dokku dns:report tracking-test 2>&1 || echo "Report correctly shows app not added after removal"
 
-echo "   Testing dns:remove for app not in DNS management (should handle gracefully):"
-sudo dokku dns:remove no-domains-test 2>&1 || echo "DNS remove handled non-managed app correctly"
+echo "   Testing dns:apps:disable for app not in DNS management (should handle gracefully):"
+sudo dokku dns:apps:disable no-domains-test 2>&1 || echo "DNS remove handled non-managed app correctly"
 
 echo "   Testing global report after removing apps:"
 sudo dokku dns:report 2>&1 || echo "Global report after removals completed"
@@ -551,10 +551,10 @@ main() {
     echo ""
     echo "Available commands to test:"
     echo "  sudo dokku dns:help                    # Show all commands"
-    echo "  sudo dokku dns:verify                  # Test provider access + discover existing DNS records"
-    echo "  sudo dokku dns:configure               # Configure DNS provider"
-    echo "  sudo dokku dns:add <app>               # Add app domains to DNS"
-    echo "  sudo dokku dns:sync <app>              # Sync DNS records"
+    echo "  sudo dokku dns:providers:verify                  # Test provider access + discover existing DNS records"
+    echo "  sudo dokku dns:providers:configure               # Configure DNS provider"
+    echo "  sudo dokku dns:apps:enable <app>               # Add app domains to DNS"
+    echo "  sudo dokku dns:apps:sync <app>              # Sync DNS records"
     echo "  sudo dokku dns:report                  # Show global report (all apps and domains)"
     echo "  sudo dokku dns:report <app>            # Show app-specific domain status"
 }

@@ -27,17 +27,17 @@ fi
 
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
 
-service-zones-add-cmd() {
-  #E add DNS zone to auto-discovery for automatic app domain management
-  #E dokku $PLUGIN_COMMAND_PREFIX:zones:add example.com
-  #E dokku $PLUGIN_COMMAND_PREFIX:zones:add --all
+service-zones-enable-cmd() {
+  #E enable DNS zone for automatic app domain management
+  #E dokku $PLUGIN_COMMAND_PREFIX:zones:enable example.com
+  #E dokku $PLUGIN_COMMAND_PREFIX:zones:enable --all
   #E enables automatic discovery of app domains within the specified zone
   #E when apps have domains in this zone, they will be automatically managed
-  #E use 'dokku $PLUGIN_COMMAND_PREFIX:add' to manually add specific apps
-  #A zone, zone name to add to auto-discovery (optional with --all)
-  #F --all, add all available zones to auto-discovery
-  declare desc="add DNS zone to auto-discovery for automatic app domain management"
-  local cmd="$PLUGIN_COMMAND_PREFIX:zones:add" argv=("$@")
+  #E use 'dokku $PLUGIN_COMMAND_PREFIX:apps:enable' to manually add specific apps
+  #A zone, zone name to enable for auto-discovery (optional with --all)
+  #F --all, enable all available zones for auto-discovery
+  declare desc="enable DNS zone for automatic app domain management"
+  local cmd="$PLUGIN_COMMAND_PREFIX:zones:enable" argv=("$@")
   
   # Handle Dokku command routing - first argument will be the command name
   if [[ "$1" == "$cmd" ]]; then
@@ -88,7 +88,7 @@ zones_add_zone() {
   # Check if DNS provider is configured
   local PROVIDER_FILE="$PLUGIN_DATA_ROOT/PROVIDER"
   if [[ ! -f "$PROVIDER_FILE" ]]; then
-    dokku_log_fail "No DNS provider configured. Run: dokku $PLUGIN_COMMAND_PREFIX:configure [provider]"
+    dokku_log_fail "No DNS provider configured. Run: dokku $PLUGIN_COMMAND_PREFIX:providers:configure [provider]"
   fi
   
   local PROVIDER
@@ -128,8 +128,8 @@ zones_add_zone() {
   
   echo
   echo "Next steps:"
-  echo "• Add apps to DNS management: dokku $PLUGIN_COMMAND_PREFIX:add <app>"
-  echo "• Sync DNS records: dokku $PLUGIN_COMMAND_PREFIX:sync <app>"
+  echo "• Add apps to DNS management: dokku $PLUGIN_COMMAND_PREFIX:apps:enable <app>"
+  echo "• Sync DNS records: dokku $PLUGIN_COMMAND_PREFIX:apps:sync <app>"
   echo "• Check status: dokku $PLUGIN_COMMAND_PREFIX:report"
 }
 
@@ -137,7 +137,7 @@ zones_add_all() {
   # Check if DNS provider is configured
   local PROVIDER_FILE="$PLUGIN_DATA_ROOT/PROVIDER"
   if [[ ! -f "$PROVIDER_FILE" ]]; then
-    dokku_log_fail "No DNS provider configured. Run: dokku $PLUGIN_COMMAND_PREFIX:configure [provider]"
+    dokku_log_fail "No DNS provider configured. Run: dokku $PLUGIN_COMMAND_PREFIX:providers:configure [provider]"
   fi
   
   local PROVIDER
@@ -183,9 +183,9 @@ zones_add_all() {
   
   echo
   echo "Next steps:"
-  echo "• Add apps to DNS management: dokku $PLUGIN_COMMAND_PREFIX:add <app>"
-  echo "• Sync DNS records: dokku $PLUGIN_COMMAND_PREFIX:sync <app>"
+  echo "• Add apps to DNS management: dokku $PLUGIN_COMMAND_PREFIX:apps:enable <app>"
+  echo "• Sync DNS records: dokku $PLUGIN_COMMAND_PREFIX:apps:sync <app>"
   echo "• Check status: dokku $PLUGIN_COMMAND_PREFIX:report"
 }
 
-service-zones-add-cmd "$@"
+service-zones-enable-cmd "$@"

@@ -41,15 +41,15 @@ fi
 
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
 
-service-remove-cmd() {
-  #E remove app from DNS management
-  #E dokku $PLUGIN_COMMAND_PREFIX:remove nextcloud
+service-apps-disable-cmd() {
+  #E disable DNS management for an application
+  #E dokku $PLUGIN_COMMAND_PREFIX:apps:disable nextcloud
   #E removes app from DNS management but does not delete existing DNS records
   #E this only removes the app from the DNS tracking system
-  #E to clean up DNS records, use 'dokku $PLUGIN_COMMAND_PREFIX:sync' before removing
-  #A app, app to remove from DNS management
-  declare desc="remove app from $PLUGIN_SERVICE management"
-  local cmd="$PLUGIN_COMMAND_PREFIX:remove" argv=("$@")
+  #E to clean up DNS records, use 'dokku $PLUGIN_COMMAND_PREFIX:apps:sync' before disabling
+  #A app, app to disable DNS management for
+  declare desc="disable DNS management for an application"
+  local cmd="$PLUGIN_COMMAND_PREFIX:apps:disable" argv=("$@")
   [[ ${argv[0]} == "$cmd" ]] && shift 1
   declare APP="$1"
 
@@ -66,4 +66,4 @@ service-remove-cmd() {
   dns_remove_app "$APP"
 }
 
-service-remove-cmd "$@"
+service-apps-disable-cmd "$@"

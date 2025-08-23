@@ -24,12 +24,12 @@ teardown() {
   assert_output_contains "Global DNS Provider: aws"
   assert_output_contains "Configuration Status: Configured"
   # When no apps are added to DNS, shows help message
-  assert_output_contains "Add an app to DNS with: dokku dns:add <app-name>"
+  assert_output_contains "Add an app to DNS with: dokku dns:apps:enable <app-name>"
 }
 
 @test "(dns:report) app-specific report works" {
   # Add app to DNS management first (will fail due to no hosted zones, which is expected in test)
-  dokku "$PLUGIN_COMMAND_PREFIX:add" my-app >/dev/null 2>&1 || true
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1 || true
   
   run dokku "$PLUGIN_COMMAND_PREFIX:report" my-app
   assert_success
@@ -45,7 +45,7 @@ teardown() {
   assert_output_contains "⚠️   Not added"
   assert_output_contains "DNS Status Legend:"
   assert_output_contains "Actions available:"
-  assert_output_contains "Update DNS records: dokku dns:sync my-app"
+  assert_output_contains "Update DNS records: dokku dns:apps:sync my-app"
 }
 
 @test "(dns:report) app-specific report shows message for nonexistent app" {
@@ -64,7 +64,7 @@ teardown() {
   assert_output_contains "Global DNS Provider: None"
   assert_output_contains "Configuration Status: Not configured"
   assert_output_contains "DNS Status: Not added"
-  assert_output_contains "Configure DNS provider: dokku dns:configure"
+  assert_output_contains "Configure DNS provider: dokku dns:providers:configure"
 }
 
 @test "(dns:report) global report handles no apps gracefully" {
@@ -76,7 +76,7 @@ teardown() {
   assert_output_contains "DNS Global Report - All Apps"
   assert_output_contains "Global DNS Provider: aws"
   assert_output_contains "Configuration Status: Configured"
-  assert_output_contains "Add an app to DNS with: dokku dns:add <app-name>"
+  assert_output_contains "Add an app to DNS with: dokku dns:apps:enable <app-name>"
 }
 
 @test "(dns:report) app report handles app with no domains" {
@@ -108,12 +108,12 @@ teardown() {
   assert_output_contains "Global DNS Provider: aws"
   assert_output_contains "Configuration Status: Configured"
   # When no apps added to DNS, shows help message
-  assert_output_contains "Add an app to DNS with: dokku dns:add <app-name>"
+  assert_output_contains "Add an app to DNS with: dokku dns:apps:enable <app-name>"
 }
 
 @test "(dns:report) shows provider status" {
   # Add app to DNS management first  
-  dokku "$PLUGIN_COMMAND_PREFIX:add" my-app >/dev/null 2>&1 || true
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1 || true
   
   run dokku "$PLUGIN_COMMAND_PREFIX:report" my-app
   assert_success

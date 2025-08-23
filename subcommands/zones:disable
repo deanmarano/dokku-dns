@@ -27,17 +27,17 @@ fi
 
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
 
-service-zones-remove-cmd() {
-  #E remove DNS zone from auto-discovery and optionally remove managed domains
-  #E dokku $PLUGIN_COMMAND_PREFIX:zones:remove example.com
-  #E dokku $PLUGIN_COMMAND_PREFIX:zones:remove --all
+service-zones-disable-cmd() {
+  #E disable DNS zone and remove managed domains
+  #E dokku $PLUGIN_COMMAND_PREFIX:zones:disable example.com
+  #E dokku $PLUGIN_COMMAND_PREFIX:zones:disable --all
   #E disables automatic discovery for the specified zone
   #E existing managed domains in the zone are removed from DNS management
   #E DNS records remain in the provider but are no longer managed by Dokku
-  #A zone, zone name to remove from auto-discovery (optional with --all)
-  #F --all, remove all zones from auto-discovery
-  declare desc="remove DNS zone from auto-discovery and optionally remove managed domains"
-  local cmd="$PLUGIN_COMMAND_PREFIX:zones:remove" argv=("$@")
+  #A zone, zone name to disable (optional with --all)
+  #F --all, disable all zones
+  declare desc="disable DNS zone and remove managed domains"
+  local cmd="$PLUGIN_COMMAND_PREFIX:zones:disable" argv=("$@")
   
   # Handle Dokku command routing - first argument will be the command name
   if [[ "$1" == "$cmd" ]]; then
@@ -199,7 +199,7 @@ zones_remove_zone() {
     if [[ ${#apps_to_remove[@]} -eq ${#app_summaries[@]} ]]; then
       dokku_log_info1 "To clean up: manually delete records in your DNS provider console."
     else
-      dokku_log_info1 "For remaining apps: dokku $PLUGIN_COMMAND_PREFIX:sync <app>"
+      dokku_log_info1 "For remaining apps: dokku $PLUGIN_COMMAND_PREFIX:apps:sync <app>"
       dokku_log_info1 "For removed records: manually delete in your DNS provider console."
     fi
   fi
@@ -278,9 +278,9 @@ zones_remove_all() {
     echo
     dokku_log_info2 "Note"
     dokku_log_info1 "DNS records remain in your provider but are no longer managed by Dokku."
-    dokku_log_info1 "• To re-enable: dokku $PLUGIN_COMMAND_PREFIX:zones:add --all"
-    dokku_log_info1 "• Or add apps individually: dokku $PLUGIN_COMMAND_PREFIX:add <app>"
+    dokku_log_info1 "• To re-enable: dokku $PLUGIN_COMMAND_PREFIX:zones:enable --all"
+    dokku_log_info1 "• Or add apps individually: dokku $PLUGIN_COMMAND_PREFIX:apps:enable <app>"
   fi
 }
 
-service-zones-remove-cmd "$@"
+service-zones-disable-cmd "$@"

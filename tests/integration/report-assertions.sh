@@ -130,7 +130,7 @@ run_comprehensive_report_verification() {
     
     case "$test_phase" in
         "after_add")
-            # After dns:add, app should show up in both reports with "Added" status
+            # After dns:apps:enable, app should show up in both reports with "Added" status
             if ! verify_app_dns_status "$app_name" "DNS Status: Added"; then
                 verification_failed=true
             fi
@@ -151,7 +151,7 @@ run_comprehensive_report_verification() {
             ;;
             
         "after_remove")
-            # After dns:remove, app should show "Not added" status and not appear in global report
+            # After dns:apps:disable, app should show "Not added" status and not appear in global report
             if ! verify_app_dns_status "$app_name" "DNS Status: Not added"; then
                 verification_failed=true
             fi
@@ -162,7 +162,7 @@ run_comprehensive_report_verification() {
             ;;
             
         "provider_configured")
-            # After dns:configure, provider should be set
+            # After dns:providers:configure, provider should be set
             if ! verify_dns_provider_configured "aws"; then
                 verification_failed=true
             fi

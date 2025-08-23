@@ -187,7 +187,7 @@ dns_configure_global() {
   echo "$PROVIDER" > "$PROVIDER_FILE"
   
   dokku_log_info2 "DNS configured globally with provider: $PROVIDER"
-  dokku_log_info1 "Next step: dokku $PLUGIN_COMMAND_PREFIX:verify"
+  dokku_log_info1 "Next step: dokku $PLUGIN_COMMAND_PREFIX:providers:verify"
 }
 
 dns_get_record_ip() {
@@ -257,14 +257,14 @@ dns_app() {
   local PROVIDER_FILE="$GLOBAL_CONFIG_ROOT/PROVIDER"
   
   if [[ ! -f "$PROVIDER_FILE" ]]; then
-    dokku_log_fail "No DNS provider configured. Run: dokku $PLUGIN_COMMAND_PREFIX:configure <provider>"
+    dokku_log_fail "No DNS provider configured. Run: dokku $PLUGIN_COMMAND_PREFIX:providers:configure <provider>"
   fi
   
   local PROVIDER
   PROVIDER="$(cat "$PROVIDER_FILE")"
   
   if [[ -z "$PROVIDER" ]]; then
-    dokku_log_fail "DNS provider not set. Run: dokku $PLUGIN_COMMAND_PREFIX:configure <provider>"
+    dokku_log_fail "DNS provider not set. Run: dokku $PLUGIN_COMMAND_PREFIX:providers:configure <provider>"
   fi
   
   # Load the provider functions
@@ -437,7 +437,7 @@ dns_add_app_domains() {
       else
         dokku_log_warn "AWS CLI not configured or credentials invalid"
         dokku_log_info1 "Cannot check hosted zones - adding all new domains"
-        dokku_log_info1 "Run 'dokku $PLUGIN_COMMAND_PREFIX:verify' to configure AWS credentials"
+        dokku_log_info1 "Run 'dokku $PLUGIN_COMMAND_PREFIX:providers:verify' to configure AWS credentials"
         VALID_DOMAINS=("${NEW_DOMAINS[@]}")
       fi
     else
@@ -478,7 +478,7 @@ dns_add_app_domains() {
   if [[ ${#VALID_DOMAINS[@]} -eq 0 ]]; then
     dokku_log_warn "No domains with enabled hosted zones found for app: $APP"
     if [[ ${#SKIPPED_DOMAINS[@]} -gt 0 ]]; then
-      dokku_log_info1 "Enable zones for auto-discovery with: dokku $PLUGIN_COMMAND_PREFIX:zones:add <zone>"
+      dokku_log_info1 "Enable zones for auto-discovery with: dokku $PLUGIN_COMMAND_PREFIX:zones:enable <zone>"
       dokku_log_info1 "Or create hosted zones for these domains in your DNS provider first"
     fi
     return 0
@@ -511,7 +511,7 @@ dns_add_app_domains() {
   fi
   
   dokku_log_info1 "${#VALID_DOMAINS[@]} domain(s) with hosted zones have been added to DNS"
-  dokku_log_info1 "Next step: dokku $PLUGIN_COMMAND_PREFIX:sync $APP"
+  dokku_log_info1 "Next step: dokku $PLUGIN_COMMAND_PREFIX:apps:sync $APP"
 }
 
 dns_remove_app() {
@@ -545,7 +545,7 @@ dns_remove_app() {
     
     dokku_log_info1 "App '$APP' removed from DNS"
     dokku_log_info1 "Note: Existing DNS records were not deleted"
-    dokku_log_info1 "To clean up DNS records, run: dokku $PLUGIN_COMMAND_PREFIX:sync $APP (before removing next time)"
+    dokku_log_info1 "To clean up DNS records, run: dokku $PLUGIN_COMMAND_PREFIX:apps:sync $APP (before removing next time)"
   else
     dokku_log_warn "App '$APP' was not found in DNS tracking"
   fi

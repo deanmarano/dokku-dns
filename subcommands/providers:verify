@@ -27,14 +27,14 @@ fi
 
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
 
-service-verify-cmd() {
+service-providers-verify-cmd() {
   #E verify DNS provider setup and connectivity, discover existing DNS records
-  #E dokku $PLUGIN_COMMAND_PREFIX:verify [provider]
+  #E dokku $PLUGIN_COMMAND_PREFIX:providers:verify [provider]
   #E verify configured provider or specific provider if specified
   #E for AWS: checks if AWS CLI is configured, tests Route53 access, shows existing DNS records for Dokku domains
   #A provider, optional DNS provider to verify (defaults to configured provider)
   declare desc="verify DNS provider setup and connectivity"
-  local cmd="$PLUGIN_COMMAND_PREFIX:verify" argv=("$@")
+  local cmd="$PLUGIN_COMMAND_PREFIX:providers:verify" argv=("$@")
   [[ ${argv[0]} == "$cmd" ]] && shift 1
   
   local PROVIDER_ARG="$1"
@@ -52,8 +52,8 @@ service-verify-cmd() {
     if [[ ! -f "$PROVIDER_FILE" ]]; then
       dokku_log_fail "No provider configured. Please specify a provider to verify or configure one first:
   
-  Configure a provider: dokku $PLUGIN_COMMAND_PREFIX:configure <provider>
-  Verify specific provider: dokku $PLUGIN_COMMAND_PREFIX:verify <provider>
+  Configure a provider: dokku $PLUGIN_COMMAND_PREFIX:providers:configure <provider>
+  Verify specific provider: dokku $PLUGIN_COMMAND_PREFIX:providers:verify <provider>
   Available providers: aws"
     fi
     
@@ -62,8 +62,8 @@ service-verify-cmd() {
     if [[ -z "$PROVIDER" ]]; then
       dokku_log_fail "Provider not set. Please specify a provider to verify or configure one first:
   
-  Configure a provider: dokku $PLUGIN_COMMAND_PREFIX:configure <provider>
-  Verify specific provider: dokku $PLUGIN_COMMAND_PREFIX:verify <provider>
+  Configure a provider: dokku $PLUGIN_COMMAND_PREFIX:providers:configure <provider>
+  Verify specific provider: dokku $PLUGIN_COMMAND_PREFIX:providers:verify <provider>
   Available providers: aws"
     fi
     
@@ -357,9 +357,9 @@ Policy JSON example:
   dokku_log_info1 "AWS Route53 is properly configured and ready to use."
   echo
   dokku_log_info1 "Next Steps:"
-  dokku_log_info1 "  1. Enable zones for auto-discovery: dokku $PLUGIN_COMMAND_PREFIX:zones:add <zone>"
-  dokku_log_info1 "  2. Add domains to an app: dokku $PLUGIN_COMMAND_PREFIX:add <app>"
-  dokku_log_info1 "  3. Sync DNS records: dokku $PLUGIN_COMMAND_PREFIX:sync <app>"
+  dokku_log_info1 "  1. Enable zones for auto-discovery: dokku $PLUGIN_COMMAND_PREFIX:zones:enable <zone>"
+  dokku_log_info1 "  2. Add domains to an app: dokku $PLUGIN_COMMAND_PREFIX:apps:enable <app>"
+  dokku_log_info1 "  3. Sync DNS records: dokku $PLUGIN_COMMAND_PREFIX:apps:sync <app>"
   dokku_log_info1 "  4. Check DNS status: dokku $PLUGIN_COMMAND_PREFIX:report <app>"
   echo
   dokku_log_info1 "Documentation: https://github.com/deanmarano/dokku-dns"
@@ -367,4 +367,4 @@ Policy JSON example:
   exit 0
 }
 
-service-verify-cmd "$@"
+service-providers-verify-cmd "$@"

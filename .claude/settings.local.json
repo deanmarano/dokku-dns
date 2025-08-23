@@ -58,7 +58,12 @@
       "Bash(dokku plugin:reload:*)",
       "WebFetch(domain:dokku.com)",
       "Bash(docker cp:*)",
-      "Bash(printf:*)"
+      "Bash(printf:*)",
+      "Bash(./subcommands/configure:*)",
+      "Bash(cp:*)",
+      "Bash(sed:*)",
+      "Bash(mkdir:*)",
+      "Bash(./subcommands/apps:enable my-app)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

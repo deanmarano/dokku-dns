@@ -47,7 +47,7 @@ teardown() {
     
     run "$PLUGIN_ROOT/post-create" "test-app"
     assert_success
-    assert_output_contains "DNS: Checking if app 'test-app' should be added"
+    assert_output_contains "DNS: Checking if app 'test-app' should be added to DNS management"
 }
 
 @test "(triggers) post-delete works with app not in DNS management" {
@@ -60,6 +60,7 @@ teardown() {
     setup_dns_provider "aws"
     
     # Simulate app being managed by DNS
+    mkdir -p "$PLUGIN_DATA_ROOT"
     echo "test-app" > "$PLUGIN_DATA_ROOT/LINKS"
     mkdir -p "$PLUGIN_DATA_ROOT/test-app"
     echo "example.com" > "$PLUGIN_DATA_ROOT/test-app/DOMAINS"
@@ -87,7 +88,7 @@ teardown() {
     
     run "$PLUGIN_ROOT/post-domains-update" "test-app" "add" "example.com"
     assert_success
-    assert_output_contains "DNS: Domain 'example.com' added to app 'test-app'"
+    assert_output_contains "DNS: Domain 'example.com' added to app 'test-app', checking DNS setup"
     assert_output_contains "DNS: Domain 'example.com' added to DNS tracking"
     assert_output_contains "DNS: Syncing DNS records for 'test-app'"
 }
@@ -102,6 +103,7 @@ teardown() {
     setup_dns_provider "aws"
     
     # Setup app with domains
+    mkdir -p "$PLUGIN_DATA_ROOT"
     echo "test-app" > "$PLUGIN_DATA_ROOT/LINKS"
     mkdir -p "$PLUGIN_DATA_ROOT/test-app"
     echo -e "example.com\napi.example.com" > "$PLUGIN_DATA_ROOT/test-app/DOMAINS"
@@ -120,6 +122,7 @@ teardown() {
     setup_dns_provider "aws"
     
     # Setup app with single domain
+    mkdir -p "$PLUGIN_DATA_ROOT"
     echo "test-app" > "$PLUGIN_DATA_ROOT/LINKS"
     mkdir -p "$PLUGIN_DATA_ROOT/test-app"
     echo "example.com" > "$PLUGIN_DATA_ROOT/test-app/DOMAINS"

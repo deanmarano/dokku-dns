@@ -55,7 +55,7 @@ ci-dependencies: shellcheck bats readlink
 
 lint-setup:
 	@mkdir -p tmp/test-results/shellcheck tmp/shellcheck
-	@find . -not -path '*/\.*' -not -path './tmp/*' -type f | xargs file | grep text | awk -F ':' '{ print $$1 }' | xargs head -n1 | egrep -B1 "bash" | grep "==>" | awk '{ print $$2 }' > tmp/shellcheck/test-files
+	@find . -not -path '*/\.*' -not -path './tmp/*' -type f | xargs file | grep text | sed 's/: .*text.*//' | xargs head -n1 | egrep -B1 "bash" | grep "==>" | awk '{ print $$2 }' > tmp/shellcheck/test-files
 	@cat tests/shellcheck-exclude | sed -n -e '/^# SC/p' | cut -d' ' -f2 | paste -d, -s - > tmp/shellcheck/exclude
 
 lint: lint-setup

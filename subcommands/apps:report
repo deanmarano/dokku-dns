@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+# Load dokku functions if available
+if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
+  source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
+fi
+
+# Define missing functions if needed
+if ! declare -f verify_app_name >/dev/null 2>&1; then
+  verify_app_name() {
+    local app="$1"
+    [[ -n "$app" ]] || { echo " !     Please specify an app name" >&2; exit 1; }
+  }
+fi
+
+if ! declare -f dokku_log_info1 >/dev/null 2>&1; then
+  dokku_log_info1() { echo "-----> $*"; }
+fi
+
+if ! declare -f dokku_log_info2 >/dev/null 2>&1; then
+  dokku_log_info2() { echo "=====> $*"; }
+fi
+
+if ! declare -f dokku_log_warn >/dev/null 2>&1; then
+  dokku_log_warn() { echo " !     $*"; }
+fi
+
+if ! declare -f dokku_log_fail >/dev/null 2>&1; then
+  dokku_log_fail() { echo " !     $*" >&2; exit 1; }
+fi
+
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
+
+service-apps-report-cmd() {
+  #E display DNS status for a specific application
+  #E dokku $PLUGIN_COMMAND_PREFIX:apps:report <app>
+  #E show DNS status and domain information for a specific application
+  #A app, application name
+  declare desc="display DNS status for a specific application"
+  local cmd="$PLUGIN_COMMAND_PREFIX:apps:report" argv=("$@")
+  [[ ${argv[0]} == "$cmd" ]] && shift 1
+  declare APP="$1"
+
+  if [[ -z "$APP" ]]; then
+    echo "Usage: dokku $PLUGIN_COMMAND_PREFIX:apps:report <app>"
+    echo "Show DNS status and domain information for a specific application"
+    echo ""
+    echo "Arguments:"
+    echo "  <app>    Application name to generate DNS report for"
+    echo ""
+    echo "Examples:"
+    echo "  dokku $PLUGIN_COMMAND_PREFIX:apps:report myapp"
+    echo ""
+    exit 1
+  fi
+  verify_app_name "$APP"
+  dns_report "$APP"
+}
+
+service-apps-report-cmd "$@"
