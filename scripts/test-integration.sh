@@ -272,7 +272,7 @@ test_dns_cron() {
         # Verify disabled state
         assert_output_contains "Cron shows disabled status after disable" "Status: ❌ DISABLED" dokku dns:cron
         # Only test crontab removal if we're in an environment that supports it
-        if command -v crontab >/dev/null 2>&1 && crontab -l >/dev/null 2>&1; then
+        if command -v crontab >/dev/null 2>&1; then
             assert_failure "Cron job removed from system crontab" bash -c "crontab -l 2>/dev/null | grep -q \"dokku dns:sync-all\" || (command -v sudo >/dev/null 2>&1 && sudo -u dokku crontab -l 2>/dev/null | grep -q \"dokku dns:sync-all\" 2>/dev/null)"
         else
             log_info "Skipping crontab removal verification (not available in this environment)"
@@ -310,7 +310,7 @@ test_dns_cron() {
         # Now test disabling
         assert_output_contains "Can disable cron automation" "Disabling DNS Cron Job" dokku dns:cron --disable
         # Only test crontab removal if we're in an environment that supports it
-        if command -v crontab >/dev/null 2>&1 && crontab -l >/dev/null 2>&1; then
+        if command -v crontab >/dev/null 2>&1; then
             assert_failure "Cron job removed from system crontab" bash -c "crontab -l 2>/dev/null | grep -q \"dokku dns:sync-all\" || (command -v sudo >/dev/null 2>&1 && sudo -u dokku crontab -l 2>/dev/null | grep -q \"dokku dns:sync-all\" 2>/dev/null)"
         else
             log_info "Skipping crontab removal verification (not available in this environment)"
