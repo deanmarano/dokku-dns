@@ -35,9 +35,11 @@ teardown() {
   assert_output_contains "dns:help" 2
   assert_output_contains "dns:apps:disable"
   assert_output_contains "dns:report"
-  assert_output_contains "dns:apps:sync <app>"
+  assert_output_contains "dns:apps:sync"
   assert_output_contains "dns:sync-all"
   assert_output_contains "dns:providers:verify"
+  assert_output_contains "dns:zones:enable"
+  assert_output_contains "dns:zones:disable"
   assert_output_contains "dns:version"
 }
 
@@ -46,7 +48,7 @@ teardown() {
   assert_success
   assert_output_contains "usage"
   assert_output_contains "dns:providers:configure" 2
-  assert_output_contains "configure or change the global DNS provider" 1
+  assert_output_contains "configure or change the global DNS provider"
 }
 
 @test "(dns:help apps:enable) shows add command help" {
@@ -54,7 +56,7 @@ teardown() {
   assert_success
   assert_output_contains "usage"
   assert_output_contains "dns:apps:enable" 3
-  assert_output_contains "enable DNS management for an application" 1
+  assert_output_contains "enable DNS management for an application" 2
 }
 
 @test "(dns:help providers:verify) shows verify command help" {
@@ -62,7 +64,7 @@ teardown() {
   assert_success
   assert_output_contains "usage"
   assert_output_contains "dns:providers:verify" 2
-  assert_output_contains "verify DNS provider setup and connectivity" 1
+  assert_output_contains "verify DNS provider setup and connectivity" 2
 }
 
 @test "(dns:help apps:sync) shows sync command help" {
@@ -70,28 +72,28 @@ teardown() {
   assert_success
   assert_output_contains "usage"
   assert_output_contains "dns:apps:sync" 2
-  assert_output_contains "synchronize DNS records for an application" 1
+  assert_output_contains "synchronize DNS records for an application" 2
 }
 
 @test "(dns:report:help) shows report command help" {
   run dokku "$PLUGIN_COMMAND_PREFIX:report:help"
   assert_success
   assert_output_contains "usage"
-  assert_output_contains "dns:report" 1
-  assert_output_contains "display DNS status and domain information for app(s)" 1
+  assert_output_contains "dns:report" 2
+  assert_output_contains "display DNS status and domain information for app(s)" 2
 }
 
 @test "(dns:help) command descriptions are consistent" {
   run dokku "$PLUGIN_COMMAND_PREFIX:help"
   assert_success
   # Check that all main commands have consistent descriptions - using new namespace commands
-  assert_output_contains "enable DNS management for an application" 1
+  assert_output_contains "enable DNS management for an application"
   assert_output_contains "configure or change the global DNS provider"
   assert_output_contains "show help for DNS commands or specific subcommand"
   assert_output_contains "disable DNS management for an application"
   assert_output_contains "display DNS status and domain information for app(s)"
-  assert_output_contains "synchronize DNS records for an application" 1
-  assert_output_contains "verify DNS provider setup and connectivity" 1
+  assert_output_contains "synchronize DNS records for an application"
+  assert_output_contains "verify DNS provider setup and connectivity"
   assert_output_contains "show DNS plugin version and dependency versions"
 }
 

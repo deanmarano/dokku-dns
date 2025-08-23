@@ -62,7 +62,8 @@
       "Bash(./subcommands/configure:*)",
       "Bash(cp:*)",
       "Bash(sed:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(./subcommands/apps:enable my-app)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

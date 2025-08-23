@@ -102,6 +102,7 @@ teardown() {
     setup_dns_provider "aws"
     
     # Setup app with domains
+    mkdir -p "$PLUGIN_DATA_ROOT"
     echo "test-app" > "$PLUGIN_DATA_ROOT/LINKS"
     mkdir -p "$PLUGIN_DATA_ROOT/test-app"
     echo -e "example.com\napi.example.com" > "$PLUGIN_DATA_ROOT/test-app/DOMAINS"
@@ -120,6 +121,7 @@ teardown() {
     setup_dns_provider "aws"
     
     # Setup app with single domain
+    mkdir -p "$PLUGIN_DATA_ROOT"
     echo "test-app" > "$PLUGIN_DATA_ROOT/LINKS"
     mkdir -p "$PLUGIN_DATA_ROOT/test-app"
     echo "example.com" > "$PLUGIN_DATA_ROOT/test-app/DOMAINS"
