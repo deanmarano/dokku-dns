@@ -46,19 +46,7 @@ main() {
   # Skip if no domain provided
   [[ -z "$DOMAIN" ]] && return 0
   
-  # Check if DNS provider is configured
-  local PROVIDER_FILE="$PLUGIN_DATA_ROOT/PROVIDER"
-  if [[ ! -f "$PROVIDER_FILE" ]]; then
-    # DNS not configured globally, skip automatic setup
-    return 0
-  fi
-  
-  local PROVIDER
-  PROVIDER=$(cat "$PROVIDER_FILE" 2>/dev/null || echo "")
-  if [[ -z "$PROVIDER" ]] || [[ "$PROVIDER" == "None" ]]; then
-    # No valid provider configured, skip
-    return 0
-  fi
+  # AWS is always the provider now - no configuration check needed
   
   if [[ "$ACTION" == "add" ]]; then
     handle_domain_add "$APP" "$DOMAIN"
@@ -72,7 +60,7 @@ handle_domain_add() {
   local APP="$1"
   local DOMAIN="$2"
   
-  dokku_log_info1 "DNS: Domain '$DOMAIN' added to app '$APP', checking DNS setup..."
+  dokku_log_info1 "DNS: Domain '$DOMAIN' added to app '$APP', checking DNS setup"
   
   # Check if app is already managed by DNS
   local app_was_managed=false

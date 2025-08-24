@@ -1,5 +1,72 @@
 #!/usr/bin/env bash
 
+# Mock sudo for unit tests to avoid authentication prompts and force fallback to regular crontab
+sudo() {
+  if [[ "$1" == "-u" && "$2" == "dokku" ]]; then
+    shift 2  # Remove -u dokku
+    if [[ "$1" == "true" ]]; then
+      # Fail permission test to force fallback to regular crontab
+      return 1
+    elif [[ "$1" == "crontab" ]]; then
+      # Fail crontab test to force fallback to regular crontab
+      return 1
+    else
+      # For other dokku user commands, execute directly
+      "$@"
+    fi
+  else
+    # For other sudo commands, execute directly
+    "$@"
+  fi
+}
+export -f sudo
+
+# Mock id command to simulate dokku user existence
+id() {
+  if [[ "$1" == "-u" && "$2" == "dokku" ]]; then
+    echo "1001"  # Return fake dokku UID
+  elif [[ "$1" == "-un" ]]; then
+    echo "$USER"  # Return current user
+  else
+    command id "$@"
+  fi
+}
+export -f id
+
+# Mock crontab command to avoid sudo issues in tests
+crontab() {
+  local mock_crontab_file="${TEST_TMP_DIR:-/tmp}/mock_crontab_state"
+  
+  # Handle different crontab operations
+  case "$1" in
+    "-l")
+      # List crontab - return mock state
+      cat "$mock_crontab_file" 2>/dev/null || echo ""
+      ;;
+    "-u")
+      # Handle -u user operations
+      if [[ "$2" == "dokku" ]]; then
+        case "$3" in
+          "-l")
+            # List dokku user crontab
+            cat "$mock_crontab_file" 2>/dev/null || echo ""
+            ;;
+          *)
+            # Install from stdin for dokku user
+            cat > "$mock_crontab_file"
+            ;;
+        esac
+      fi
+      ;;
+    *)
+      # Install from stdin
+      cat > "$mock_crontab_file"
+      ;;
+  esac
+  return 0
+}
+export -f crontab
+
 # Load test environment overrides for CI/local testing
 if [[ ! -d "/var/lib/dokku" ]] || [[ ! -w "/var/lib/dokku" ]]; then
   source "$(dirname "${BASH_SOURCE[0]}")/mock_dokku_environment.bash"
@@ -60,20 +127,18 @@ dns_cmd() {
 
 setup_dns_provider() {
   local provider="${1:-aws}"
-  # In Docker test environment, use real dokku commands
-  if [[ -d "/var/lib/dokku" ]] && [[ -w "/var/lib/dokku" ]]; then
-    dokku dns:providers:configure "$provider" >/dev/null 2>&1 || true
-  else
-    dns_cmd providers:configure "$provider" >/dev/null 2>&1 || true
-  fi
+  # Since global provider concept is removed, this function is now a no-op
+  # AWS is always the provider - no setup needed
+  return 0
 }
 
 cleanup_dns_data() {
-  # In Docker test environment, preserve provider configuration but clean app data
+  # Clean up all DNS data including cron jobs
   if [[ -d "/var/lib/dokku" ]] && [[ -w "/var/lib/dokku" ]]; then
-    # Only clean up app-specific data, preserve global provider config
+    # Clean up app-specific data and cron data
     find "$PLUGIN_DATA_ROOT" -name "LINKS" -delete 2>/dev/null || true
     find "$PLUGIN_DATA_ROOT" -maxdepth 1 -type d -name "*-*" -exec rm -rf {} + 2>/dev/null || true
+    rm -rf "$PLUGIN_DATA_ROOT/cron" 2>/dev/null || true
   else
     rm -rf "$PLUGIN_DATA_ROOT" >/dev/null 2>&1 || true
   fi

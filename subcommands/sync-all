@@ -43,19 +43,6 @@ service-sync-all-cmd() {
   echo "[$start_time] Starting DNS sync-all operation"
 
   local LINKS_FILE="$PLUGIN_DATA_ROOT/LINKS"
-  local PROVIDER_FILE="$PLUGIN_DATA_ROOT/PROVIDER"
-  
-  # Check if DNS provider is configured
-  if [[ ! -f "$PROVIDER_FILE" ]]; then
-    dokku_log_fail "No DNS provider configured. Run: dokku $PLUGIN_COMMAND_PREFIX:configure [provider]"
-  fi
-  
-  local PROVIDER
-  PROVIDER="$(cat "$PROVIDER_FILE")"
-  
-  if [[ -z "$PROVIDER" ]]; then
-    dokku_log_fail "DNS provider not set. Run: dokku $PLUGIN_COMMAND_PREFIX:configure [provider]"
-  fi
   
   # Check if any apps are managed by DNS
   if [[ ! -f "$LINKS_FILE" ]]; then
@@ -84,6 +71,7 @@ service-sync-all-cmd() {
   fi
   
   # Check if we can use batch sync for AWS
+  local PROVIDER="aws"
   if [[ "$PROVIDER" == "aws" ]]; then
     dokku_log_info2 "Using batch sync for AWS Route53 (more efficient)"
     

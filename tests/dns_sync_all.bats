@@ -33,20 +33,18 @@ teardown() {
   [[ "$status" -eq 0 ]] || [[ "$status" -eq 1 ]]
 }
 
-@test "(dns:sync-all) error when no provider configured" {
+@test "(dns:sync-all) works with AWS provider (always available)" {
   # Add an app to DNS management  
-  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app
-  # Remove provider configuration
-  rm -f "$PLUGIN_DATA_ROOT/PROVIDER" 2>/dev/null || true
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1
   
   run dokku "$PLUGIN_COMMAND_PREFIX:sync-all"
-  assert_failure
-  assert_output_contains "No DNS provider configured"
+  # Should succeed or fail gracefully, but not crash
+  [[ "$status" -eq 0 ]] || [[ "$status" -eq 1 ]]
+  assert_output_contains "Starting DNS sync-all operation"
 }
 
 @test "(dns:sync-all) syncs all managed apps" {
-  # Configure provider
-  dokku "$PLUGIN_COMMAND_PREFIX:providers:configure" aws
+  # AWS is always the provider
   
   # Add multiple apps with domains that have hosted zones
   create_service "test-app-1"
@@ -70,14 +68,14 @@ teardown() {
 }
 
 @test "(dns:sync-all) handles missing apps gracefully" {
-  # Configure provider
-  dokku "$PLUGIN_COMMAND_PREFIX:providers:configure" aws
+  # AWS is always the provider
   
   # Add my-app with hosted zone domain
   add_test_domains my-app test1.com
   dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1
   
   # Manually add a non-existent app to LINKS file to simulate an app that was deleted
+  mkdir -p "$PLUGIN_DATA_ROOT"
   echo "nonexistent-app" >> "$PLUGIN_DATA_ROOT/LINKS"
   
   run dokku "$PLUGIN_COMMAND_PREFIX:sync-all"
@@ -88,8 +86,7 @@ teardown() {
 }
 
 @test "(dns:sync-all) shows summary with mixed results" {
-  # Configure provider  
-  dokku "$PLUGIN_COMMAND_PREFIX:providers:configure" aws
+  # AWS is always the provider
   
   # Add apps with domains that have hosted zones
   create_service "working-app"
@@ -101,6 +98,7 @@ teardown() {
   dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" working-app >/dev/null 2>&1
   
   # Add non-existent app to simulate failure
+  mkdir -p "$PLUGIN_DATA_ROOT"
   echo "missing-app" >> "$PLUGIN_DATA_ROOT/LINKS"
   
   run dokku "$PLUGIN_COMMAND_PREFIX:sync-all"
@@ -111,8 +109,7 @@ teardown() {
 }
 
 @test "(dns:sync-all) displays start timing information" {
-  # Configure provider
-  dokku "$PLUGIN_COMMAND_PREFIX:providers:configure" aws
+  # AWS is always the provider
   
   run dokku "$PLUGIN_COMMAND_PREFIX:sync-all"
   assert_success
@@ -133,8 +130,7 @@ teardown() {
 }
 
 @test "(dns:sync-all) displays end timing information" {
-  # Configure provider
-  dokku "$PLUGIN_COMMAND_PREFIX:providers:configure" aws
+  # AWS is always the provider
   
   run dokku "$PLUGIN_COMMAND_PREFIX:sync-all"
   assert_success
@@ -154,14 +150,13 @@ teardown() {
   fi
 }
 
-@test "(dns:sync-all) timing works when provider not configured" {
-  # Remove provider file to test error case
-  rm -f "$PLUGIN_DATA_ROOT/PROVIDER" >/dev/null 2>&1 || true
+@test "(dns:sync-all) timing works with AWS provider" {
+  # AWS is always available, no configuration needed
   
   run dokku "$PLUGIN_COMMAND_PREFIX:sync-all"
-  assert_failure
-  # Should show start time even when failing early
+  # Should succeed or fail gracefully
+  [[ "$status" -eq 0 ]] || [[ "$status" -eq 1 ]]
+  # Should show timing information
   assert_output_contains "Starting DNS sync-all operation"
-  assert_output_contains "No DNS provider configured"
-  # Note: End time may or may not show depending on where the error occurs
+  assert_output_contains "DNS sync-all operation completed"
 }

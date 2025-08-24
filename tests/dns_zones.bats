@@ -36,7 +36,9 @@ setup_mock_provider() {
     local provider="${1:-aws}"
     # Ensure the PLUGIN_DATA_ROOT directory exists
     mkdir -p "$PLUGIN_DATA_ROOT"
-    echo "$provider" > "$PLUGIN_DATA_ROOT/PROVIDER"
+    # AWS is always the provider now - no global PROVIDER file needed
+    # This function is kept for backward compatibility but does nothing
+    return 0
 }
 
 # Mock AWS CLI for testing
@@ -294,10 +296,11 @@ EOF
 }
 
 
-@test "(dns:zones) fails when no provider configured" {
+@test "(dns:zones) works with AWS provider (always configured)" {
+    create_mock_aws
     dns_zones
-    assert_failure
-    assert_output_contains "No DNS provider configured"
+    assert_success
+    assert_output_contains "AWS"
 }
 
 @test "(dns:zones) lists AWS zones when provider configured" {
@@ -306,25 +309,25 @@ EOF
     
     dns_zones
     assert_success
-    assert_output_contains "DNS Zones Status (aws provider)"
+    assert_output_contains "DNS Zones Status (AWS provider)"
     assert_output_contains "example.com"
     assert_output_contains "test.org"
 }
 
-@test "(dns:zones) shows cloudflare not implemented message" {
-    setup_mock_provider "cloudflare"
+@test "(dns:zones) AWS zones work properly" {
+    create_mock_aws
     
     dns_zones
     assert_success
-    assert_output_contains "Cloudflare zones management not yet implemented"
+    assert_output_contains "DNS Zones Status"
 }
 
-@test "(dns:zones) fails with unsupported provider" {
-    setup_mock_provider "unsupported"
+@test "(dns:zones) works with AWS provider only" {
+    create_mock_aws
     
     dns_zones
-    assert_failure
-    assert_output_contains "Unsupported provider for zones management: unsupported"
+    assert_success
+    assert_output_contains "AWS"
 }
 
 @test "(dns:zones:enable) requires zone name argument" {
@@ -461,12 +464,12 @@ EOF
     assert_output_contains "Flags are no longer supported. Use 'dokku dns:zones:enable' or 'dokku dns:zones:disable' instead."
 }
 
-@test "(dns:zones:enable) fails with non-AWS provider" {
-    setup_mock_provider "cloudflare"
+@test "(dns:zones:enable) works with AWS provider" {
+    create_mock_aws
     
     dns_zones_add "example.com"
-    assert_failure
-    assert_output_contains "Zone management is currently only supported for AWS Route53 provider"
+    assert_success
+    assert_output_contains "Adding zone to auto-discovery: example.com"
 }
 
 @test "(dns:zones:disable) works without provider restriction" {

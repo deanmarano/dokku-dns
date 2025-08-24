@@ -71,25 +71,13 @@ service-zones-cmd() {
 }
 
 zones_list_status() {
-  # Check if DNS provider is configured
-  local PROVIDER_FILE="$PLUGIN_DATA_ROOT/PROVIDER"
-  if [[ ! -f "$PROVIDER_FILE" ]]; then
-    dokku_log_fail "No DNS provider configured. Run: dokku $PLUGIN_COMMAND_PREFIX:providers:configure [provider]"
-  fi
-  
-  local PROVIDER
-  PROVIDER=$(cat "$PROVIDER_FILE")
+  # AWS is always the provider now
+  local PROVIDER="aws"
   
   echo
-  dokku_log_info2 "DNS Zones Status ($PROVIDER provider)"
+  dokku_log_info2 "DNS Zones Status (AWS provider)"
   
-  if [[ "$PROVIDER" == "aws" ]]; then
-    zones_list_aws_zones
-  elif [[ "$PROVIDER" == "cloudflare" ]]; then
-    zones_list_cloudflare_zones
-  else
-    dokku_log_fail "Unsupported provider for zones management: $PROVIDER"
-  fi
+  zones_list_aws_zones
 }
 
 zones_list_aws_zones() {
@@ -110,8 +98,7 @@ zones_list_aws_zones() {
     dokku_log_info1 "No hosted zones found in Route53"
     echo
     dokku_log_info2 "Management Commands"
-    dokku_log_info1 "• Configure provider: dokku $PLUGIN_COMMAND_PREFIX:providers:configure aws"
-    dokku_log_info1 "• Verify setup: dokku $PLUGIN_COMMAND_PREFIX:providers:verify"
+    dokku_log_info1 "• Verify AWS setup: dokku $PLUGIN_COMMAND_PREFIX:providers:verify"
     return 0
   fi
   
@@ -208,18 +195,8 @@ zones_list_cloudflare_zones() {
 zones_show_zone() {
   local ZONE="$1"
   
-  # Check if DNS provider is configured
-  local PROVIDER_FILE="$PLUGIN_DATA_ROOT/PROVIDER"
-  if [[ ! -f "$PROVIDER_FILE" ]]; then
-    dokku_log_fail "No DNS provider configured. Run: dokku $PLUGIN_COMMAND_PREFIX:providers:configure [provider]"
-  fi
-  
-  local PROVIDER
-  PROVIDER=$(cat "$PROVIDER_FILE")
-  
-  if [[ "$PROVIDER" != "aws" ]]; then
-    dokku_log_fail "Zone details are currently only supported for AWS Route53 provider"
-  fi
+  # AWS is always the provider now
+  local PROVIDER="aws"
   
   # Validate AWS dependencies
   if ! command -v aws >/dev/null 2>&1; then
@@ -331,7 +308,7 @@ zones_show_zone() {
     done
     echo
     dokku_log_info1 "To manage these domains:"
-    dokku_log_info1 "• Individual: dokku $PLUGIN_COMMAND_PREFIX:add <app>"
+    dokku_log_info1 "• Individual: dokku $PLUGIN_COMMAND_PREFIX:apps:enable <app>"
     dokku_log_info1 "• All in zone: dokku $PLUGIN_COMMAND_PREFIX:zones:enable $ZONE"
   else
     dokku_log_info1 "All potential domains for this zone are already managed"

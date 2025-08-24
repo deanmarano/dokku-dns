@@ -120,6 +120,7 @@ calculate_next_cron_run() {
 
 # Helper functions for crontab management
 get_crontab_cmd() {
+  
   # Determine the appropriate crontab command based on current user and system
   local current_user
   current_user=$(id -un)
@@ -134,7 +135,7 @@ get_crontab_cmd() {
     echo "crontab"
     return 0
   else
-    # Other user contexts - try sudo to dokku user only if not root
+    # Other user contexts - try sudo to dokku user
     if command -v sudo >/dev/null 2>&1 && id -u dokku >/dev/null 2>&1 && sudo -u dokku true >/dev/null 2>&1 && sudo -u dokku crontab -l >/dev/null 2>&1; then
       echo "sudo -u dokku crontab"
       return 0
@@ -166,14 +167,23 @@ install_cron_job() {
   crontab_cmd=$(get_crontab_cmd)
   
   if [[ "$crontab_cmd" == "crontab -u dokku" ]]; then
-    (crontab -u dokku -l 2>/dev/null || echo "") | { cat; echo "$entry"; } | crontab -u dokku -
+    if ! (crontab -u dokku -l 2>/dev/null || echo "") | { cat; echo "$entry"; } | crontab -u dokku - 2>/dev/null; then
+      return 1
+    fi
   elif [[ "$crontab_cmd" == "sudo -u dokku crontab" ]]; then
-    (sudo -u dokku crontab -l 2>/dev/null || echo "") | { cat; echo "$entry"; } | sudo -u dokku crontab -
+    if ! (sudo -u dokku crontab -l 2>/dev/null || echo "") | { cat; echo "$entry"; } | sudo -u dokku crontab - 2>/dev/null; then
+      return 1
+    fi
   elif [[ "$crontab_cmd" == "su dokku -c 'crontab" ]]; then
-    (su dokku -c 'crontab -l 2>/dev/null' 2>/dev/null || echo "") | { cat; echo "$entry"; } | su dokku -c 'crontab -' 2>/dev/null
+    if ! (su dokku -c 'crontab -l 2>/dev/null' 2>/dev/null || echo "") | { cat; echo "$entry"; } | su dokku -c 'crontab -' 2>/dev/null; then
+      return 1
+    fi
   else
-    (crontab -l 2>/dev/null || echo "") | { cat; echo "$entry"; } | crontab -
+    if ! (crontab -l 2>/dev/null || echo "") | { cat; echo "$entry"; } | crontab - 2>/dev/null; then
+      return 1
+    fi
   fi
+  return 0
 }
 
 remove_cron_jobs() {
@@ -182,14 +192,23 @@ remove_cron_jobs() {
   crontab_cmd=$(get_crontab_cmd)
   
   if [[ "$crontab_cmd" == "crontab -u dokku" ]]; then
-    (crontab -u dokku -l 2>/dev/null || echo "") | (grep -v "$pattern" || true) | crontab -u dokku -
+    if ! (crontab -u dokku -l 2>/dev/null || echo "") | (grep -v "$pattern" || true) | crontab -u dokku - 2>/dev/null; then
+      return 1
+    fi
   elif [[ "$crontab_cmd" == "sudo -u dokku crontab" ]]; then
-    (sudo -u dokku crontab -l 2>/dev/null || echo "") | (grep -v "$pattern" || true) | sudo -u dokku crontab -
+    if ! (sudo -u dokku crontab -l 2>/dev/null || echo "") | (grep -v "$pattern" || true) | sudo -u dokku crontab - 2>/dev/null; then
+      return 1
+    fi
   elif [[ "$crontab_cmd" == "su dokku -c 'crontab" ]]; then
-    (su dokku -c 'crontab -l 2>/dev/null' 2>/dev/null || echo "") | (grep -v "$pattern" || true) | su dokku -c 'crontab -' 2>/dev/null
+    if ! (su dokku -c 'crontab -l 2>/dev/null' 2>/dev/null || echo "") | (grep -v "$pattern" || true) | su dokku -c 'crontab -' 2>/dev/null; then
+      return 1
+    fi
   else
-    (crontab -l 2>/dev/null || echo "") | (grep -v "$pattern" || true) | crontab -
+    if ! (crontab -l 2>/dev/null || echo "") | (grep -v "$pattern" || true) | crontab - 2>/dev/null; then
+      return 1
+    fi
   fi
+  return 0
 }
 
 service-cron-cmd() {
@@ -384,10 +403,6 @@ cron_enable_functionality() {
   fi
   
   # Check if DNS provider is configured
-  local PROVIDER_FILE="$PLUGIN_DATA_ROOT/PROVIDER"
-  if [[ ! -f "$PROVIDER_FILE" ]]; then
-    dokku_log_fail "No DNS provider configured. Run: dokku $PLUGIN_COMMAND_PREFIX:providers:configure [provider]"
-  fi
   
   # Create cron data directory
   mkdir -p "$CRON_DATA_DIR"
@@ -422,7 +437,9 @@ cron_enable_functionality() {
   fi
   
   # Add cron job to crontab
-  install_cron_job "$CRON_ENTRY"
+  if ! install_cron_job "$CRON_ENTRY"; then
+    dokku_log_fail "Failed to install cron job. Permission denied - try running with sudo:\n  sudo dokku $PLUGIN_COMMAND_PREFIX:cron --enable"
+  fi
   
   if list_cron_jobs | grep -q "dokku dns:sync-all"; then
     # Store cron job metadata
@@ -474,11 +491,13 @@ cron_disable_functionality() {
   fi
   
   # Remove the cron job from crontab
-  remove_cron_jobs "dokku dns:sync-all"
+  if ! remove_cron_jobs "dokku dns:sync-all"; then
+    dokku_log_fail "Failed to remove cron job. Permission denied - try running with sudo:\n  sudo dokku $PLUGIN_COMMAND_PREFIX:cron --disable"
+  fi
   
   # Verify removal
   if list_cron_jobs | grep -q "dokku dns:sync-all"; then
-    dokku_log_fail "Failed to remove DNS cron job. Check system permissions."
+    dokku_log_fail "Failed to remove DNS cron job. Permission denied - try running with sudo:\n  sudo dokku $PLUGIN_COMMAND_PREFIX:cron --disable"
   fi
   
   # Update status metadata

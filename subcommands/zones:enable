@@ -85,18 +85,7 @@ service-zones-enable-cmd() {
 zones_add_zone() {
   local ZONE="$1"
   
-  # Check if DNS provider is configured
-  local PROVIDER_FILE="$PLUGIN_DATA_ROOT/PROVIDER"
-  if [[ ! -f "$PROVIDER_FILE" ]]; then
-    dokku_log_fail "No DNS provider configured. Run: dokku $PLUGIN_COMMAND_PREFIX:providers:configure [provider]"
-  fi
   
-  local PROVIDER
-  PROVIDER=$(cat "$PROVIDER_FILE")
-  
-  if [[ "$PROVIDER" != "aws" ]]; then
-    dokku_log_fail "Zone management is currently only supported for AWS Route53 provider"
-  fi
   
   # Validate AWS dependencies
   if ! command -v aws >/dev/null 2>&1; then
@@ -134,18 +123,7 @@ zones_add_zone() {
 }
 
 zones_add_all() {
-  # Check if DNS provider is configured
-  local PROVIDER_FILE="$PLUGIN_DATA_ROOT/PROVIDER"
-  if [[ ! -f "$PROVIDER_FILE" ]]; then
-    dokku_log_fail "No DNS provider configured. Run: dokku $PLUGIN_COMMAND_PREFIX:providers:configure [provider]"
-  fi
   
-  local PROVIDER
-  PROVIDER=$(cat "$PROVIDER_FILE")
-  
-  if [[ "$PROVIDER" != "aws" ]]; then
-    dokku_log_fail "Zone management is currently only supported for AWS Route53 provider"
-  fi
   
   # Validate AWS dependencies
   if ! command -v aws >/dev/null 2>&1; then

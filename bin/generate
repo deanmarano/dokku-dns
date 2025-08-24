@@ -184,7 +184,7 @@ def usage_section(
 
 
 def usage_intro(service, variable, alias, image, scheme, ports, options, unimplemented):
-    commands = ["apps:enable", "providers:configure", "providers:verify", "report", "apps:sync", "sync-all"]
+    commands = ["apps:enable", "providers:verify", "report", "apps:sync", "sync-all"]
     content = ["### Basic Usage"]
 
     return fetch_commands_content(

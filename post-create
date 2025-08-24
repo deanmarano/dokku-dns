@@ -38,19 +38,7 @@ main() {
   # Skip if no app provided
   [[ -z "$APP" ]] && return 0
   
-  # Check if DNS provider is configured
-  local PROVIDER_FILE="$PLUGIN_DATA_ROOT/PROVIDER"
-  if [[ ! -f "$PROVIDER_FILE" ]]; then
-    # DNS not configured globally, skip automatic setup
-    return 0
-  fi
-  
-  local PROVIDER
-  PROVIDER=$(cat "$PROVIDER_FILE" 2>/dev/null || echo "")
-  if [[ -z "$PROVIDER" ]] || [[ "$PROVIDER" == "None" ]]; then
-    # No valid provider configured, skip
-    return 0
-  fi
+  # AWS is always the provider now - no configuration check needed
   
   dokku_log_info1 "DNS: Checking if app '$APP' should be added to DNS management..."
   

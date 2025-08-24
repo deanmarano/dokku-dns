@@ -81,7 +81,7 @@ dns_global_report() {
   fi
   
   # Display global configuration
-  dokku_log_info1 "Global DNS Provider: $PROVIDER"
+  dokku_log_info1 "DNS Provider: AWS"
   dokku_log_info1 "Configuration Status: $CONFIG_STATUS"
   
   # Get apps under DNS management
@@ -286,7 +286,7 @@ dns_global_report() {
   echo
   dokku_log_info2 "Actions available:"
   if [[ "$PROVIDER" == "None" ]]; then
-    dokku_log_info1 "1. Configure DNS provider: dokku $PLUGIN_COMMAND_PREFIX:providers:configure [aws|cloudflare]"
+    dokku_log_info1 "1. Set up AWS credentials: dokku $PLUGIN_COMMAND_PREFIX:providers:verify"
     dokku_log_info1 "2. Configure credentials: dokku $PLUGIN_COMMAND_PREFIX:providers:verify"
     dokku_log_info1 "3. Add domains to apps: dokku domains:add <app> <domain>"
     dokku_log_info1 "4. Update DNS records: dokku $PLUGIN_COMMAND_PREFIX:apps:sync <app>"
@@ -351,7 +351,7 @@ dns_report() {
   fi
   
   # Display global configuration
-  dokku_log_info1 "Global DNS Provider: $PROVIDER"
+  dokku_log_info1 "DNS Provider: AWS"
   dokku_log_info1 "Configuration Status: $CONFIG_STATUS"
   
   # Display DNS add status
@@ -484,7 +484,7 @@ dns_report() {
   echo
   dokku_log_info2 "Actions available:"
   if [[ "$PROVIDER" == "None" ]]; then
-    dokku_log_info1 "1. Configure DNS provider: dokku $PLUGIN_COMMAND_PREFIX:providers:configure [aws|cloudflare]"
+    dokku_log_info1 "1. Set up AWS credentials: dokku $PLUGIN_COMMAND_PREFIX:providers:verify"
     dokku_log_info1 "2. Configure credentials: dokku $PLUGIN_COMMAND_PREFIX:providers:verify"
     dokku_log_info1 "3. Update DNS records: dokku $PLUGIN_COMMAND_PREFIX:apps:sync $APP"
   elif [[ "$SYNC_STATUS" == "Missing auth" ]]; then
