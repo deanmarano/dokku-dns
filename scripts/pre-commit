@@ -138,7 +138,8 @@ if [[ "$CODE_CHANGES" == "true" ]]; then
     docker_pid=$!
     
     # Wait for both to complete with timeout
-    timeout=120 # 2 minutes
+    # Docker tests need more time for DH parameter generation and container startup
+    timeout=300 # 5 minutes
     elapsed=0
     still_running=true
     
