@@ -130,10 +130,10 @@ jobs:
         echo "⏳ Initializing test environment..."
         sleep 10
         
-    - name: Run modular integration tests
+    - name: Run integration tests
       run: |
-        echo "🧪 Running modular integration tests..."
-        # Use the modular test system with Docker orchestrator
+        echo "🧪 Running integration tests..."
+        # Use the integration test system with Docker orchestrator
         ./scripts/test-docker.sh all --direct
       
     - name: Stop test containers

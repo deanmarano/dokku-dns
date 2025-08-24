@@ -144,11 +144,11 @@ run_direct_tests() {
     
     log "SUCCESS" "DNS plugin installed and verified successfully"
     
-    # Run modular test system
+    # Run integration test system
     log "INFO" "Running test suite: $test_suite"
     
-    # Copy all modular test files to container
-    log "INFO" "Copying modular test files to container..."
+    # Copy all integration test files to container
+    log "INFO" "Copying integration test files to container..."
     docker exec "$DOKKU_CONTAINER" bash -c "mkdir -p /tmp/integration"
     
     # Copy test modules
@@ -159,7 +159,7 @@ run_direct_tests() {
         "zones-test.sh"
         "sync-all-test.sh"
         "version-test.sh"
-        "dns-integration-tests-modular.sh"
+        "dns-integration-tests.sh"
     )
     
     for file in "${test_files[@]}"; do
@@ -170,13 +170,13 @@ run_direct_tests() {
         fi
     done
     
-    # Run modular tests
-    if docker exec "$DOKKU_CONTAINER" bash -c "cd /tmp/dokku-dns && /tmp/integration/dns-integration-tests-modular.sh $test_suite"; then
-        log "SUCCESS" "All modular tests completed successfully!"
-        log "INFO" "DNS plugin functionality verified with modular test suite"
+    # Run integration tests
+    if docker exec "$DOKKU_CONTAINER" bash -c "cd /tmp/dokku-dns && /tmp/integration/dns-integration-tests.sh $test_suite"; then
+        log "SUCCESS" "All integration tests completed successfully!"
+        log "INFO" "DNS plugin functionality verified with integration test suite"
         return 0
     else
-        log "ERROR" "Modular integration tests failed!"
+        log "ERROR" "Integration tests failed!"
         return 1
     fi
 }

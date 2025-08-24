@@ -92,18 +92,18 @@ unit-tests:
 	fi
 
 integration-tests:
-	@echo running modular integration tests...
+	@echo running integration tests...
 	@mkdir -p tmp/test-results
 	@if command -v dokku >/dev/null 2>&1; then \
-		echo "Running modular integration tests against local Dokku..."; \
+		echo "Running integration tests against local Dokku..."; \
 		set -e; \
-		if ! tests/integration/dns-integration-tests-modular.sh all; then \
-			echo "❌ Modular integration tests failed"; \
+		if ! tests/integration/dns-integration-tests.sh all; then \
+			echo "❌ Integration tests failed"; \
 			echo "💡 Tip: For reliable testing, use: make docker-test"; \
 			echo "💡 Local testing requires full Dokku installation with proper permissions"; \
 			exit 1; \
 		fi; \
-		echo "✅ Modular integration tests passed"; \
+		echo "✅ Integration tests passed"; \
 	else \
 		echo "No local Dokku found - integration tests skipped"; \
 		echo "This is normal for CI environments without Dokku installed"; \
@@ -123,7 +123,7 @@ setup:
 test: lint unit-tests
 
 docker-test:
-	@echo "Running modular integration tests in Docker container..."
+	@echo "Running integration tests in Docker container..."
 	./tests/integration/docker-orchestrator.sh all --direct
 
 docker-test-apps:

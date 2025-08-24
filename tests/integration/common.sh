@@ -11,6 +11,15 @@ log_remote() {
 
 # Install DNS plugin in container
 install_dns_plugin() {
+    # Check if plugin is already installed
+    local plugin_status
+    plugin_status=$(dokku plugin:list | grep dns || true)
+    
+    if [[ "$plugin_status" == *"enabled"* ]]; then
+        log_remote "INFO" "DNS plugin already installed and enabled"
+        return 0
+    fi
+    
     log_remote "INFO" "Installing DNS plugin..."
     rm -rf /var/lib/dokku/plugins/available/dns
     cp -r /tmp/dokku-dns /var/lib/dokku/plugins/available/dns
