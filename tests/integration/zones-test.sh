@@ -8,8 +8,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-run_zones_management_tests() {
-    log_remote "INFO" "🧪 Starting Zones Management Tests"
+run_zones_tests() {
+    log_remote "INFO" "🧪 Starting Zones Subcommand Tests"
     
     reset_test_status
     
@@ -67,15 +67,15 @@ run_zones_management_tests() {
     cleanup_test_app "$ZONES_TEST_APP"
     
     if is_test_failed; then
-        log_remote "ERROR" "❌ Zones Management Tests: FAILED"
+        log_remote "ERROR" "❌ Zones Subcommand Tests: FAILED"
         return 1
     else
-        log_remote "SUCCESS" "✅ Zones Management Tests: PASSED"
+        log_remote "SUCCESS" "✅ Zones Subcommand Tests: PASSED"
         return 0
     fi
 }
 
 # Run tests if script is executed directly
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    run_zones_management_tests
+    run_zones_tests
 fi

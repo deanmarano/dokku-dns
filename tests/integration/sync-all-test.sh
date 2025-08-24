@@ -8,8 +8,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-run_sync_operations_tests() {
-    log_remote "INFO" "🧪 Starting Sync Operations Tests"
+run_sync_all_tests() {
+    log_remote "INFO" "🧪 Starting Sync-All Subcommand Tests"
     
     reset_test_status
     
@@ -41,15 +41,15 @@ run_sync_operations_tests() {
     cleanup_test_app "$MAIN_TEST_APP"
     
     if is_test_failed; then
-        log_remote "ERROR" "❌ Sync Operations Tests: FAILED"
+        log_remote "ERROR" "❌ Sync-All Subcommand Tests: FAILED"
         return 1
     else
-        log_remote "SUCCESS" "✅ Sync Operations Tests: PASSED"
+        log_remote "SUCCESS" "✅ Sync-All Subcommand Tests: PASSED"
         return 0
     fi
 }
 
 # Run tests if script is executed directly
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    run_sync_operations_tests
+    run_sync_all_tests
 fi

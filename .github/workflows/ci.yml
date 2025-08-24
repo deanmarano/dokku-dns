@@ -134,7 +134,7 @@ jobs:
       run: |
         echo "🧪 Running modular integration tests..."
         # Use the modular test system with Docker orchestrator
-        DNS_TEST_MODULE=all ./scripts/test-docker.sh --direct
+        ./scripts/test-docker.sh all --direct
       
     - name: Stop test containers
       if: always()

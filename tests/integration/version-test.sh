@@ -8,8 +8,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-run_error_handling_tests() {
-    log_remote "INFO" "🧪 Starting Error Handling Tests"
+run_version_tests() {
+    log_remote "INFO" "🧪 Starting Version Subcommand Tests"
     
     reset_test_status
     
@@ -87,15 +87,15 @@ run_error_handling_tests() {
     fi
     
     if is_test_failed; then
-        log_remote "ERROR" "❌ Error Handling Tests: FAILED"
+        log_remote "ERROR" "❌ Version Subcommand Tests: FAILED"
         return 1
     else
-        log_remote "SUCCESS" "✅ Error Handling Tests: PASSED"
+        log_remote "SUCCESS" "✅ Version Subcommand Tests: PASSED"
         return 0
     fi
 }
 
 # Run tests if script is executed directly
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    run_error_handling_tests
+    run_version_tests
 fi

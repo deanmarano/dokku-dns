@@ -9,11 +9,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
 # Load all test suite modules
-source "$SCRIPT_DIR/core-commands.sh"
-source "$SCRIPT_DIR/cron-functionality.sh" 
-source "$SCRIPT_DIR/zones-management.sh"
-source "$SCRIPT_DIR/sync-operations.sh"
-source "$SCRIPT_DIR/error-handling.sh"
+source "$SCRIPT_DIR/apps-test.sh"
+source "$SCRIPT_DIR/cron-test.sh" 
+source "$SCRIPT_DIR/zones-test.sh"
+source "$SCRIPT_DIR/sync-all-test.sh"
+source "$SCRIPT_DIR/version-test.sh"
 
 usage() {
     echo "Usage: $0 [OPTIONS] [TEST_SUITE]"
@@ -22,11 +22,11 @@ usage() {
     echo ""
     echo "TEST_SUITE options:"
     echo "  all             Run all test suites (default)"
-    echo "  core            Run core commands tests"
-    echo "  cron            Run cron functionality tests"
-    echo "  zones           Run zones management tests"
-    echo "  sync            Run sync operations tests"
-    echo "  errors          Run error handling tests"
+    echo "  apps            Run apps subcommand tests"
+    echo "  cron            Run cron subcommand tests"
+    echo "  zones           Run zones subcommand tests"
+    echo "  sync-all        Run sync-all subcommand tests"
+    echo "  version         Run version subcommand tests"
     echo ""
     echo "OPTIONS:"
     echo "  --help          Show this help message"
@@ -35,17 +35,17 @@ usage() {
     echo ""
     echo "Examples:"
     echo "  $0                    # Run all tests"
-    echo "  $0 core              # Run only core commands tests"
-    echo "  $0 cron              # Run only cron functionality tests"
+    echo "  $0 apps              # Run only apps subcommand tests"
+    echo "  $0 cron              # Run only cron subcommand tests"
 }
 
 list_test_suites() {
     echo "Available test suites:"
-    echo "  ✅ core-commands      - Basic help, configure, verify, enable, sync, disable"
-    echo "  ✅ cron-functionality  - Cron status, enable, disable, schedules, metadata"
-    echo "  ✅ zones-management    - Zone listing, zone-aware reports and sync"
-    echo "  ✅ sync-operations     - Sync-all functionality and bulk operations"
-    echo "  ✅ error-handling      - Edge cases, invalid inputs, version/help commands"
+    echo "  ✅ apps-test          - Apps subcommand: help, enable, disable, sync, report"
+    echo "  ✅ cron-test          - Cron subcommand: status, enable, disable, schedules"
+    echo "  ✅ zones-test         - Zones subcommand: listing, zone-aware reports and sync"
+    echo "  ✅ sync-all-test      - Sync-all subcommand: bulk operations and functionality"
+    echo "  ✅ version-test       - Version subcommand: edge cases, invalid inputs, help"
 }
 
 setup_test_environment() {
@@ -68,20 +68,20 @@ run_test_suite() {
     local suite_result=0
     
     case "$suite" in
-        "core"|"core-commands")
-            run_core_commands_tests || suite_result=1
+        "apps"|"apps-test")
+            run_apps_tests || suite_result=1
             ;;
-        "cron"|"cron-functionality")
-            run_cron_functionality_tests || suite_result=1
+        "cron"|"cron-test")
+            run_cron_tests || suite_result=1
             ;;
-        "zones"|"zones-management")
-            run_zones_management_tests || suite_result=1
+        "zones"|"zones-test")
+            run_zones_tests || suite_result=1
             ;;
-        "sync"|"sync-operations")
-            run_sync_operations_tests || suite_result=1
+        "sync-all"|"sync-all-test")
+            run_sync_all_tests || suite_result=1
             ;;
-        "errors"|"error-handling")
-            run_error_handling_tests || suite_result=1
+        "version"|"version-test")
+            run_version_tests || suite_result=1
             ;;
         *)
             echo "❌ Unknown test suite: $suite"
@@ -96,7 +96,7 @@ run_all_tests() {
     log_remote "INFO" "🧪 Running All DNS Plugin Integration Test Suites"
     
     local overall_result=0
-    local suites=("core-commands" "cron-functionality" "zones-management" "sync-operations" "error-handling")
+    local suites=("apps-test" "cron-test" "zones-test" "sync-all-test" "version-test")
     local passed_suites=()
     local failed_suites=()
     
@@ -167,7 +167,7 @@ main() {
                 setup_only=true
                 shift
                 ;;
-            all|core|cron|zones|sync|errors|core-commands|cron-functionality|zones-management|sync-operations|error-handling)
+            all|apps|cron|zones|sync-all|version|apps-test|cron-test|zones-test|sync-all-test|version-test)
                 test_suite="$1"
                 shift
                 ;;

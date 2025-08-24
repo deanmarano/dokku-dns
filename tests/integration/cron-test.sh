@@ -8,8 +8,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-run_cron_functionality_tests() {
-    log_remote "INFO" "🧪 Starting Cron Functionality Tests"
+run_cron_tests() {
+    log_remote "INFO" "🧪 Starting Cron Subcommand Tests"
     
     reset_test_status
     
@@ -165,15 +165,15 @@ run_cron_functionality_tests() {
     dokku dns:cron --disable >/dev/null 2>&1 || true
     
     if is_test_failed; then
-        log_remote "ERROR" "❌ Cron Functionality Tests: FAILED"
+        log_remote "ERROR" "❌ Cron Subcommand Tests: FAILED"
         return 1
     else
-        log_remote "SUCCESS" "✅ Cron Functionality Tests: PASSED"
+        log_remote "SUCCESS" "✅ Cron Subcommand Tests: PASSED"
         return 0
     fi
 }
 
 # Run tests if script is executed directly
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    run_cron_functionality_tests
+    run_cron_tests
 fi

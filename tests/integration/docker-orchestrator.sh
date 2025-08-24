@@ -5,9 +5,17 @@ set -euo pipefail
 # Handles Docker Compose setup, cleanup, and test execution
 
 show_help() {
-    echo "Usage: $0 [--build] [--logs] [--direct]"
+    echo "Usage: $0 [OPTIONS] [TEST_SUITE]"
     echo ""
-    echo "Options:"
+    echo "TEST_SUITE options:"
+    echo "  all             Run all test suites (default)"
+    echo "  apps            Run apps subcommand tests"
+    echo "  cron            Run cron subcommand tests"
+    echo "  zones           Run zones subcommand tests"
+    echo "  sync-all        Run sync-all subcommand tests"
+    echo "  version         Run version subcommand tests"
+    echo ""
+    echo "OPTIONS:"
     echo "  --build    Force rebuild of Docker images"
     echo "  --logs     Show container logs after test completion"
     echo "  --direct   Run tests directly (skip Docker Compose orchestration)"
@@ -19,12 +27,13 @@ show_help() {
     echo "  AWS_DEFAULT_REGION     - AWS region (default: us-east-1)"
     echo ""
     echo "Examples:"
-    echo "  $0 --build                                    # Full Docker Compose testing"
-    echo "  AWS_ACCESS_KEY_ID=xxx $0 --logs               # With AWS credentials"
-    echo "  $0 --direct                                   # Direct testing (containers must be running)"
+    echo "  $0 --build                                    # Full Docker Compose testing (all suites)"
+    echo "  $0 apps --direct                              # Direct testing (apps suite only)"
+    echo "  AWS_ACCESS_KEY_ID=xxx $0 cron --logs          # With AWS credentials (cron suite)"
 }
 
 run_direct_tests() {
+    local test_suite="$1"
     echo "🧪 Running tests directly against existing Docker containers..."
     
     # Check if Dokku container is accessible
@@ -136,7 +145,6 @@ run_direct_tests() {
     log "SUCCESS" "DNS plugin installed and verified successfully"
     
     # Run modular test system
-    local test_suite="${DNS_TEST_MODULE:-all}"
     log "INFO" "Running test suite: $test_suite"
     
     # Copy all modular test files to container
@@ -146,11 +154,11 @@ run_direct_tests() {
     # Copy test modules
     local test_files=(
         "common.sh"
-        "core-commands.sh" 
-        "cron-functionality.sh"
-        "zones-management.sh"
-        "sync-operations.sh"
-        "error-handling.sh"
+        "apps-test.sh" 
+        "cron-test.sh"
+        "zones-test.sh"
+        "sync-all-test.sh"
+        "version-test.sh"
         "dns-integration-tests-modular.sh"
     )
     
@@ -176,6 +184,7 @@ run_direct_tests() {
 run_orchestrated_tests() {
     local build_flag="$1"
     local logs_flag="$2"
+    local test_suite="$3"
     local compose_file="tests/docker/docker-compose.yml"
     
     echo "🚀 Starting Docker-based Dokku DNS plugin tests..."
@@ -281,6 +290,7 @@ main() {
     local build_flag=""
     local logs_flag=""
     local direct_mode=false
+    local test_suite="all"
     
     # Parse arguments
     while [[ $# -gt 0 ]]; do
@@ -301,6 +311,10 @@ main() {
                 show_help
                 exit 0
                 ;;
+            all|apps|cron|zones|sync-all|version|apps-test|cron-test|zones-test|sync-all-test|version-test)
+                test_suite="$1"
+                shift
+                ;;
             *)
                 echo "Unknown option: $1"
                 echo "Use --help for usage information"
@@ -310,9 +324,9 @@ main() {
     done
     
     if [[ "$direct_mode" == "true" ]]; then
-        run_direct_tests
+        run_direct_tests "$test_suite"
     else
-        run_orchestrated_tests "$build_flag" "$logs_flag"
+        run_orchestrated_tests "$build_flag" "$logs_flag" "$test_suite"
     fi
 }
 

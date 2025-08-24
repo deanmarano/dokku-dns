@@ -124,27 +124,27 @@ test: lint unit-tests
 
 docker-test:
 	@echo "Running modular integration tests in Docker container..."
-	DNS_TEST_MODULE=all ./tests/integration/docker-orchestrator.sh --direct
+	./tests/integration/docker-orchestrator.sh all --direct
 
-docker-test-core:
-	@echo "Running core commands tests in Docker container..."
-	DNS_TEST_MODULE=core ./tests/integration/docker-orchestrator.sh --direct
+docker-test-apps:
+	@echo "Running apps subcommand tests in Docker container..."
+	./tests/integration/docker-orchestrator.sh apps --direct
 
 docker-test-cron:
-	@echo "Running cron functionality tests in Docker container..."
-	DNS_TEST_MODULE=cron ./tests/integration/docker-orchestrator.sh --direct
+	@echo "Running cron subcommand tests in Docker container..."
+	./tests/integration/docker-orchestrator.sh cron --direct
 
 docker-test-zones:
-	@echo "Running zones management tests in Docker container..."
-	DNS_TEST_MODULE=zones ./tests/integration/docker-orchestrator.sh --direct
+	@echo "Running zones subcommand tests in Docker container..."
+	./tests/integration/docker-orchestrator.sh zones --direct
 
-docker-test-sync:
-	@echo "Running sync operations tests in Docker container..."
-	DNS_TEST_MODULE=sync ./tests/integration/docker-orchestrator.sh --direct
+docker-test-sync-all:
+	@echo "Running sync-all subcommand tests in Docker container..."
+	./tests/integration/docker-orchestrator.sh sync-all --direct
 
-docker-test-errors:
-	@echo "Running error handling tests in Docker container..."
-	DNS_TEST_MODULE=errors ./tests/integration/docker-orchestrator.sh --direct
+docker-test-version:
+	@echo "Running version subcommand tests in Docker container..."
+	./tests/integration/docker-orchestrator.sh version --direct
 
 docker-test-clean:
 	@echo "Cleaning up Docker test environment..."

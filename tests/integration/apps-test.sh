@@ -8,8 +8,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-run_core_commands_tests() {
-    log_remote "INFO" "🧪 Starting Core Commands Tests"
+run_apps_tests() {
+    log_remote "INFO" "🧪 Starting Apps Subcommand Tests"
     
     reset_test_status
     
@@ -100,10 +100,10 @@ run_core_commands_tests() {
     cleanup_test_app "$MAIN_TEST_APP"
     
     if is_test_failed; then
-        log_remote "ERROR" "❌ Core Commands Tests: FAILED"
+        log_remote "ERROR" "❌ Apps Subcommand Tests: FAILED"
         return 1
     else
-        log_remote "SUCCESS" "✅ Core Commands Tests: PASSED"
+        log_remote "SUCCESS" "✅ Apps Subcommand Tests: PASSED"
         return 0
     fi
 }
@@ -111,5 +111,5 @@ run_core_commands_tests() {
 # Run tests if script is executed directly
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     load_report_assertions
-    run_core_commands_tests
+    run_apps_tests
 fi
