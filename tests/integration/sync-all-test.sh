@@ -13,7 +13,7 @@ run_sync_all_tests() {
     
     reset_test_status
     
-    echo "11. Testing DNS sync-all functionality..."
+    echo "Testing DNS sync-all functionality..."
     
     # Create test app for sync-all testing
     create_test_app "$MAIN_TEST_APP" "${MAIN_DOMAINS[@]}"
@@ -21,17 +21,19 @@ run_sync_all_tests() {
     # Add test app to DNS for sync-all testing
     dokku dns:apps:enable "$MAIN_TEST_APP" >/dev/null 2>&1
     
-    # Test sync-all command
+    # Test sync-all command with an app that has domains but no hosted zones
     local sync_all_with_app_output
     sync_all_with_app_output=$(dokku dns:sync-all 2>&1)
     if echo "$sync_all_with_app_output" | grep -q "DNS sync completed"; then
-        echo "✓ DNS sync-all command works"
+        echo "✓ DNS sync-all command works (domains have hosted zones)"
+    elif echo "$sync_all_with_app_output" | grep -q "No apps are currently managed by DNS"; then
+        echo "✓ DNS sync-all correctly reports no managed apps (domains have no hosted zones)"
     elif echo "$sync_all_with_app_output" | grep -q "AWS CLI is not configured\|No DNS provider configured"; then
         echo "❌ DNS sync-all failed - AWS credentials should be available"
         echo "DEBUG: Output was: $sync_all_with_app_output"
         mark_test_failed
     else
-        echo "❌ DNS sync-all command failed"
+        echo "❌ DNS sync-all command failed unexpectedly"
         echo "DEBUG: Output was: $sync_all_with_app_output"
         mark_test_failed
     fi

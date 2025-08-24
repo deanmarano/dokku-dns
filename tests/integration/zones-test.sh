@@ -13,7 +13,7 @@ run_zones_tests() {
     
     reset_test_status
     
-    echo "13. Testing zones functionality with report and sync..."
+    echo "Testing zones functionality with report and sync..."
     
     # Create a second test app for zones testing
     create_test_app "$ZONES_TEST_APP" "${ZONES_DOMAINS[@]}"

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# DNS Plugin Core Commands Integration Tests
-# Tests: help, providers:configure, providers:verify, apps:enable, apps:sync, apps:disable
+# DNS Plugin App Management Integration Tests
+# Tests: help, apps:enable, apps:sync, apps:disable, app reports
 
 set -euo pipefail
 
@@ -16,28 +16,22 @@ run_apps_tests() {
     # Create test app for core commands
     create_test_app "$MAIN_TEST_APP" "${MAIN_DOMAINS[@]}"
     
-    # Test 1: Basic commands
-    echo "1. Testing dns:help"
+    # Basic command testing
+    echo "Testing dns:help"
     dokku dns:help 2>&1 || echo "Help command completed"
     
-    echo "2. Testing dns:providers:configure"
-    dokku dns:providers:configure aws 2>&1 || echo "Configure command completed"
-    
-    echo "3. Testing dns:providers:verify"
-    dokku dns:providers:verify 2>&1 || echo "Verify command completed"
-    
-    # Test 4: DNS Add and verify in reports
-    echo "4. Testing dns:apps:enable"
+    # DNS Add and verify in reports
+    echo "Testing dns:apps:enable"
     dokku dns:apps:enable "$MAIN_TEST_APP" 2>&1 || echo "Add command completed"
     
-    # Test 5: Verify reports after add (comprehensive verification)
+    # Verify reports after add (comprehensive verification)
     if declare -f run_comprehensive_report_verification >/dev/null 2>&1; then
         if ! run_comprehensive_report_verification "after_add" "$MAIN_TEST_APP" "${MAIN_DOMAINS[@]}"; then
             mark_test_failed
         fi
     else
         # Fallback to basic verification
-        echo "5. Basic verification - app-specific report after add"
+        echo "Basic verification - app-specific report after add"
         if dokku dns:report "$MAIN_TEST_APP" 2>&1 | grep -q "DNS Status: Added"; then
             echo "✓ App-specific report shows DNS Status: Added"
         else
@@ -46,12 +40,12 @@ run_apps_tests() {
         fi
     fi
     
-    # Test 6: DNS Sync
-    echo "6. Testing dns:apps:sync"
+    # DNS Sync
+    echo "Testing dns:apps:sync"
     dokku dns:apps:sync "$MAIN_TEST_APP" 2>&1 || echo "Sync command completed"
     
-    # Test 7: Verify global report behavior based on hosted zones
-    echo "7. Testing global report after sync..."
+    # Verify global report behavior based on hosted zones
+    echo "Testing global report after sync..."
     local app_report
     app_report=$(dokku dns:report "$MAIN_TEST_APP" 2>&1)
     
@@ -73,18 +67,18 @@ run_apps_tests() {
         fi
     fi
     
-    # Test 8: DNS Remove
-    echo "8. Testing dns:apps:disable"
+    # DNS Remove
+    echo "Testing dns:apps:disable"
     dokku dns:apps:disable "$MAIN_TEST_APP" 2>&1 || echo "Remove command completed"
     
-    # Test 9: Verify reports after remove (comprehensive verification)
+    # Verify reports after remove (comprehensive verification)
     if declare -f run_comprehensive_report_verification >/dev/null 2>&1; then
         if ! run_comprehensive_report_verification "after_remove" "$MAIN_TEST_APP"; then
             mark_test_failed
         fi
     else
         # Fallback to basic verification
-        echo "9. Basic verification - reports after remove"
+        echo "Basic verification - reports after remove"
         if dokku dns:report "$MAIN_TEST_APP" 2>&1 | grep -q "DNS Status: Not added"; then
             echo "✓ App-specific report shows DNS Status: Not added"
         else

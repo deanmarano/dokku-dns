@@ -10,6 +10,8 @@ source "$SCRIPT_DIR/common.sh"
 
 # Load all test suite modules
 source "$SCRIPT_DIR/apps-test.sh"
+source "$SCRIPT_DIR/providers-test.sh"
+source "$SCRIPT_DIR/report-test.sh"
 source "$SCRIPT_DIR/cron-test.sh" 
 source "$SCRIPT_DIR/zones-test.sh"
 source "$SCRIPT_DIR/sync-all-test.sh"
@@ -23,6 +25,8 @@ usage() {
     echo "TEST_SUITE options:"
     echo "  all             Run all test suites (default)"
     echo "  apps            Run apps subcommand tests"
+    echo "  providers       Run providers subcommand tests"
+    echo "  report          Run report subcommand tests"
     echo "  cron            Run cron subcommand tests"
     echo "  zones           Run zones subcommand tests"
     echo "  sync-all        Run sync-all subcommand tests"
@@ -36,12 +40,16 @@ usage() {
     echo "Examples:"
     echo "  $0                    # Run all tests"
     echo "  $0 apps              # Run only apps subcommand tests"
+    echo "  $0 providers         # Run only providers subcommand tests"
+    echo "  $0 report            # Run only report subcommand tests"
     echo "  $0 cron              # Run only cron subcommand tests"
 }
 
 list_test_suites() {
     echo "Available test suites:"
-    echo "  ✅ apps-test          - Apps subcommand: help, enable, disable, sync, report"
+    echo "  ✅ apps-test          - Apps subcommand: help, enable, disable, sync"
+    echo "  ✅ providers-test     - Providers subcommand: configure, verify, AWS authentication"
+    echo "  ✅ report-test        - Report subcommand: global and app-specific reporting"
     echo "  ✅ cron-test          - Cron subcommand: status, enable, disable, schedules"
     echo "  ✅ zones-test         - Zones subcommand: listing, zone-aware reports and sync"
     echo "  ✅ sync-all-test      - Sync-all subcommand: bulk operations and functionality"
@@ -57,9 +65,6 @@ setup_test_environment() {
     # Setup AWS credentials
     setup_aws_credentials
     
-    # Load report assertion functions
-    load_report_assertions
-    
     log_remote "SUCCESS" "✅ Test environment setup complete"
 }
 
@@ -70,6 +75,12 @@ run_test_suite() {
     case "$suite" in
         "apps"|"apps-test")
             run_apps_tests || suite_result=1
+            ;;
+        "providers"|"providers-test")
+            run_providers_tests || suite_result=1
+            ;;
+        "report"|"report-test")
+            run_report_tests || suite_result=1
             ;;
         "cron"|"cron-test")
             run_cron_tests || suite_result=1
@@ -99,7 +110,7 @@ run_all_tests() {
     reset_test_counts
     
     local overall_result=0
-    local suites=("apps-test" "cron-test" "zones-test" "sync-all-test" "version-test")
+    local suites=("apps-test" "providers-test" "report-test" "cron-test" "zones-test" "sync-all-test" "version-test")
     local passed_suites=()
     local failed_suites=()
     
@@ -192,7 +203,7 @@ main() {
                 setup_only=true
                 shift
                 ;;
-            all|apps|cron|zones|sync-all|version|apps-test|cron-test|zones-test|sync-all-test|version-test)
+            all|apps|providers|report|cron|zones|sync-all|version|apps-test|providers-test|report-test|cron-test|zones-test|sync-all-test|version-test)
                 test_suite="$1"
                 shift
                 ;;

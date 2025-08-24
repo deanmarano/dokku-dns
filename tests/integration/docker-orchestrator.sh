@@ -10,6 +10,8 @@ show_help() {
     echo "TEST_SUITE options:"
     echo "  all             Run all test suites (default)"
     echo "  apps            Run apps subcommand tests"
+    echo "  providers       Run providers subcommand tests"
+    echo "  report          Run report subcommand tests"
     echo "  cron            Run cron subcommand tests"
     echo "  zones           Run zones subcommand tests"
     echo "  sync-all        Run sync-all subcommand tests"
@@ -86,9 +88,9 @@ run_direct_tests() {
     # Copy the assertion functions and integration test script
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-    log "INFO" "Copying report assertion functions to container..."
-    docker exec -i "$DOKKU_CONTAINER" bash -c "cat > /tmp/report-assertions.sh && chmod +x /tmp/report-assertions.sh" < "$SCRIPT_DIR/report-assertions.sh" || {
-        log "WARNING" "Failed to copy report assertions, falling back to basic verification"
+    log "INFO" "Copying test helper functions to container..."
+    docker exec -i "$DOKKU_CONTAINER" bash -c "cat > /tmp/test-helpers.sh && chmod +x /tmp/test-helpers.sh" < "$SCRIPT_DIR/test-helpers.sh" || {
+        log "WARNING" "Failed to copy test helper functions, falling back to basic verification"
     }
 
     log "INFO" "Installing DNS plugin in container..."
@@ -155,6 +157,8 @@ run_direct_tests() {
     local test_files=(
         "common.sh"
         "apps-test.sh"
+        "providers-test.sh"
+        "report-test.sh"
         "cron-test.sh"
         "zones-test.sh"
         "sync-all-test.sh"
@@ -311,7 +315,7 @@ main() {
                 show_help
                 exit 0
                 ;;
-            all|apps|cron|zones|sync-all|version|apps-test|cron-test|zones-test|sync-all-test|version-test)
+            all|apps|providers|report|cron|zones|sync-all|version|apps-test|providers-test|report-test|cron-test|zones-test|sync-all-test|version-test)
                 test_suite="$1"
                 shift
                 ;;

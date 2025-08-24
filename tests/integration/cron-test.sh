@@ -13,7 +13,7 @@ run_cron_tests() {
     
     reset_test_status
     
-    echo "10. Testing comprehensive DNS cron functionality..."
+    echo "Testing comprehensive DNS cron functionality..."
     
     # Ensure clean state - disable any existing cron job
     dokku dns:cron --disable >/dev/null 2>&1 || true
