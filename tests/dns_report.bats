@@ -115,6 +115,6 @@ teardown() {
   assert_success
   
   # Provider appears multiple times in output (header and table)
-  assert_output_contains "AWS" 1
+  assert_output_contains "AWS" 2
   assert_output_contains "DNS Status: Not added"
 }

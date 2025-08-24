@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Set test environment variable to disable sudo in commands
+# Set test environment variable for cleaner test logic
 export DNS_TEST_MODE=1
 
 # Mock sudo for unit tests to avoid authentication prompts
@@ -43,6 +43,40 @@ id() {
   fi
 }
 export -f id
+
+# Mock crontab command to avoid sudo issues in tests
+crontab() {
+  local mock_crontab_file="${TEST_TMP_DIR:-/tmp}/mock_crontab_state"
+  
+  # Handle different crontab operations
+  case "$1" in
+    "-l")
+      # List crontab - return mock state
+      cat "$mock_crontab_file" 2>/dev/null || echo ""
+      ;;
+    "-u")
+      # Handle -u user operations
+      if [[ "$2" == "dokku" ]]; then
+        case "$3" in
+          "-l")
+            # List dokku user crontab
+            cat "$mock_crontab_file" 2>/dev/null || echo ""
+            ;;
+          *)
+            # Install from stdin for dokku user
+            cat > "$mock_crontab_file"
+            ;;
+        esac
+      fi
+      ;;
+    *)
+      # Install from stdin
+      cat > "$mock_crontab_file"
+      ;;
+  esac
+  return 0
+}
+export -f crontab
 
 # Load test environment overrides for CI/local testing
 if [[ ! -d "/var/lib/dokku" ]] || [[ ! -w "/var/lib/dokku" ]]; then

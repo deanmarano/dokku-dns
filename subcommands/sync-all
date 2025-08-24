@@ -71,6 +71,7 @@ service-sync-all-cmd() {
   fi
   
   # Check if we can use batch sync for AWS
+  local PROVIDER="aws"
   if [[ "$PROVIDER" == "aws" ]]; then
     dokku_log_info2 "Using batch sync for AWS Route53 (more efficient)"
     

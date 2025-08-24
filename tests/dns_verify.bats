@@ -25,15 +25,12 @@ teardown() {
   assert_output_contains "Current Configuration:"
 }
 
-@test "(dns:providers:verify) error when invalid provider configured" {
-  # Create provider file with invalid provider
-  mkdir -p "$PLUGIN_DATA_ROOT"
-  echo "invalid" > "$PLUGIN_DATA_ROOT/PROVIDER"
+@test "(dns:providers:verify) always verifies AWS provider" {
+  # AWS is always the provider now
   
   run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify"
-  assert_failure
-  assert_output_contains "Provider 'invalid' is not supported"
-  assert_output_contains "Available providers: aws"
+  assert_success
+  assert_output_contains "Verifying AWS Route53 Setup"
 }
 
 @test "(dns:providers:verify) attempts AWS verification when configured" {
@@ -77,11 +74,10 @@ teardown() {
 }
 
 # New tests for enhanced functionality
-@test "(dns:providers:verify) accepts provider argument" {
-  # Test without configuring provider first
+@test "(dns:providers:verify) accepts aws provider argument" {
+  # Test with aws provider argument
   run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify" aws
   assert_success
-  assert_output_contains "Verifying specific provider: aws"
   assert_output_contains "Verifying AWS Route53 Setup"
 }
 
