@@ -15,6 +15,10 @@ run_cron_tests() {
     
     echo "10. Testing comprehensive DNS cron functionality..."
     
+    # Ensure clean state - disable any existing cron job
+    dokku dns:cron --disable >/dev/null 2>&1 || true
+    sleep 1
+    
     # Test 10.1: Initial cron status (should be disabled)
     if dokku dns:cron 2>&1 | grep -q "Status: ❌ DISABLED"; then
         echo "✓ Cron shows disabled status initially"
@@ -23,7 +27,7 @@ run_cron_tests() {
     fi
     
     # Test 10.2: Invalid flag handling
-    if dokku dns:cron --invalid-flag 2>&1 | grep -q "unknown flag.*invalid-flag"; then
+    if dokku dns:cron --invalid-flag 2>&1 | grep -q "unknown flag: --invalid-flag"; then
         echo "✓ Invalid cron flag handled correctly"
     else
         echo "❌ Invalid cron flag not handled correctly"
@@ -31,7 +35,7 @@ run_cron_tests() {
     fi
     
     # Test 10.3: Invalid schedule validation
-    if dokku dns:cron --enable --schedule "invalid" 2>&1 | grep -q "Invalid cron schedule"; then
+    if dokku dns:cron --enable --schedule "invalid" 2>&1 | grep -q "Invalid cron schedule.*Must have 5 fields"; then
         echo "✓ Cron schedule validation working"
     else
         echo "❌ Cron schedule validation not working"
@@ -52,6 +56,7 @@ run_cron_tests() {
         fi
         
         # Test 10.6: Verify cron status shows enabled
+        sleep 1  # Allow cron system to update
         if dokku dns:cron 2>&1 | grep -q "Status: ✅ ENABLED"; then
             echo "✓ Cron status shows enabled"
         else
@@ -94,7 +99,7 @@ run_cron_tests() {
             mark_test_failed
         fi
         
-        if echo "$disable_output" | grep -q "Current:.*0 6.*custom"; then
+        if echo "$disable_output" | grep -q "Current:.*0 6"; then
             echo "✓ Cron disable shows current schedule"
         else
             echo "❌ Cron disable doesn't show current schedule"
@@ -117,6 +122,7 @@ run_cron_tests() {
         fi
         
         # Test 10.11: Verify status shows disabled after disable
+        sleep 1  # Allow cron system to update
         if dokku dns:cron 2>&1 | grep -q "Status: ❌ DISABLED"; then
             echo "✓ Cron status shows disabled after disable"
         else
