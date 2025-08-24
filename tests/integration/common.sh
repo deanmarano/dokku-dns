@@ -119,6 +119,9 @@ run_integration_test() {
 
 # Test result tracking
 TEST_FAILED=false
+TOTAL_TESTS=0
+PASSED_TESTS=0
+FAILED_TESTS=0
 
 mark_test_failed() {
     TEST_FAILED=true
@@ -130,6 +133,53 @@ is_test_failed() {
 
 reset_test_status() {
     TEST_FAILED=false
+}
+
+# Individual test counting
+increment_test_count() {
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+}
+
+increment_passed_count() {
+    PASSED_TESTS=$((PASSED_TESTS + 1))
+    increment_test_count
+}
+
+increment_failed_count() {
+    FAILED_TESTS=$((FAILED_TESTS + 1))
+    increment_test_count
+}
+
+get_test_counts() {
+    echo "Total: $TOTAL_TESTS | Passed: $PASSED_TESTS | Failed: $FAILED_TESTS"
+}
+
+reset_test_counts() {
+    TOTAL_TESTS=0
+    PASSED_TESTS=0
+    FAILED_TESTS=0
+}
+
+# Helper function to print test results and count them
+test_result() {
+    local status="$1"  # "pass", "fail", or "skip"
+    local message="$2"
+    
+    case "$status" in
+        "pass")
+            echo "✓ $message"
+            increment_passed_count
+            ;;
+        "fail")
+            echo "❌ $message"
+            increment_failed_count
+            mark_test_failed
+            ;;
+        "skip")
+            echo "⚠️ $message"
+            increment_test_count
+            ;;
+    esac
 }
 
 # Common test app names (only set if not already defined)
@@ -154,3 +204,9 @@ export -f run_integration_test
 export -f mark_test_failed
 export -f is_test_failed
 export -f reset_test_status
+export -f increment_test_count
+export -f increment_passed_count
+export -f increment_failed_count
+export -f get_test_counts
+export -f reset_test_counts
+export -f test_result

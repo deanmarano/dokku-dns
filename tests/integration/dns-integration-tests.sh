@@ -95,6 +95,9 @@ run_test_suite() {
 run_all_tests() {
     log_remote "INFO" "🧪 Running All DNS Plugin Integration Test Suites"
     
+    # Reset test counts
+    reset_test_counts
+    
     local overall_result=0
     local suites=("apps-test" "cron-test" "zones-test" "sync-all-test" "version-test")
     local passed_suites=()
@@ -104,12 +107,29 @@ run_all_tests() {
         echo ""
         log_remote "INFO" "📋 Starting test suite: $suite"
         
-        if run_test_suite "$suite"; then
+        # Capture test output and count individual tests
+        local suite_output
+        suite_output=$(run_test_suite "$suite" 2>&1)
+        local suite_result=$?
+        
+        # Count individual tests from output
+        local passed_count=$(echo "$suite_output" | grep -c "✓")
+        local failed_count=$(echo "$suite_output" | grep -c "❌")
+        
+        # Update global counters
+        PASSED_TESTS=$((PASSED_TESTS + passed_count))
+        FAILED_TESTS=$((FAILED_TESTS + failed_count))
+        TOTAL_TESTS=$((TOTAL_TESTS + passed_count + failed_count))
+        
+        # Print the captured output
+        echo "$suite_output"
+        
+        if [[ $suite_result -eq 0 ]]; then
             passed_suites+=("$suite")
-            log_remote "SUCCESS" "✅ Test suite '$suite' PASSED"
+            log_remote "SUCCESS" "✅ Test suite '$suite' PASSED ($passed_count✓ $failed_count❌)"
         else
             failed_suites+=("$suite")
-            log_remote "ERROR" "❌ Test suite '$suite' FAILED"
+            log_remote "ERROR" "❌ Test suite '$suite' FAILED ($passed_count✓ $failed_count❌)"
             overall_result=1
         fi
     done
@@ -117,8 +137,11 @@ run_all_tests() {
     # Print summary
     echo ""
     echo "===================================="
-    echo "📊 Test Results Summary"
+    echo "📊 Individual Test Results Summary"
     echo "===================================="
+    echo "Total: $TOTAL_TESTS | Passed: $PASSED_TESTS | Failed: $FAILED_TESTS"
+    echo ""
+    echo "Test Suite Results:"
     echo "Total test suites: ${#suites[@]}"
     echo "✅ Passed: ${#passed_suites[@]}"
     echo "❌ Failed: ${#failed_suites[@]}"
