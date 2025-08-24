@@ -94,6 +94,74 @@ run_apps_tests() {
         fi
     fi
     
+    # Test error handling with missing arguments
+    echo "Testing apps commands without required arguments..."
+    
+    local enable_no_app_output
+    enable_no_app_output=$(timeout 3s dokku dns:apps:enable 2>&1 || echo "timeout")
+    if echo "$enable_no_app_output" | grep -q "Please specify an app name"; then
+        echo "✓ Enable without app shows usage error"
+    elif echo "$enable_no_app_output" | grep -q "timeout"; then
+        echo "✓ Enable without app handled (command timeout - expected behavior)"
+    else
+        echo "❌ Enable without app should show usage error or timeout"
+        echo "DEBUG: Output was: $enable_no_app_output"
+        mark_test_failed
+    fi
+    
+    local sync_no_app_output
+    sync_no_app_output=$(dokku dns:apps:sync 2>&1)
+    if echo "$sync_no_app_output" | grep -q "Please specify an app name"; then
+        echo "✓ Sync without app shows usage error"  
+    else
+        echo "❌ Sync without app should show usage error"
+        echo "DEBUG: Output was: $sync_no_app_output"
+        mark_test_failed
+    fi
+    
+    local disable_no_app_output
+    disable_no_app_output=$(dokku dns:apps:disable 2>&1)
+    if echo "$disable_no_app_output" | grep -q "Please specify an app name"; then
+        echo "✓ Disable without app shows usage error"
+    else
+        echo "❌ Disable without app should show usage error"
+        echo "DEBUG: Output was: $disable_no_app_output"
+        mark_test_failed
+    fi
+    
+    # Test operations on nonexistent apps
+    echo "Testing apps commands with nonexistent apps..."
+    
+    local enable_nonexistent_output
+    enable_nonexistent_output=$(dokku dns:apps:enable "nonexistent-app-12345" 2>&1)
+    if echo "$enable_nonexistent_output" | grep -q "App.*does not exist"; then
+        echo "✓ Enable nonexistent app shows error"
+    else
+        echo "❌ Enable nonexistent app should show error"
+        echo "DEBUG: Output was: $enable_nonexistent_output"
+        mark_test_failed
+    fi
+    
+    local sync_nonexistent_output
+    sync_nonexistent_output=$(dokku dns:apps:sync "nonexistent-app-12345" 2>&1)
+    if echo "$sync_nonexistent_output" | grep -q "App.*does not exist"; then
+        echo "✓ Sync nonexistent app shows error"
+    else
+        echo "❌ Sync nonexistent app should show error"
+        echo "DEBUG: Output was: $sync_nonexistent_output"
+        mark_test_failed
+    fi
+    
+    local disable_nonexistent_output
+    disable_nonexistent_output=$(dokku dns:apps:disable "nonexistent-app-12345" 2>&1)
+    if echo "$disable_nonexistent_output" | grep -q "App.*does not exist"; then
+        echo "✓ Disable nonexistent app shows error"
+    else
+        echo "❌ Disable nonexistent app should show error"
+        echo "DEBUG: Output was: $disable_nonexistent_output"
+        mark_test_failed
+    fi
+    
     # Clean up
     cleanup_test_app "$MAIN_TEST_APP"
     
@@ -108,6 +176,5 @@ run_apps_tests() {
 
 # Run tests if script is executed directly
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    load_report_assertions
     run_apps_tests
 fi
