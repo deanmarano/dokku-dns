@@ -1,26 +1,15 @@
 #!/usr/bin/env bash
 
-# Set test environment variable for cleaner test logic
-export DNS_TEST_MODE=1
-
-# Mock sudo for unit tests to avoid authentication prompts
+# Mock sudo for unit tests to avoid authentication prompts and force fallback to regular crontab
 sudo() {
   if [[ "$1" == "-u" && "$2" == "dokku" ]]; then
     shift 2  # Remove -u dokku
     if [[ "$1" == "true" ]]; then
-      # Always succeed for sudo -u dokku true (permission test)
-      return 0
+      # Fail permission test to force fallback to regular crontab
+      return 1
     elif [[ "$1" == "crontab" ]]; then
-      # Mock crontab operations for dokku user
-      shift 1  # Remove crontab
-      if [[ "$1" == "-l" ]]; then
-        # Mock listing crontab - return empty or fake entry
-        echo "# Mock crontab for dokku user"
-        return 0
-      else
-        # For other crontab operations, just succeed
-        return 0
-      fi
+      # Fail crontab test to force fallback to regular crontab
+      return 1
     else
       # For other dokku user commands, execute directly
       "$@"

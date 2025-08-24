@@ -77,7 +77,7 @@ unit-tests:
 	@if command -v bats >/dev/null 2>&1; then \
 		echo "Running bats unit tests..."; \
 		set -e; \
-		if ! DNS_TEST_MODE=1 bats tests/*.bats; then \
+		if ! bats tests/*.bats; then \
 			echo "❌ Unit tests failed"; \
 			echo "💡 Tip: For integration tests, use: make docker-test"; \
 			exit 1; \
