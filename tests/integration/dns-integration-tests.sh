@@ -74,25 +74,60 @@ run_test_suite() {
     
     case "$suite" in
         "apps"|"apps-test")
-            run_apps_tests || suite_result=1
+            if declare -f run_apps_tests >/dev/null; then
+                run_apps_tests || suite_result=1
+            else
+                echo "❌ Function run_apps_tests not found"
+                return 1
+            fi
             ;;
         "providers"|"providers-test")
-            run_providers_tests || suite_result=1
+            if declare -f run_providers_tests >/dev/null; then
+                run_providers_tests || suite_result=1
+            else
+                echo "❌ Function run_providers_tests not found"
+                return 1
+            fi
             ;;
         "report"|"report-test")
-            run_report_tests || suite_result=1
+            if declare -f run_report_tests >/dev/null; then
+                run_report_tests || suite_result=1
+            else
+                echo "❌ Function run_report_tests not found"
+                return 1
+            fi
             ;;
         "cron"|"cron-test")
-            run_cron_tests || suite_result=1
+            if declare -f run_cron_tests >/dev/null; then
+                run_cron_tests || suite_result=1
+            else
+                echo "❌ Function run_cron_tests not found"
+                return 1
+            fi
             ;;
         "zones"|"zones-test")
-            run_zones_tests || suite_result=1
+            if declare -f run_zones_tests >/dev/null; then
+                run_zones_tests || suite_result=1
+            else
+                echo "❌ Function run_zones_tests not found"
+                return 1
+            fi
             ;;
         "sync-all"|"sync-all-test")
-            run_sync_all_tests || suite_result=1
+            if declare -f run_sync_all_tests >/dev/null; then
+                run_sync_all_tests || suite_result=1
+            else
+                echo "❌ Function run_sync_all_tests not found"
+                return 1
+            fi
             ;;
         "version"|"version-test")
-            run_version_tests || suite_result=1
+            if declare -f run_version_tests >/dev/null; then
+                run_version_tests || suite_result=1
+            else
+                echo "❌ Function run_version_tests not found"
+                return 1
+            fi
             ;;
         *)
             echo "❌ Unknown test suite: $suite"
@@ -118,16 +153,38 @@ run_all_tests() {
         echo ""
         log_remote "INFO" "📋 Starting test suite: $suite"
         
-        # Capture test output and count individual tests
+        # Capture test output and count individual tests with better error handling
         local suite_output
-        suite_output=$(run_test_suite "$suite" 2>&1)
-        local suite_result=$?
+        local suite_result=0
         
-        # Count individual tests from output
-        local passed_count
-        local failed_count
-        passed_count=$(echo "$suite_output" | grep -c "✓")
-        failed_count=$(echo "$suite_output" | grep -c "❌")
+        # Run with error handling
+        set +e  # Don't exit on error
+        suite_output=$(run_test_suite "$suite" 2>&1) || suite_result=$?
+        set -e
+        
+        # If no output was captured (likely due to early failure), add error info
+        if [[ -z "$suite_output" ]]; then
+            suite_output="❌ Test suite '$suite' failed to execute - no output captured"
+            suite_result=1
+        fi
+        
+        # Count individual tests from output  
+        local passed_count=0
+        local failed_count=0
+        
+        # Count with safer error handling
+        if echo "$suite_output" | grep -q "✓"; then
+            passed_count=$(echo "$suite_output" | grep -c "✓")
+        fi
+        
+        if echo "$suite_output" | grep -q "❌"; then
+            failed_count=$(echo "$suite_output" | grep -c "❌")
+        fi
+        
+        # If no test symbols found but suite failed, count as 1 failure
+        if [[ $passed_count -eq 0 ]] && [[ $failed_count -eq 0 ]] && [[ $suite_result -ne 0 ]]; then
+            failed_count=1
+        fi
         
         # Update global counters
         PASSED_TESTS=$((PASSED_TESTS + passed_count))

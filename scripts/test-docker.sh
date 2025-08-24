@@ -42,4 +42,4 @@ else
     echo "📝 Full log available at: $LOG_FILE"
 fi
 
-exit $EXIT_CODE
+exit "$EXIT_CODE"
