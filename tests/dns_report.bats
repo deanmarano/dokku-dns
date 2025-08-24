@@ -60,9 +60,9 @@ teardown() {
   run dokku "$PLUGIN_COMMAND_PREFIX:report" my-app
   assert_success
   assert_output_contains "DNS Provider: AWS"
-  assert_output_contains "Configuration Status: Missing auth"
+  assert_output_contains "Configuration Status: Not configured"
   assert_output_contains "DNS Status: Not added"
-  assert_output_contains "Verify AWS setup: dokku dns:providers:verify"
+  assert_output_contains "Set up AWS credentials: dokku dns:providers:verify"
 }
 
 @test "(dns:report) global report handles no apps gracefully" {
@@ -115,6 +115,6 @@ teardown() {
   assert_success
   
   # Provider appears multiple times in output (header and table)
-  assert_output_contains "aws" 2
+  assert_output_contains "AWS" 1
   assert_output_contains "DNS Status: Not added"
 }

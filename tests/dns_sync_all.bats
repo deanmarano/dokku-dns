@@ -78,6 +78,7 @@ teardown() {
   dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1
   
   # Manually add a non-existent app to LINKS file to simulate an app that was deleted
+  mkdir -p "$PLUGIN_DATA_ROOT"
   echo "nonexistent-app" >> "$PLUGIN_DATA_ROOT/LINKS"
   
   run dokku "$PLUGIN_COMMAND_PREFIX:sync-all"
@@ -101,6 +102,7 @@ teardown() {
   dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" working-app >/dev/null 2>&1
   
   # Add non-existent app to simulate failure
+  mkdir -p "$PLUGIN_DATA_ROOT"
   echo "missing-app" >> "$PLUGIN_DATA_ROOT/LINKS"
   
   run dokku "$PLUGIN_COMMAND_PREFIX:sync-all"
