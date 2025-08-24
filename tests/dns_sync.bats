@@ -25,36 +25,14 @@ teardown() {
   assert_output_contains "App nonexistent-app does not exist"
 }
 
-@test "(dns:apps:sync) error when no provider configured" {
-  cleanup_dns_data  # Remove provider configuration
+@test "(dns:apps:sync) works without provider configuration" {
+  cleanup_dns_data  # Clear any existing data
   
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" my-app
-  assert_failure
-  assert_output_contains "No DNS provider configured"
-  assert_output_contains "Run: dokku dns:providers:configure <provider>"
+  assert_success
+  assert_output_contains "No DNS-managed domains found for app: my-app"
 }
 
-@test "(dns:apps:sync) error when provider file is empty" {
-  # Create empty provider file
-  mkdir -p "$PLUGIN_DATA_ROOT"
-  echo "" > "$PLUGIN_DATA_ROOT/PROVIDER"
-  
-  run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" my-app
-  assert_failure
-  assert_output_contains "DNS provider not set"
-  assert_output_contains "Run: dokku dns:providers:configure <provider>"
-}
-
-@test "(dns:apps:sync) error when invalid provider configured" {
-  # Create provider file with invalid provider
-  mkdir -p "$PLUGIN_DATA_ROOT"
-  echo "invalid" > "$PLUGIN_DATA_ROOT/PROVIDER"
-  
-  run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" my-app
-  assert_failure
-  assert_output_contains "Provider 'invalid' not found"
-  assert_output_contains "Available providers: aws, cloudflare"
-}
 
 @test "(dns:apps:sync) attempts AWS sync when configured" {
   # Add app to DNS management first

@@ -120,6 +120,12 @@ calculate_next_cron_run() {
 
 # Helper functions for crontab management
 get_crontab_cmd() {
+  # In test mode, use regular crontab to avoid sudo issues
+  if [[ "${DNS_TEST_MODE:-}" == "1" ]]; then
+    echo "crontab"
+    return 0
+  fi
+  
   # Determine the appropriate crontab command based on current user and system
   local current_user
   current_user=$(id -un)
@@ -134,8 +140,8 @@ get_crontab_cmd() {
     echo "crontab"
     return 0
   else
-    # Other user contexts - try sudo to dokku user only if not root
-    if command -v sudo >/dev/null 2>&1 && id -u dokku >/dev/null 2>&1 && sudo -u dokku true >/dev/null 2>&1 && sudo -u dokku crontab -l >/dev/null 2>&1; then
+    # Other user contexts - try sudo to dokku user only if not root and not in test mode
+    if [[ "${DNS_TEST_MODE:-}" != "1" ]] && command -v sudo >/dev/null 2>&1 && id -u dokku >/dev/null 2>&1 && sudo -u dokku true >/dev/null 2>&1 && sudo -u dokku crontab -l >/dev/null 2>&1; then
       echo "sudo -u dokku crontab"
       return 0
     fi

@@ -67,7 +67,8 @@
       "Bash(./test_helper.bash)",
       "Bash(dns_cmd cron:*)",
       "Bash(docker rm:*)",
-      "Bash(./scripts/test-docker.sh:*)"
+      "Bash(./scripts/test-docker.sh:*)",
+      "Bash(DNS_TEST_MODE=1 bats tests/*.bats)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

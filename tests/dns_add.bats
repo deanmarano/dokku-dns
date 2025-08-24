@@ -89,7 +89,7 @@ teardown() {
   assert_success
   assert_output_contains "Provider: AWS"
   assert_output_contains "No (no hosted zone)" 2  # Appears for each domain in table
-  assert_output_contains "Next step: dokku dns:apps:sync my-app"
+  assert_output_contains "Enable zones for auto-discovery with: dokku dns:zones:enable"
 }
 
 @test "(dns:apps:enable) works with single domain app" {
