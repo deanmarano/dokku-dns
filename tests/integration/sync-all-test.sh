@@ -22,10 +22,18 @@ run_sync_all_tests() {
     dokku dns:apps:enable "$MAIN_TEST_APP" >/dev/null 2>&1
     
     # Test sync-all command
-    if dokku dns:sync-all 2>&1 | grep -q "DNS sync completed"; then
+    local sync_all_with_app_output
+    sync_all_with_app_output=$(dokku dns:sync-all 2>&1)
+    if echo "$sync_all_with_app_output" | grep -q "DNS sync completed"; then
         echo "✓ DNS sync-all command works"
+    elif echo "$sync_all_with_app_output" | grep -q "AWS CLI is not configured\|No DNS provider configured"; then
+        echo "❌ DNS sync-all failed - AWS credentials should be available"
+        echo "DEBUG: Output was: $sync_all_with_app_output"
+        mark_test_failed
     else
-        echo "⚠️ DNS sync-all command test inconclusive (may require DNS credentials)"
+        echo "❌ DNS sync-all command failed"
+        echo "DEBUG: Output was: $sync_all_with_app_output"
+        mark_test_failed
     fi
     
     # Test sync-all with no DNS-managed apps

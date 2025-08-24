@@ -25,7 +25,10 @@ run_cron_tests() {
     if echo "$initial_status_output" | grep -q "Status: ❌ DISABLED"; then
         echo "✓ Cron shows disabled status initially"
     else
-        echo "⚠️ Cron initial status test inconclusive"
+        echo "❌ Cron should show disabled status initially"
+        echo "DEBUG: Initial status output was:"
+        echo "$initial_status_output"
+        mark_test_failed
     fi
     
     # Test 10.2: Invalid flag handling
@@ -73,10 +76,15 @@ run_cron_tests() {
         fi
         
         # Test 10.7: Test cron update (enable when already enabled)
-        if dokku dns:cron --enable 2>&1 | grep -q "Updating DNS Cron Job"; then
+        local cron_update_output
+        cron_update_output=$(dokku dns:cron --enable 2>&1)
+        if echo "$cron_update_output" | grep -q "Updating DNS Cron Job"; then
             echo "✓ Cron update shows correct message"
         else
-            echo "⚠️ Cron update message test inconclusive"
+            echo "❌ Cron update should show 'Updating DNS Cron Job' message"
+            echo "DEBUG: Update output was:"
+            echo "$cron_update_output"
+            mark_test_failed
         fi
         
         # Test 10.8: Test custom schedule

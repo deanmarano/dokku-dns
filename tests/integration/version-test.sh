@@ -16,50 +16,78 @@ run_version_tests() {
     echo "14. Testing edge cases and error handling..."
     
     # Test commands without required arguments
-    if dokku dns:apps:enable 2>&1 | grep -q "Please specify an app name"; then
+    local enable_no_app_output
+    enable_no_app_output=$(dokku dns:apps:enable 2>&1)
+    if echo "$enable_no_app_output" | grep -q "Please specify an app name"; then
         echo "✓ Add without app shows usage error"
     else
-        echo "⚠️ Add usage error handling test inconclusive"
+        echo "❌ Add without app should show usage error"
+        echo "DEBUG: Output was: $enable_no_app_output"
+        mark_test_failed
     fi
     
-    if dokku dns:apps:sync 2>&1 | grep -q "Please specify an app name"; then
+    local sync_no_app_output
+    sync_no_app_output=$(dokku dns:apps:sync 2>&1)
+    if echo "$sync_no_app_output" | grep -q "Please specify an app name"; then
         echo "✓ Sync without app shows usage error"  
     else
-        echo "⚠️ Sync usage error handling test inconclusive"
+        echo "❌ Sync without app should show usage error"
+        echo "DEBUG: Output was: $sync_no_app_output"
+        mark_test_failed
     fi
     
-    if dokku dns:apps:disable 2>&1 | grep -q "Please specify an app name"; then
+    local disable_no_app_output
+    disable_no_app_output=$(dokku dns:apps:disable 2>&1)
+    if echo "$disable_no_app_output" | grep -q "Please specify an app name"; then
         echo "✓ Remove without app shows usage error"
     else
-        echo "⚠️ Remove usage error handling test inconclusive"
+        echo "❌ Remove without app should show usage error"
+        echo "DEBUG: Output was: $disable_no_app_output"
+        mark_test_failed
     fi
     
     # Test operations on nonexistent apps
-    if dokku dns:apps:enable "nonexistent-app-12345" 2>&1 | grep -q "App does not exist"; then
+    local enable_nonexistent_output
+    enable_nonexistent_output=$(dokku dns:apps:enable "nonexistent-app-12345" 2>&1)
+    if echo "$enable_nonexistent_output" | grep -q "App does not exist"; then
         echo "✓ Add nonexistent app shows error"
     else
-        echo "⚠️ Add nonexistent app error handling test inconclusive"
+        echo "❌ Add nonexistent app should show error"
+        echo "DEBUG: Output was: $enable_nonexistent_output"
+        mark_test_failed
     fi
     
-    if dokku dns:apps:sync "nonexistent-app-12345" 2>&1 | grep -q "App.*does not exist"; then
+    local sync_nonexistent_output
+    sync_nonexistent_output=$(dokku dns:apps:sync "nonexistent-app-12345" 2>&1)
+    if echo "$sync_nonexistent_output" | grep -q "App.*does not exist"; then
         echo "✓ Sync nonexistent app shows error"
     else
-        echo "⚠️ Sync nonexistent app error handling test inconclusive"
+        echo "❌ Sync nonexistent app should show error"
+        echo "DEBUG: Output was: $sync_nonexistent_output"
+        mark_test_failed
     fi
     
-    if dokku dns:apps:disable "nonexistent-app-12345" 2>&1 | grep -q "App.*does not exist"; then
+    local disable_nonexistent_output
+    disable_nonexistent_output=$(dokku dns:apps:disable "nonexistent-app-12345" 2>&1)
+    if echo "$disable_nonexistent_output" | grep -q "App.*does not exist"; then
         echo "✓ Remove nonexistent app shows error"
     else
-        echo "⚠️ Remove nonexistent app error handling test inconclusive"
+        echo "❌ Remove nonexistent app should show error"
+        echo "DEBUG: Output was: $disable_nonexistent_output"
+        mark_test_failed
     fi
     
     # Test provider configuration edge cases
     echo "Testing provider configuration edge cases..."
     
-    if dokku dns:providers:configure "invalid-provider" 2>&1 | grep -q "Invalid provider"; then
+    local invalid_provider_output
+    invalid_provider_output=$(dokku dns:providers:configure "invalid-provider" 2>&1)
+    if echo "$invalid_provider_output" | grep -q "Invalid provider"; then
         echo "✓ Invalid provider shows error"
     else
-        echo "⚠️ Invalid provider error handling test inconclusive"
+        echo "❌ Invalid provider should show error"
+        echo "DEBUG: Output was: $invalid_provider_output"
+        mark_test_failed
     fi
     
     # Test version and help commands

@@ -1,12 +1,12 @@
 #!/bin/bash
 # Initialize cron for DNS plugin testing
 
-echo "Installing and starting cron for DNS plugin testing..."
+echo "Installing cron and AWS CLI for DNS plugin testing..."
 
-# Install cron
+# Install cron and AWS CLI
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y cron
+apt-get install -y cron awscli
 
 # Start cron service
 service cron start
@@ -22,4 +22,13 @@ else
     exit 1
 fi
 
-echo "Cron initialization completed"
+# Verify AWS CLI is available
+if command -v aws >/dev/null 2>&1; then
+    echo "✅ AWS CLI installed successfully"
+    aws --version
+else
+    echo "❌ Failed to install AWS CLI"
+    exit 1
+fi
+
+echo "Cron and AWS CLI initialization completed"

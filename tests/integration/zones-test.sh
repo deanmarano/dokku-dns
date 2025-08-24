@@ -21,12 +21,19 @@ run_zones_tests() {
     # Disable DNS management for this app to test non-DNS-managed behavior
     dokku dns:apps:disable "$ZONES_TEST_APP" >/dev/null 2>&1
     
-    # Test zones functionality (without AWS CLI this should show errors gracefully)
+    # Test zones functionality (should work with AWS CLI configured)
     echo "Testing zones listing..."
-    if dokku dns:zones 2>&1 | grep -q "AWS CLI is not configured"; then
-        echo "✓ Zones shows AWS CLI requirement when not configured"
+    local zones_output
+    zones_output=$(dokku dns:zones 2>&1)
+    if echo "$zones_output" | grep -q "AWS CLI is not configured"; then
+        echo "❌ AWS CLI not configured - credentials should be available"
+        mark_test_failed
+    elif echo "$zones_output" | grep -qE "(No hosted zones found|Found [0-9]+ hosted zone|DNS Zones Status|DISABLED.*available)"; then
+        echo "✓ Zones command works with AWS CLI configured"
     else
-        echo "⚠️ Zones command test inconclusive (AWS CLI may be available)"
+        echo "❌ Zones command failed unexpectedly"
+        echo "DEBUG: Output was: $zones_output"
+        mark_test_failed
     fi
     
     # Test report shows domains even when not added to DNS but zones could be enabled
@@ -60,10 +67,13 @@ run_zones_tests() {
     local zones_sync_output
     zones_sync_output=$(dokku dns:apps:sync "$ZONES_TEST_APP" 2>&1)
     
-    if echo "$zones_sync_output" | grep -q "No DNS provider configured\|App.*not found in DNS management\|not managed by DNS"; then
+    if echo "$zones_sync_output" | grep -q "No DNS provider configured\|App.*not found in DNS management\|not managed by DNS\|No DNS-managed domains found"; then
         echo "✓ Sync shows appropriate message for non-DNS-managed app"
     else
-        echo "⚠️ Sync behavior test inconclusive (may depend on provider configuration)"
+        echo "❌ Sync should show appropriate message for non-DNS-managed app"
+        echo "DEBUG: Actual sync output was:"
+        echo "$zones_sync_output"
+        mark_test_failed
     fi
     
     # Clean up zones test app
