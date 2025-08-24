@@ -72,7 +72,9 @@ run_version_tests() {
         mark_test_failed
     fi
     
-    if dokku dns:help 2>&1 | grep -q "dns:cron"; then
+    local help_output
+    help_output=$(dokku dns:help 2>&1)
+    if echo "$help_output" | grep -q "dns:cron"; then
         echo "✓ Help shows cron command"
     else
         echo "❌ Help doesn't show cron command"

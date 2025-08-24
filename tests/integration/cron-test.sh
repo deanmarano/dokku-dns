@@ -20,14 +20,18 @@ run_cron_tests() {
     sleep 1
     
     # Test 10.1: Initial cron status (should be disabled)
-    if dokku dns:cron 2>&1 | grep -q "Status: ❌ DISABLED"; then
+    local initial_status_output
+    initial_status_output=$(dokku dns:cron 2>&1)
+    if echo "$initial_status_output" | grep -q "Status: ❌ DISABLED"; then
         echo "✓ Cron shows disabled status initially"
     else
         echo "⚠️ Cron initial status test inconclusive"
     fi
     
     # Test 10.2: Invalid flag handling
-    if dokku dns:cron --invalid-flag 2>&1 | grep -q "unknown flag: --invalid-flag"; then
+    local invalid_flag_output
+    invalid_flag_output=$(dokku dns:cron --invalid-flag 2>&1 || true)
+    if echo "$invalid_flag_output" | grep -q "unknown flag: --invalid-flag"; then
         echo "✓ Invalid cron flag handled correctly"
     else
         echo "❌ Invalid cron flag not handled correctly"
@@ -35,7 +39,9 @@ run_cron_tests() {
     fi
     
     # Test 10.3: Invalid schedule validation
-    if dokku dns:cron --enable --schedule "invalid" 2>&1 | grep -q "Invalid cron schedule.*Must have 5 fields"; then
+    local invalid_schedule_output
+    invalid_schedule_output=$(dokku dns:cron --enable --schedule "invalid" 2>&1 || true)
+    if echo "$invalid_schedule_output" | grep -q "Invalid cron schedule.*Must have 5 fields"; then
         echo "✓ Cron schedule validation working"
     else
         echo "❌ Cron schedule validation not working"
@@ -57,7 +63,9 @@ run_cron_tests() {
         
         # Test 10.6: Verify cron status shows enabled
         sleep 1  # Allow cron system to update
-        if dokku dns:cron 2>&1 | grep -q "Status: ✅ ENABLED"; then
+        local enabled_status_output
+        enabled_status_output=$(dokku dns:cron 2>&1)
+        if echo "$enabled_status_output" | grep -q "Status: ✅ ENABLED"; then
             echo "✓ Cron status shows enabled"
         else
             echo "❌ Cron status not showing enabled"
@@ -123,7 +131,9 @@ run_cron_tests() {
         
         # Test 10.11: Verify status shows disabled after disable
         sleep 1  # Allow cron system to update
-        if dokku dns:cron 2>&1 | grep -q "Status: ❌ DISABLED"; then
+        local disabled_status_output
+        disabled_status_output=$(dokku dns:cron 2>&1)
+        if echo "$disabled_status_output" | grep -q "Status: ❌ DISABLED"; then
             echo "✓ Cron status shows disabled after disable"
         else
             echo "❌ Cron status not showing disabled"
@@ -131,7 +141,9 @@ run_cron_tests() {
         fi
         
         # Test 10.12: Test error when trying to disable already disabled cron
-        if dokku dns:cron --disable 2>&1 | grep -q "No DNS cron job found"; then
+        local double_disable_output
+        double_disable_output=$(dokku dns:cron --disable 2>&1 || true)
+        if echo "$double_disable_output" | grep -q "No DNS cron job found"; then
             echo "✓ Disable error when no cron job exists"
         else
             echo "❌ Disable should show error when no job exists"

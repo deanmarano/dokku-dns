@@ -18,6 +18,9 @@ run_zones_tests() {
     # Create a second test app for zones testing
     create_test_app "$ZONES_TEST_APP" "${ZONES_DOMAINS[@]}"
     
+    # Disable DNS management for this app to test non-DNS-managed behavior
+    dokku dns:apps:disable "$ZONES_TEST_APP" >/dev/null 2>&1
+    
     # Test zones functionality (without AWS CLI this should show errors gracefully)
     echo "Testing zones listing..."
     if dokku dns:zones 2>&1 | grep -q "AWS CLI is not configured"; then

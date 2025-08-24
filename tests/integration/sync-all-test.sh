@@ -30,10 +30,14 @@ run_sync_all_tests() {
     
     # Test sync-all with no DNS-managed apps
     dokku dns:apps:disable "$MAIN_TEST_APP" >/dev/null 2>&1
-    if dokku dns:sync-all 2>&1 | grep -q "No apps are currently managed by DNS"; then
+    local sync_all_output
+    sync_all_output=$(dokku dns:sync-all 2>&1)
+    if echo "$sync_all_output" | grep -q "No apps are currently managed by DNS"; then
         echo "✓ Sync-all handles no DNS-managed apps correctly"
     else
         echo "❌ Sync-all doesn't handle empty state correctly"
+        echo "DEBUG: Actual output was:"
+        echo "$sync_all_output"
         mark_test_failed
     fi
     

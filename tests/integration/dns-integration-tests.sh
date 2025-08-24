@@ -113,8 +113,10 @@ run_all_tests() {
         local suite_result=$?
         
         # Count individual tests from output
-        local passed_count=$(echo "$suite_output" | grep -c "✓")
-        local failed_count=$(echo "$suite_output" | grep -c "❌")
+        local passed_count
+        local failed_count
+        passed_count=$(echo "$suite_output" | grep -c "✓")
+        failed_count=$(echo "$suite_output" | grep -c "❌")
         
         # Update global counters
         PASSED_TESTS=$((PASSED_TESTS + passed_count))
