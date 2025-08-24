@@ -88,10 +88,7 @@ run_direct_tests() {
     # Copy the assertion functions and integration test script
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-    log "INFO" "Copying test helper functions to container..."
-    docker exec -i "$DOKKU_CONTAINER" bash -c "cat > /tmp/test-helpers.sh && chmod +x /tmp/test-helpers.sh" < "$SCRIPT_DIR/test-helpers.sh" || {
-        log "WARNING" "Failed to copy test helper functions, falling back to basic verification"
-    }
+    # Helper functions are now integrated in common.sh and copied with test files
 
     log "INFO" "Installing DNS plugin in container..."
     # Copy plugin to proper location and install it using Dokku's plugin installer
