@@ -130,25 +130,11 @@ jobs:
         echo "⏳ Initializing test environment..."
         sleep 10
         
-    - name: Run integration tests
+    - name: Run modular integration tests
       run: |
-        echo "🧪 Running integration tests..."
-        # Execute the tests in the Dokku container where dokku command is available
-        docker exec -i dokku-local bash -c "
-          # Copy plugin to Dokku container and run tests there
-          cp -r /tmp/dokku-dns /var/lib/dokku/plugins/available/dns &&
-          dokku plugin:enable dns &&
-          cd /var/lib/dokku/plugins/available/dns &&
-          ./install &&
-          # Ensure plugin data directory exists and is writable
-          mkdir -p /var/lib/dokku/services/dns &&
-          chown -R dokku:dokku /var/lib/dokku/services/dns 2>/dev/null || true &&
-          # Copy test script to writable location and run it
-          cp scripts/test-integration.sh /tmp/test-integration.sh &&
-          chmod +x /tmp/test-integration.sh &&
-          cd /var/lib/dokku/plugins/available/dns &&
-          /tmp/test-integration.sh
-        "
+        echo "🧪 Running modular integration tests..."
+        # Use the modular test system with Docker orchestrator
+        DNS_TEST_MODULE=all ./scripts/test-docker.sh --direct
       
     - name: Stop test containers
       if: always()

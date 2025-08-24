@@ -135,20 +135,40 @@ run_direct_tests() {
     
     log "SUCCESS" "DNS plugin installed and verified successfully"
     
-    log "INFO" "Copying and executing integration test script..."
-    # Use the new comprehensive integration test script
-    local INTEGRATION_SCRIPT="$SCRIPT_DIR/../../scripts/test-integration.sh"
-    if [[ ! -f "$INTEGRATION_SCRIPT" ]]; then
-        log "ERROR" "Integration test script not found: $INTEGRATION_SCRIPT"
-        return 1
-    fi
+    # Run modular test system
+    local test_suite="${DNS_TEST_MODULE:-all}"
+    log "INFO" "Running test suite: $test_suite"
     
-    if docker exec -i "$DOKKU_CONTAINER" bash -c "cat > /tmp/test-integration.sh && chmod +x /tmp/test-integration.sh && cd /tmp/dokku-dns && /tmp/test-integration.sh" < "$INTEGRATION_SCRIPT"; then
-        log "SUCCESS" "All tests completed successfully!"
-        log "INFO" "DNS plugin functionality verified with comprehensive test suite"
+    # Copy all modular test files to container
+    log "INFO" "Copying modular test files to container..."
+    docker exec "$DOKKU_CONTAINER" bash -c "mkdir -p /tmp/integration"
+    
+    # Copy test modules
+    local test_files=(
+        "common.sh"
+        "core-commands.sh" 
+        "cron-functionality.sh"
+        "zones-management.sh"
+        "sync-operations.sh"
+        "error-handling.sh"
+        "dns-integration-tests-modular.sh"
+    )
+    
+    for file in "${test_files[@]}"; do
+        if [[ -f "$SCRIPT_DIR/$file" ]]; then
+            docker exec -i "$DOKKU_CONTAINER" bash -c "cat > /tmp/integration/$file && chmod +x /tmp/integration/$file" < "$SCRIPT_DIR/$file"
+        else
+            log "WARNING" "Test file not found: $file"
+        fi
+    done
+    
+    # Run modular tests
+    if docker exec "$DOKKU_CONTAINER" bash -c "cd /tmp/dokku-dns && /tmp/integration/dns-integration-tests-modular.sh $test_suite"; then
+        log "SUCCESS" "All modular tests completed successfully!"
+        log "INFO" "DNS plugin functionality verified with modular test suite"
         return 0
     else
-        log "ERROR" "Tests failed. Check the output above for details."
+        log "ERROR" "Modular integration tests failed!"
         return 1
     fi
 }

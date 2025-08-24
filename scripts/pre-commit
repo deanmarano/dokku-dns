@@ -64,7 +64,7 @@ run_docker_background() {
     # Wait for cleanup
     sleep 1
     
-    if scripts/test-docker.sh >/dev/null 2>&1; then
+    if DNS_TEST_MODULE=all ./tests/integration/docker-orchestrator.sh --direct >/dev/null 2>&1; then
         echo "SUCCESS:Docker integration tests passed" > "$temp_file"
         # Clean up after successful tests
         docker-compose -f tests/docker/docker-compose.yml down --volumes >/dev/null 2>&1 || true

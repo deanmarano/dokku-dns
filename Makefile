@@ -92,18 +92,18 @@ unit-tests:
 	fi
 
 integration-tests:
-	@echo running integration tests...
+	@echo running modular integration tests...
 	@mkdir -p tmp/test-results
 	@if command -v dokku >/dev/null 2>&1; then \
-		echo "Running integration tests against local Dokku..."; \
+		echo "Running modular integration tests against local Dokku..."; \
 		set -e; \
-		if ! scripts/test-integration.sh; then \
-			echo "❌ Integration tests failed"; \
+		if ! tests/integration/dns-integration-tests-modular.sh all; then \
+			echo "❌ Modular integration tests failed"; \
 			echo "💡 Tip: For reliable testing, use: make docker-test"; \
 			echo "💡 Local testing requires full Dokku installation with proper permissions"; \
 			exit 1; \
 		fi; \
-		echo "✅ Integration tests passed"; \
+		echo "✅ Modular integration tests passed"; \
 	else \
 		echo "No local Dokku found - integration tests skipped"; \
 		echo "This is normal for CI environments without Dokku installed"; \
@@ -123,8 +123,28 @@ setup:
 test: lint unit-tests
 
 docker-test:
-	@echo "Running integration tests in Docker container..."
-	./tests/integration/docker-orchestrator.sh --direct
+	@echo "Running modular integration tests in Docker container..."
+	DNS_TEST_MODULE=all ./tests/integration/docker-orchestrator.sh --direct
+
+docker-test-core:
+	@echo "Running core commands tests in Docker container..."
+	DNS_TEST_MODULE=core ./tests/integration/docker-orchestrator.sh --direct
+
+docker-test-cron:
+	@echo "Running cron functionality tests in Docker container..."
+	DNS_TEST_MODULE=cron ./tests/integration/docker-orchestrator.sh --direct
+
+docker-test-zones:
+	@echo "Running zones management tests in Docker container..."
+	DNS_TEST_MODULE=zones ./tests/integration/docker-orchestrator.sh --direct
+
+docker-test-sync:
+	@echo "Running sync operations tests in Docker container..."
+	DNS_TEST_MODULE=sync ./tests/integration/docker-orchestrator.sh --direct
+
+docker-test-errors:
+	@echo "Running error handling tests in Docker container..."
+	DNS_TEST_MODULE=errors ./tests/integration/docker-orchestrator.sh --direct
 
 docker-test-clean:
 	@echo "Cleaning up Docker test environment..."
