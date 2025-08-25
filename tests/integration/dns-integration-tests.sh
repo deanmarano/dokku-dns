@@ -483,11 +483,45 @@ EOF
     fi
     
     
+    # Generate test results summary
+    echo ""
+    echo "===================================="
+    echo "📊 DNS Plugin Integration Test Results"
+    echo "===================================="
+    
+    # Count test results from output
+    local total_passed=0
+    local total_failed=0
+    
+    # Count test symbols (this is a basic implementation for Phase 8a)
+    if command -v grep >/dev/null 2>&1; then
+        total_passed=$(echo "$test_output" | grep -c "✓" 2>/dev/null || echo "0")
+        # Only count actual test failures, not AWS status indicators
+        total_failed=$(echo "$test_output" | grep "❌" | grep -v "no hosted zone" | grep -v "DNS record found" | wc -l 2>/dev/null | tr -d ' ' || echo "0")
+    fi
+    
+    # Fallback counting if grep counting fails
+    if [[ "$total_passed" == "0" && "$total_failed" == "0" ]]; then
+        # Use basic pass/fail status
+        if [[ "$test_failed" == "true" ]]; then
+            total_failed=1
+        else
+            total_passed=1
+        fi
+    fi
+    
+    echo "Total Tests: $((total_passed + total_failed))"
+    echo "✅ Passed: $total_passed" 
+    echo "❌ Failed: $total_failed"
+    echo ""
+    
     if [[ "$test_failed" == "true" ]]; then
-        log_remote "ERROR" "Some integration tests failed!"
+        log_remote "ERROR" "💥 Some DNS plugin integration tests failed!"
+        echo "📝 Check logs above for detailed failure information"
         exit 1
     else
-        log_remote "SUCCESS" "All DNS plugin integration tests completed successfully!"
+        log_remote "SUCCESS" "🎉 All DNS plugin integration tests completed successfully!"
+        echo "✨ DNS plugin functionality verified"
     fi
 }
 
