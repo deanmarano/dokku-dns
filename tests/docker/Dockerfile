@@ -31,8 +31,9 @@ WORKDIR /plugin
 
 # Copy test scripts and make executable
 COPY tests/wait-and-test.sh /tests/wait-and-test.sh
+COPY tests/docker/run-tests.sh /tests/run-tests.sh
 COPY scripts/test-docker.sh /test-docker.sh
-RUN chmod +x /tests/wait-and-test.sh /test-docker.sh
+RUN chmod +x /tests/wait-and-test.sh /tests/run-tests.sh /test-docker.sh
 
 # Default command
-CMD ["/tests/wait-and-test.sh"]
+CMD ["/tests/run-tests.sh"]
