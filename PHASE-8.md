@@ -44,8 +44,8 @@ tmp/test-results/
 
 ### Phase 8a: Enhance Logging Infrastructure (SAFE)
 **Deliverable**: Improve test observability without touching test logic
-- ✅ Enhanced `scripts/test-docker.sh` with logging (DONE)
-- ✅ Added `scripts/view-test-log.sh` utility (DONE)
+- Enhanced `scripts/test-docker.sh` with logging
+- Added `scripts/view-test-log.sh` utility
 - Add structured test result parsing
 - Improve error reporting without changing test structure
 
@@ -55,7 +55,15 @@ tmp/test-results/
 - Ensure 67 passing / 0 failing baseline is restored
 - Add regression testing to prevent future issues
 
-### Phase 8c: Extract One Test Suite at a Time (INCREMENTAL)
+### Phase 8c: Consolidate Test Architecture (ARCHITECTURAL)
+**Deliverable**: Simplify and streamline the test script architecture
+- Combine `scripts/test-docker.sh` and `tests/integration/docker-orchestrator.sh` into single script
+- Reduce indirection and simplify maintenance
+- Preserve all logging enhancements from Phase 8a
+- Maintain Docker Compose management and direct test capabilities
+- **Requirement**: All existing functionality preserved, 67 passing / 0 failing maintained
+
+### Phase 8d: Extract One Test Suite at a Time (INCREMENTAL)
 **Deliverable**: Carefully modularize tests preserving functionality
 - Start with **version-test.sh** (simplest, least dependencies)
 - Extract **providers-test.sh** (self-contained)
@@ -63,7 +71,7 @@ tmp/test-results/
 - Continue with remaining suites one at a time
 - **Requirement**: Each extraction must maintain 67 passing / 0 failing
 
-### Phase 8d: Enhanced Error Handling (POLISH)
+### Phase 8e: Enhanced Error Handling (POLISH)
 **Deliverable**: Better test execution and failure reporting
 - Implement comprehensive error handling
 - Add individual test counting and aggregation

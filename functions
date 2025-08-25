@@ -347,52 +347,59 @@ dns_add_app_domains() {
   # Load AWS provider functions to check hosted zones
   local PROVIDER_SCRIPT
   PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/aws"
-  if [[ -f "$PROVIDER_SCRIPT" ]]; then
+  
+  # Check if AWS CLI is available and configured before attempting zone validation
+  local AWS_AVAILABLE=false
+  if command -v aws >/dev/null 2>&1; then
+    if aws sts get-caller-identity >/dev/null 2>&1; then
+      AWS_AVAILABLE=true
+    fi
+  fi
+  
+  if [[ -f "$PROVIDER_SCRIPT" ]] && [[ "$AWS_AVAILABLE" == "true" ]]; then
     source "$PROVIDER_SCRIPT"
     dns_provider_aws_setup_env
       
-      # Check if AWS is properly configured before filtering
-      dokku_log_info1 "Testing AWS credentials..."
-      if aws sts get-caller-identity >/dev/null 2>&1; then
-        dokku_log_info1 "AWS credentials OK - checking hosted zones for new domains..."
-        
-        for DOMAIN in "${NEW_DOMAINS[@]}"; do
-          [[ -z "$DOMAIN" ]] && continue
-          
-          dokku_log_info1 "Checking domain: $DOMAIN"
-          # Check if domain has a hosted zone (disable exit on error for this call)
-          local ZONE_ID
-          set +e  # Temporarily disable exit on error
-          ZONE_ID=$(dns_provider_aws_get_hosted_zone_id "$DOMAIN" 2>/dev/null)
-          local ZONE_CHECK_EXIT_CODE=$?
-          set -e  # Re-enable exit on error
-          
-          if [[ $ZONE_CHECK_EXIT_CODE -eq 0 ]] && [[ -n "$ZONE_ID" ]]; then
-            # Check if this domain is in an enabled zone
-            if is_domain_in_enabled_zone "$DOMAIN"; then
-              VALID_DOMAINS+=("$DOMAIN")
-              dokku_log_info1 "✓ $DOMAIN has hosted zone: $ZONE_ID (zone enabled)"
-            else
-              SKIPPED_DOMAINS+=("$DOMAIN")
-              dokku_log_info1 "✗ $DOMAIN has hosted zone: $ZONE_ID but zone is not enabled for auto-discovery"
-            fi
-          else
-            SKIPPED_DOMAINS+=("$DOMAIN")
-            dokku_log_info1 "✗ $DOMAIN has no hosted zone"
-          fi
-          dokku_log_info1 "Finished checking domain: $DOMAIN"
-        done
-        dokku_log_info1 "Completed hosted zone checks for all domains"
+    # AWS is properly configured - check hosted zones for domain validation
+    dokku_log_info1 "AWS credentials OK - checking hosted zones for new domains..."
+    
+    for DOMAIN in "${NEW_DOMAINS[@]}"; do
+      [[ -z "$DOMAIN" ]] && continue
+      
+      dokku_log_info1 "Checking domain: $DOMAIN"
+      # Check if domain has a hosted zone (disable exit on error for this call)
+      local ZONE_ID
+      set +e  # Temporarily disable exit on error
+      ZONE_ID=$(dns_provider_aws_get_hosted_zone_id "$DOMAIN" 2>/dev/null)
+      local ZONE_CHECK_EXIT_CODE=$?
+      set -e  # Re-enable exit on error
+      
+      if [[ $ZONE_CHECK_EXIT_CODE -eq 0 ]] && [[ -n "$ZONE_ID" ]]; then
+        # Check if this domain is in an enabled zone
+        if is_domain_in_enabled_zone "$DOMAIN"; then
+          VALID_DOMAINS+=("$DOMAIN")
+          dokku_log_info1 "✓ $DOMAIN has hosted zone: $ZONE_ID (zone enabled)"
+        else
+          SKIPPED_DOMAINS+=("$DOMAIN")
+          dokku_log_info1 "✗ $DOMAIN has hosted zone: $ZONE_ID but zone is not enabled for auto-discovery"
+        fi
       else
-        dokku_log_warn "AWS CLI not configured or credentials invalid"
-        dokku_log_info1 "Cannot check hosted zones - adding all new domains"
-        dokku_log_info1 "Run 'dokku $PLUGIN_COMMAND_PREFIX:providers:verify' to configure AWS credentials"
-        VALID_DOMAINS=("${NEW_DOMAINS[@]}")
+        SKIPPED_DOMAINS+=("$DOMAIN")
+        dokku_log_info1 "✗ $DOMAIN has no hosted zone"
       fi
+      dokku_log_info1 "Finished checking domain: $DOMAIN"
+    done
+    dokku_log_info1 "Completed hosted zone checks for all domains"
+  else
+    # AWS CLI not available/configured or provider script missing - skip validation
+    if [[ ! -f "$PROVIDER_SCRIPT" ]]; then
+      dokku_log_warn "AWS provider script not found - adding all new domains without validation"
     else
-      dokku_log_warn "AWS provider script not found, adding all new domains"
-      VALID_DOMAINS=("${NEW_DOMAINS[@]}")
+      dokku_log_info1 "AWS CLI not available or not configured - adding all new domains without hosted zone validation"
+      dokku_log_info1 "Run 'dokku $PLUGIN_COMMAND_PREFIX:providers:verify' to configure AWS credentials for zone validation"
     fi
+    VALID_DOMAINS=("${NEW_DOMAINS[@]}")
+  fi
   
   # Report skipped domains
   if [[ ${#SKIPPED_DOMAINS[@]} -gt 0 ]]; then
