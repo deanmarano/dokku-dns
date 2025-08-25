@@ -1,4 +1,8 @@
 #!/usr/bin/env bats
+
+# Load common functions
+load bats-common
+
 # DNS Plugin Help and Version Integration Tests
 # Tests: 4 integration tests for help and version commands
 # Expected: 4 passing, 0 failing
@@ -10,10 +14,7 @@ setup() {
         skip "Dokku not found. These tests require a Dokku environment."
     fi
     
-    # Check if DNS plugin is available
-    if ! dokku help | grep -q dns; then
-        skip "DNS plugin not installed. Please install the plugin first."
-    fi
+    check_dns_plugin_available
 }
 
 @test "(dns:help) main help shows usage" {
@@ -40,32 +41,3 @@ setup() {
     assert_output --partial "dokku-dns plugin version"
 }
 
-# Helper functions for BATS assertions
-assert_success() {
-    if [[ "$status" -ne 0 ]]; then
-        echo "Expected success but got exit code: $status"
-        echo "Output: $output"
-        return 1
-    fi
-}
-
-assert_output() {
-    local expected="$2"
-    case "$1" in
-        --partial)
-            if [[ "$output" != *"$expected"* ]]; then
-                echo "Expected output to contain: '$expected'"
-                echo "Actual output: '$output'"
-                return 1
-            fi
-            ;;
-        *)
-            expected="$1"
-            if [[ "$output" != "$expected" ]]; then
-                echo "Expected output: '$expected'"
-                echo "Actual output: '$output'" 
-                return 1
-            fi
-            ;;
-    esac
-}

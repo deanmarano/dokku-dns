@@ -1,34 +1,19 @@
 #!/usr/bin/env bats
 
+# Load common functions
+load bats-common
+
 # DNS Plugin Apps Integration Tests  
 # Tests for dns:apps subcommands
 
 setup() {
-    # Ensure we're in the right environment for DNS plugin testing
-    if [[ ! -f "/var/lib/dokku/plugins/available/dns/plugin.toml" ]]; then
-        skip "DNS plugin not available in test environment"
-    fi
-    
-    # Create test app if it doesn't exist
+    check_dns_plugin_available
     TEST_APP="dns-apps-test"
-    if ! dokku apps:list 2>/dev/null | grep -q "$TEST_APP"; then
-        dokku apps:create "$TEST_APP" >/dev/null 2>&1
-    fi
-    
-    # Add test domains
-    dokku domains:add "$TEST_APP" "app.example.com" >/dev/null 2>&1 || true
-    dokku domains:add "$TEST_APP" "api.app.example.com" >/dev/null 2>&1 || true
-    
-    # Ensure app is not in DNS management initially
-    dokku dns:apps:disable "$TEST_APP" >/dev/null 2>&1 || true
+    setup_test_app "$TEST_APP" "app.example.com" "api.app.example.com"
 }
 
 teardown() {
-    # Clean up test app
-    if [[ -n "${TEST_APP:-}" ]]; then
-        dokku dns:apps:disable "$TEST_APP" >/dev/null 2>&1 || true
-        dokku apps:destroy "$TEST_APP" --force >/dev/null 2>&1 || true
-    fi
+    cleanup_test_app "$TEST_APP"
 }
 
 @test "(dns:apps:enable) can add app to DNS management" {
@@ -81,33 +66,3 @@ teardown() {
     assert_output --partial "Not added"
 }
 
-# Helper functions for BATS
-assert_success() {
-    if [[ $status -ne 0 ]]; then
-        echo "Command failed with status $status"
-        echo "Output: $output"
-        return 1
-    fi
-}
-
-assert_output() {
-    local flag="$1"
-    local expected="$2"
-    
-    case "$flag" in
-        --partial)
-            if [[ ! "$output" =~ $expected ]]; then
-                echo "Expected output to contain: '$expected'"
-                echo "Actual output: '$output'"
-                return 1
-            fi
-            ;;
-        *)
-            if [[ "$output" != "$expected" ]]; then
-                echo "Expected: '$expected'"
-                echo "Actual: '$output'"
-                return 1
-            fi
-            ;;
-    esac
-}
