@@ -124,7 +124,7 @@ test: lint unit-tests
 
 docker-test:
 	@echo "Running integration tests in Docker container..."
-	./tests/integration/docker-orchestrator.sh --direct
+	./scripts/test-docker.sh --direct
 
 docker-test-clean:
 	@echo "Cleaning up Docker test environment..."
