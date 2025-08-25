@@ -135,21 +135,24 @@ jobs:
         echo "🧪 Running integration tests..."
         # Execute the tests in the Dokku container where dokku command is available
         docker exec -i dokku-local bash -c "
+          # Set working directory to avoid shell-init errors
+          cd /tmp &&
+          
           # Install BATS for integration testing
           if ! command -v bats >/dev/null 2>&1; then
             echo 'Installing BATS...'
-            apt-get update -qq &&
-            git clone https://github.com/bats-core/bats-core.git /tmp/bats &&
+            apt-get update -qq >/dev/null 2>&1 &&
+            git clone --quiet https://github.com/bats-core/bats-core.git /tmp/bats &&
             cd /tmp/bats &&
-            ./install.sh /usr/local &&
+            ./install.sh /usr/local >/dev/null 2>&1 &&
             rm -rf /tmp/bats
           fi &&
           
           # Copy plugin to Dokku container and run tests there
           cp -r /tmp/dokku-dns /var/lib/dokku/plugins/available/dns &&
-          dokku plugin:enable dns &&
+          dokku plugin:enable dns >/dev/null 2>&1 &&
           cd /var/lib/dokku/plugins/available/dns &&
-          ./install &&
+          ./install >/dev/null 2>&1 &&
           # Ensure plugin data directory exists and is writable
           mkdir -p /var/lib/dokku/services/dns &&
           chown -R dokku:dokku /var/lib/dokku/services/dns 2>/dev/null || true &&
