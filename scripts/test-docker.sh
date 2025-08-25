@@ -13,13 +13,17 @@ LOG_FILE="$LOG_DIR/docker-tests-$(date +%Y%m%d-%H%M%S).log"
 mkdir -p "$LOG_DIR"
 
 show_help() {
-    echo "Usage: $0 [--build] [--logs] [--direct]"
+    echo "Usage: $0 [--build] [--logs] [--direct] [TEST_FILE]"
     echo ""
     echo "Options:"
     echo "  --build    Force rebuild of Docker images"
     echo "  --logs     Show container logs after test completion"
     echo "  --direct   Run tests directly (skip Docker Compose orchestration)"
     echo "  --help     Show this help message"
+    echo ""
+    echo "Arguments:"
+    echo "  TEST_FILE  Optional: specific test file to run (e.g., help-test.sh)"
+    echo "             If not specified, runs all integration tests"
     echo ""
     echo "Environment variables:"
     echo "  AWS_ACCESS_KEY_ID      - AWS access key for Route53 testing"
@@ -30,6 +34,7 @@ show_help() {
     echo "  $0 --build                                    # Full Docker Compose testing"
     echo "  AWS_ACCESS_KEY_ID=xxx $0 --logs               # With AWS credentials"
     echo "  $0 --direct                                   # Direct testing (containers must be running)"
+    echo "  $0 --direct help-test.sh                      # Run only help tests directly"
 }
 
 log_with_timestamp() {
@@ -38,7 +43,12 @@ log_with_timestamp() {
 }
 
 run_direct_tests() {
-    log_with_timestamp "🧪 Running tests directly against existing Docker containers..."
+    local test_file="${1:-}"
+    if [[ -n "$test_file" ]]; then
+        log_with_timestamp "🧪 Running specific test file: $test_file"
+    else
+        log_with_timestamp "🧪 Running all integration tests directly against existing Docker containers..."
+    fi
     
     # Check if Dokku container is accessible
     DOKKU_CONTAINER="${DOKKU_CONTAINER:-dokku-local}"
@@ -149,21 +159,40 @@ run_direct_tests() {
     
     log "SUCCESS" "DNS plugin installed and verified successfully"
     
-    log "INFO" "Copying and executing integration test script..."
-    # Use the new comprehensive integration test script
-    local INTEGRATION_SCRIPT="$SCRIPT_DIR/test-integration.sh"
-    if [[ ! -f "$INTEGRATION_SCRIPT" ]]; then
-        log "ERROR" "Integration test script not found: $INTEGRATION_SCRIPT"
-        return 1
-    fi
-    
-    if docker exec -i "$DOKKU_CONTAINER" bash -c "cat > /tmp/test-integration.sh && chmod +x /tmp/test-integration.sh && cd /tmp/dokku-dns && /tmp/test-integration.sh" < "$INTEGRATION_SCRIPT"; then
-        log "SUCCESS" "All tests completed successfully!"
-        log "INFO" "DNS plugin functionality verified with comprehensive test suite"
-        return 0
+    if [[ -n "$test_file" ]]; then
+        log "INFO" "Copying and executing specific test file: $test_file"
+        # Use specific test file
+        local INTEGRATION_SCRIPT="$SCRIPT_DIR/../tests/integration/$test_file"
+        if [[ ! -f "$INTEGRATION_SCRIPT" ]]; then
+            log "ERROR" "Integration test file not found: $INTEGRATION_SCRIPT"
+            return 1
+        fi
+        
+        if docker exec -i "$DOKKU_CONTAINER" bash -c "cat > /tmp/test-specific.sh && chmod +x /tmp/test-specific.sh && cd /tmp/dokku-dns && /tmp/test-specific.sh" < "$INTEGRATION_SCRIPT"; then
+            log "SUCCESS" "Specific test file completed successfully!"
+            log "INFO" "DNS plugin functionality verified for: $test_file"
+            return 0
+        else
+            log "ERROR" "Test file failed: $test_file. Check the output above for details."
+            return 1
+        fi
     else
-        log "ERROR" "Tests failed. Check the output above for details."
-        return 1
+        log "INFO" "Copying and executing comprehensive integration test script..."
+        # Use the main comprehensive integration test script
+        local INTEGRATION_SCRIPT="$SCRIPT_DIR/test-integration.sh"
+        if [[ ! -f "$INTEGRATION_SCRIPT" ]]; then
+            log "ERROR" "Integration test script not found: $INTEGRATION_SCRIPT"
+            return 1
+        fi
+        
+        if docker exec -i "$DOKKU_CONTAINER" bash -c "cat > /tmp/test-integration.sh && chmod +x /tmp/test-integration.sh && cd /tmp/dokku-dns && /tmp/test-integration.sh" < "$INTEGRATION_SCRIPT"; then
+            log "SUCCESS" "All tests completed successfully!"
+            log "INFO" "DNS plugin functionality verified with comprehensive test suite"
+            return 0
+        else
+            log "ERROR" "Tests failed. Check the output above for details."
+            return 1
+        fi
     fi
 }
 
@@ -283,6 +312,7 @@ main() {
     local build_flag=""
     local logs_flag=""
     local direct_mode=false
+    local test_file=""
     
     # Parse arguments
     while [[ $# -gt 0 ]]; do
@@ -303,10 +333,15 @@ main() {
                 show_help
                 exit 0
                 ;;
-            *)
+            -*)
                 echo "Unknown option: $1"
                 echo "Use --help for usage information"
                 exit 1
+                ;;
+            *)
+                # This is a test file argument
+                test_file="$1"
+                shift
                 ;;
         esac
     done
@@ -320,9 +355,14 @@ main() {
     # Run tests based on mode
     set +e  # Don't exit on error so we can capture exit code
     if [[ "$direct_mode" == "true" ]]; then
-        run_direct_tests
+        run_direct_tests "$test_file"
         EXIT_CODE=$?
     else
+        if [[ -n "$test_file" ]]; then
+            echo "Error: Test file argument only supported with --direct mode"
+            echo "Use --help for usage information"
+            exit 1
+        fi
         run_orchestrated_tests "$build_flag" "$logs_flag"
         EXIT_CODE=$?
     fi

@@ -77,22 +77,22 @@ log "SUCCESS" "Dokku container is ready!"
 log "INFO" "Giving Dokku additional time to fully initialize..."
 sleep 10
 
-# Now run the integration tests using the consolidated test script in direct mode
-log "INFO" "Running integration tests in direct mode..."
+# Now run the integration tests directly (we're already inside the container)
+log "INFO" "Running integration tests directly..."
 
-# Use the consolidated test script in direct mode - fix path for container environment
-TEST_SCRIPT="/plugin/scripts/test-docker.sh"
+# Use the integration test script directly - we're already in the container
+INTEGRATION_SCRIPT="/plugin/scripts/test-integration.sh"
 
-if [[ ! -f "$TEST_SCRIPT" ]]; then
-    log "ERROR" "Consolidated test script not found: $TEST_SCRIPT"
+if [[ ! -f "$INTEGRATION_SCRIPT" ]]; then
+    log "ERROR" "Integration test script not found: $INTEGRATION_SCRIPT"
     log "INFO" "Available files in /plugin/scripts/:"
     ls -la /plugin/scripts/ || log "WARNING" "Could not list scripts directory"
     exit 1
 fi
 
-# Execute the consolidated test script in direct mode
-log "INFO" "Executing consolidated test script..."
-if "$TEST_SCRIPT" --direct; then
+# Execute the integration test script directly
+log "INFO" "Executing integration test script..."
+if "$INTEGRATION_SCRIPT"; then
     log "SUCCESS" "All tests completed successfully!"
     exit 0
 else

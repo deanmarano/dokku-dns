@@ -150,14 +150,7 @@ cleanup_test_environment() {
 }
 
 # Test suites
-test_dns_help() {
-    log_info "Testing DNS help commands..."
-    
-    assert_output_contains "Main help shows usage" "usage:" dokku dns:help
-    assert_output_contains "Main help shows available commands" "dns:apps:enable" dokku dns:help
-    assert_output_contains "Add help works" "enable DNS management for an application" dokku dns:help apps:enable
-    assert_output_contains "Version shows plugin version" "dokku-dns plugin version" dokku dns:version
-}
+# NOTE: Help and version tests have been extracted to tests/integration/help-test.sh (4 tests)
 
 test_dns_configuration() {
     log_info "Testing DNS configuration..."
@@ -644,7 +637,7 @@ main() {
     setup_test_environment
     
     # Run test suites
-    test_dns_help
+    # NOTE: Help and version tests now run separately in tests/integration/help-test.sh
     test_dns_configuration  
     test_dns_verify
     test_dns_app_management
