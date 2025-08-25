@@ -150,7 +150,47 @@ cleanup_test_environment() {
 }
 
 # Test suites
-# NOTE: Help and version tests have been extracted to tests/integration/help-test.sh (4 tests)
+# Run extracted help tests and aggregate results
+run_help_tests() {
+    log_info "Running extracted help and version tests..."
+    
+    # Get the directory of this script
+    local SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local HELP_TEST_SCRIPT="$SCRIPT_DIR/../tests/integration/help-test.sh"
+    
+    if [[ -f "$HELP_TEST_SCRIPT" ]]; then
+        # Store current counters
+        local old_total=$TESTS_TOTAL
+        local old_passed=$TESTS_PASSED  
+        local old_failed=$TESTS_FAILED
+        
+        # Run help tests inline to integrate with our test framework
+        log_info "Running help tests (integrated)..."
+        assert_output_contains "Main help shows usage" "usage:" dokku dns:help
+        assert_output_contains "Main help shows available commands" "dns:apps:enable" dokku dns:help
+        assert_output_contains "Add help works" "enable DNS management for an application" dokku dns:help apps:enable
+        assert_output_contains "Version shows plugin version" "dokku-dns plugin version" dokku dns:version
+        
+        # Report what we added
+        local help_total=$((TESTS_TOTAL - old_total))
+        local help_passed=$((TESTS_PASSED - old_passed))
+        local help_failed=$((TESTS_FAILED - old_failed))
+        log_info "Help tests completed: $help_passed passed, $help_failed failed (total: $help_total)"
+    else
+        log_warning "Help test script not found: $HELP_TEST_SCRIPT - running inline"
+        test_dns_help_inline
+    fi
+}
+
+# Fallback inline help tests if extracted file not found
+test_dns_help_inline() {
+    log_info "Running help tests inline (fallback)..."
+    
+    assert_output_contains "Main help shows usage" "usage:" dokku dns:help
+    assert_output_contains "Main help shows available commands" "dns:apps:enable" dokku dns:help
+    assert_output_contains "Add help works" "enable DNS management for an application" dokku dns:help apps:enable
+    assert_output_contains "Version shows plugin version" "dokku-dns plugin version" dokku dns:version
+}
 
 test_dns_configuration() {
     log_info "Testing DNS configuration..."
@@ -637,7 +677,10 @@ main() {
     setup_test_environment
     
     # Run test suites
-    # NOTE: Help and version tests now run separately in tests/integration/help-test.sh
+    # First run the extracted help tests
+    run_help_tests
+    
+    # Then run the remaining test suites
     test_dns_configuration  
     test_dns_verify
     test_dns_app_management
