@@ -154,10 +154,17 @@ cleanup_test_environment() {
 run_help_tests() {
     log_info "Running extracted help and version tests..."
     
-    # Get the directory of this script
-    local SCRIPT_DIR
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    local HELP_TEST_SCRIPT="$SCRIPT_DIR/../tests/integration/help-test.sh"
+    # Get the help test script path - handle both local and Docker environments
+    local HELP_TEST_SCRIPT
+    if [[ -f "/plugin/tests/integration/help-test.sh" ]]; then
+        # Docker environment
+        HELP_TEST_SCRIPT="/plugin/tests/integration/help-test.sh"
+    else
+        # Local environment
+        local SCRIPT_DIR
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        HELP_TEST_SCRIPT="$SCRIPT_DIR/../tests/integration/help-test.sh"
+    fi
     
     if [[ -f "$HELP_TEST_SCRIPT" ]]; then
         # Store current counters
