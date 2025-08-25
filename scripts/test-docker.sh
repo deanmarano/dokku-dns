@@ -159,6 +159,23 @@ run_direct_tests() {
     
     log "SUCCESS" "DNS plugin installed and verified successfully"
     
+    # Install BATS in container for integration tests
+    log "INFO" "Installing BATS in container for integration testing..."
+    if docker exec "$DOKKU_CONTAINER" bash -c "which bats" >/dev/null 2>&1; then
+        log "INFO" "BATS already installed in container"
+    else
+        # Install BATS
+        docker exec "$DOKKU_CONTAINER" bash -c "
+            apt-get update -qq &&
+            git clone https://github.com/bats-core/bats-core.git /tmp/bats &&
+            cd /tmp/bats &&
+            ./install.sh /usr/local &&
+            rm -rf /tmp/bats
+        " >/dev/null 2>&1 || {
+            log "WARNING" "Failed to install BATS, will skip BATS integration tests"
+        }
+    fi
+    
     if [[ -n "$test_file" ]]; then
         log "INFO" "Copying and executing specific test file: $test_file"
         # Use specific test file
@@ -168,13 +185,26 @@ run_direct_tests() {
             return 1
         fi
         
-        if docker exec -i "$DOKKU_CONTAINER" bash -c "cat > /tmp/test-specific.sh && chmod +x /tmp/test-specific.sh && cd /tmp/dokku-dns && /tmp/test-specific.sh" < "$INTEGRATION_SCRIPT"; then
-            log "SUCCESS" "Specific test file completed successfully!"
-            log "INFO" "DNS plugin functionality verified for: $test_file"
-            return 0
+        # Check if it's a BATS test file
+        if [[ "$test_file" == *.bats ]]; then
+            log "INFO" "Running BATS integration test: $test_file"
+            if docker exec -i "$DOKKU_CONTAINER" bash -c "cat > /tmp/$test_file && cd /tmp/dokku-dns && bats /tmp/$test_file" < "$INTEGRATION_SCRIPT"; then
+                log "SUCCESS" "BATS integration test completed successfully: $test_file"
+                return 0
+            else
+                log "ERROR" "BATS integration test failed: $test_file"
+                return 1
+            fi
         else
-            log "ERROR" "Test file failed: $test_file. Check the output above for details."
-            return 1
+            # Regular bash script
+            if docker exec -i "$DOKKU_CONTAINER" bash -c "cat > /tmp/test-specific.sh && chmod +x /tmp/test-specific.sh && cd /tmp/dokku-dns && /tmp/test-specific.sh" < "$INTEGRATION_SCRIPT"; then
+                log "SUCCESS" "Specific test file completed successfully!"
+                log "INFO" "DNS plugin functionality verified for: $test_file"
+                return 0
+            else
+                log "ERROR" "Test file failed: $test_file. Check the output above for details."
+                return 1
+            fi
         fi
     else
         log "INFO" "Copying and executing comprehensive integration test script..."
@@ -185,12 +215,35 @@ run_direct_tests() {
             return 1
         fi
         
+        # Run main integration tests
         if docker exec -i "$DOKKU_CONTAINER" bash -c "cat > /tmp/test-integration.sh && chmod +x /tmp/test-integration.sh && cd /tmp/dokku-dns && /tmp/test-integration.sh" < "$INTEGRATION_SCRIPT"; then
-            log "SUCCESS" "All tests completed successfully!"
+            main_tests_passed=true
+        else
+            log "ERROR" "Main integration tests failed"
+            main_tests_passed=false
+        fi
+        
+        # Also run BATS integration tests if available
+        local bats_tests_passed=true
+        if docker exec "$DOKKU_CONTAINER" bash -c "which bats && test -f /tmp/dokku-dns/tests/integration/help-integration.bats" >/dev/null 2>&1; then
+            log "INFO" "Running BATS integration tests..."
+            if docker exec "$DOKKU_CONTAINER" bash -c "cd /tmp/dokku-dns && bats tests/integration/help-integration.bats"; then
+                log "SUCCESS" "BATS integration tests completed successfully!"
+            else
+                log "ERROR" "BATS integration tests failed"
+                bats_tests_passed=false
+            fi
+        else
+            log "INFO" "BATS integration tests not available (BATS not installed or test file not found)"
+        fi
+        
+        # Overall result
+        if [[ "$main_tests_passed" == "true" && "$bats_tests_passed" == "true" ]]; then
+            log "SUCCESS" "All integration tests completed successfully!"
             log "INFO" "DNS plugin functionality verified with comprehensive test suite"
             return 0
         else
-            log "ERROR" "Tests failed. Check the output above for details."
+            log "ERROR" "Some integration tests failed. Check the output above for details."
             return 1
         fi
     fi
