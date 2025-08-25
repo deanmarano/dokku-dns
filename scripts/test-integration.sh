@@ -155,7 +155,8 @@ run_help_tests() {
     log_info "Running extracted help and version tests..."
     
     # Get the directory of this script
-    local SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local SCRIPT_DIR
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     local HELP_TEST_SCRIPT="$SCRIPT_DIR/../tests/integration/help-test.sh"
     
     if [[ -f "$HELP_TEST_SCRIPT" ]]; then
