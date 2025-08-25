@@ -150,55 +150,8 @@ cleanup_test_environment() {
 }
 
 # Test suites
-# Run extracted help tests and aggregate results
-run_help_tests() {
-    log_info "Running extracted help and version tests..."
-    
-    # Get the help test script path - handle both local and Docker environments
-    local HELP_TEST_SCRIPT
-    if [[ -f "/plugin/tests/integration/help-test.sh" ]]; then
-        # Docker environment
-        HELP_TEST_SCRIPT="/plugin/tests/integration/help-test.sh"
-    else
-        # Local environment
-        local SCRIPT_DIR
-        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-        HELP_TEST_SCRIPT="$SCRIPT_DIR/../tests/integration/help-test.sh"
-    fi
-    
-    if [[ -f "$HELP_TEST_SCRIPT" ]]; then
-        # Store current counters
-        local old_total=$TESTS_TOTAL
-        local old_passed=$TESTS_PASSED  
-        local old_failed=$TESTS_FAILED
-        
-        # Run help tests inline to integrate with our test framework
-        log_info "Running help tests (integrated)..."
-        assert_output_contains "Main help shows usage" "usage:" dokku dns:help
-        assert_output_contains "Main help shows available commands" "dns:apps:enable" dokku dns:help
-        assert_output_contains "Add help works" "enable DNS management for an application" dokku dns:help apps:enable
-        assert_output_contains "Version shows plugin version" "dokku-dns plugin version" dokku dns:version
-        
-        # Report what we added
-        local help_total=$((TESTS_TOTAL - old_total))
-        local help_passed=$((TESTS_PASSED - old_passed))
-        local help_failed=$((TESTS_FAILED - old_failed))
-        log_info "Help tests completed: $help_passed passed, $help_failed failed (total: $help_total)"
-    else
-        log_warning "Help test script not found: $HELP_TEST_SCRIPT - running inline"
-        test_dns_help_inline
-    fi
-}
-
-# Fallback inline help tests if extracted file not found
-test_dns_help_inline() {
-    log_info "Running help tests inline (fallback)..."
-    
-    assert_output_contains "Main help shows usage" "usage:" dokku dns:help
-    assert_output_contains "Main help shows available commands" "dns:apps:enable" dokku dns:help
-    assert_output_contains "Add help works" "enable DNS management for an application" dokku dns:help apps:enable
-    assert_output_contains "Version shows plugin version" "dokku-dns plugin version" dokku dns:version
-}
+# NOTE: Help and version tests are now run separately via BATS (tests/integration/help-integration.bats)
+# This allows for cleaner test separation and native BATS framework usage
 
 test_dns_configuration() {
     log_info "Testing DNS configuration..."
@@ -685,10 +638,7 @@ main() {
     setup_test_environment
     
     # Run test suites
-    # First run the extracted help tests
-    run_help_tests
-    
-    # Then run the remaining test suites
+    # NOTE: Help tests are now run separately via BATS (tests/integration/help-integration.bats)
     test_dns_configuration  
     test_dns_verify
     test_dns_app_management
