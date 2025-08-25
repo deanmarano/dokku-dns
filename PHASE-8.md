@@ -61,24 +61,71 @@ tmp/test-results/
 ### Phase 8c: Consolidate Test Architecture (ARCHITECTURAL)
 **Deliverable**: Simplify and streamline the test script architecture
 - Combine `scripts/test-docker.sh` and `tests/integration/docker-orchestrator.sh` into single script
-- Reduce indirection and simplify maintenance
+- Reduce indirection and simplify maintenance  
 - Preserve all logging enhancements from Phase 8a
 - Maintain Docker Compose management and direct test capabilities
 - **Requirement**: All existing functionality preserved, 67 passing / 0 failing maintained
 
-### Phase 8d: Extract One Test Suite at a Time (INCREMENTAL)
-**Deliverable**: Carefully modularize tests preserving functionality
-- Start with **version-test.sh** (simplest, least dependencies)
-- Extract **providers-test.sh** (self-contained)
-- Extract **cron-test.sh** (independent functionality)
-- Continue with remaining suites one at a time
-- **Requirement**: Each extraction must maintain 67 passing / 0 failing
+### Phase 8d: Extract Integration Test Suites (INCREMENTAL)
+**Deliverable**: Split monolithic integration test into focused test files
+Extract from `tests/integration/dns-integration-tests.sh` (67 tests) into:
 
-### Phase 8e: Enhanced Error Handling (POLISH)
+#### Core Functionality Tests (30 tests)
+- **`tests/integration/help-test.sh`** - Help and version commands (4 tests)
+  - Main help display, command listing, version output, help for subcommands
+- **`tests/integration/app-management-test.sh`** - App add/remove/sync (5 tests) 
+  - Add app to DNS, remove app, sync operations, app reporting
+- **`tests/integration/providers-test.sh`** - Provider verification (3 tests)
+  - AWS provider setup, credential verification, provider status
+- **`tests/integration/sync-all-test.sh`** - Global sync operations (6 tests)
+  - Sync all apps, timing, error handling, empty state handling
+- **`tests/integration/report-test.sh`** - DNS reporting (12 tests)
+  - Global reports, app-specific reports, domain status, mixed scenarios
+
+#### Advanced Functionality Tests (25 tests)  
+- **`tests/integration/cron-test.sh`** - Cron automation (19 tests)
+  - Enable/disable cron, schedule validation, status reporting, metadata handling
+- **`tests/integration/zones-test.sh`** - Zone management (6 tests)
+  - Zone listing, enable/disable zones, zone discovery, AWS integration
+
+#### System Integration Tests (12 tests)
+- **`tests/integration/triggers-test.sh`** - App lifecycle triggers (12 tests)
+  - post-create, post-delete, post-domains-update, trigger file verification
+- **`tests/integration/error-conditions-test.sh`** - Error handling (7 tests) 
+  - Invalid apps, missing arguments, edge cases, graceful failures
+
+**Test File Structure**: Each file follows same pattern:
+```bash
+#!/usr/bin/env bash
+# Tests: X integration tests for [functionality]
+# Expected: X passing, 0 failing
+```
+
+**Validation Requirements**: 
+- Each file must run independently: `scripts/test-docker.sh integration/[file]`
+- Combined execution must maintain: 67 passing, 0 failing
+- All files use shared test infrastructure and logging
+
+#### Current Unit Test Organization (127 tests - Already Modular ✅)
+These BATS unit tests are already well-organized and don't need extraction:
+- **`dns_add.bats`** - 8 tests (App enable/add functionality)
+- **`dns_cron.bats`** - 16 tests (Cron job management)
+- **`dns_help.bats`** - 9 tests (Help system)
+- **`dns_namespace_apps.bats`** - 7 tests (App namespace commands)
+- **`dns_namespace_zones.bats`** - 6 tests (Zone namespace commands)
+- **`dns_report.bats`** - 9 tests (Reporting functionality)
+- **`dns_sync_all.bats`** - 8 tests (Global sync operations)
+- **`dns_sync.bats`** - 7 tests (Individual app sync)
+- **`dns_triggers.bats`** - 13 tests (App lifecycle triggers)
+- **`dns_verify.bats`** - 11 tests (Provider verification)
+- **`dns_zones.bats`** - 33 tests (Zone management)
+
+### Phase 8e: Enhanced Error Handling (POLISH)  
 **Deliverable**: Better test execution and failure reporting
-- Implement comprehensive error handling
-- Add individual test counting and aggregation
-- Improve summary reporting with suite-level results
+- Individual test file execution and aggregation
+- Per-suite error reporting and timing
+- Parallel test execution capabilities
+- Enhanced summary reporting with suite-level results
 
 ## Success Criteria
 
@@ -95,12 +142,37 @@ tmp/test-results/
 - ✅ Clear distinction between test failures and DNS status messages
 
 ### Phase 8c Success
-- [ ] Each modularized test suite can run independently
-- [ ] Full test suite maintains 67 passing / 0 failing
-- [ ] Test execution time and reliability maintained or improved
-- [ ] Each test file focused on specific functional area
+- [ ] Single consolidated test script combining test-docker.sh + orchestrator
+- [ ] All Docker Compose management preserved  
+- [ ] Enhanced logging from Phase 8a maintained
+- [ ] 67 passing / 0 failing baseline preserved
 
 ### Phase 8d Success
+**Core Functionality Tests (30 tests)**
+- [ ] `help-test.sh` - 4 tests passing independently
+- [ ] `app-management-test.sh` - 5 tests passing independently  
+- [ ] `providers-test.sh` - 3 tests passing independently
+- [ ] `sync-all-test.sh` - 6 tests passing independently
+- [ ] `report-test.sh` - 12 tests passing independently
+
+**Advanced Functionality Tests (25 tests)**
+- [ ] `cron-test.sh` - 19 tests passing independently
+- [ ] `zones-test.sh` - 6 tests passing independently
+
+**System Integration Tests (12 tests)**  
+- [ ] `triggers-test.sh` - 12 tests passing independently
+- [ ] `error-conditions-test.sh` - 7 tests passing independently
+
+**Overall Requirements**
+- [ ] Each test file runs independently via `scripts/test-docker.sh integration/[file]`
+- [ ] Combined execution maintains 67 passing / 0 failing total
+- [ ] All files use shared test infrastructure and enhanced logging
+
+### Phase 8e Success
+- [ ] Individual test file execution and result aggregation
+- [ ] Per-suite error reporting and execution timing  
+- [ ] Parallel test execution capabilities implemented
+- [ ] Enhanced summary reporting with suite-level breakdowns
 - [ ] Comprehensive test summary with suite-level and individual test counts
 - [ ] Graceful error handling for test suite failures
 - [ ] Clear debugging information for failed tests
