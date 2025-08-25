@@ -54,10 +54,10 @@ parse_test_results() {
     else
         # Fallback to counting test markers if no formal summary
         # Count ✅ markers in test result lines
-        total_passed=$(grep "✅" "$log_file" | grep -E "(test-runner.*✅|Testing.*✅)" | wc -l | tr -d ' ')
+        total_passed=$(grep "✅" "$log_file" | grep -c -E "(test-runner.*✅|Testing.*✅)" || echo "0")
         
-        # Count ❌ test failures (excluding AWS status messages)
-        total_failed=$(grep "❌" "$log_file" | grep -v "no hosted zone" | grep -v "DNS record found" | grep -v "Points to different IP" | grep -v "AWS CLI not" | wc -l | tr -d ' ')
+        # Count ❌ test failures (excluding AWS status messages)  
+        total_failed=$(grep "❌" "$log_file" | grep -v "no hosted zone" | grep -v "DNS record found" | grep -v "Points to different IP" | grep -v "AWS CLI not" | grep -c "❌" || echo "0")
         
         total_tests=$((total_passed + total_failed))
     fi
