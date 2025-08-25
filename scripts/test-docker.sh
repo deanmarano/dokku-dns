@@ -22,7 +22,7 @@ show_help() {
     echo "  --help     Show this help message"
     echo ""
     echo "Arguments:"
-    echo "  TEST_FILE  Optional: specific test file to run (e.g., help-test.sh)"
+    echo "  TEST_FILE  Optional: specific test file to run (e.g., help-integration.bats)"
     echo "             If not specified, runs all integration tests"
     echo ""
     echo "Environment variables:"
@@ -34,7 +34,7 @@ show_help() {
     echo "  $0 --build                                    # Full Docker Compose testing"
     echo "  AWS_ACCESS_KEY_ID=xxx $0 --logs               # With AWS credentials"
     echo "  $0 --direct                                   # Direct testing (containers must be running)"
-    echo "  $0 --direct help-test.sh                      # Run only help tests directly"
+    echo "  $0 --direct help-integration.bats             # Run only BATS help tests directly"
 }
 
 log_with_timestamp() {
