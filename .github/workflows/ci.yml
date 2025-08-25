@@ -156,6 +156,7 @@ jobs:
           
           # Run main integration tests
           echo '🧪 Running main integration tests...' &&
+          cd /tmp/dokku-dns &&
           cp scripts/test-integration.sh /tmp/test-integration.sh &&
           chmod +x /tmp/test-integration.sh &&
           cd /var/lib/dokku/plugins/available/dns &&
