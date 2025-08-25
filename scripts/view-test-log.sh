@@ -53,8 +53,8 @@ parse_test_results() {
         :  # No action needed, values already set
     else
         # Fallback to counting test markers if no formal summary
-        # Count ✅ markers (handling ANSI color codes) - only count lines that are actually test results
-        total_passed=$(grep "✅" "$log_file" | grep -E "(✅ [A-Z]|test-runner)" | wc -l | tr -d ' ')
+        # Count ✅ markers in test result lines
+        total_passed=$(grep "✅" "$log_file" | grep -E "(test-runner.*✅|Testing.*✅)" | wc -l | tr -d ' ')
         
         # Count ❌ test failures (excluding AWS status messages)
         total_failed=$(grep "❌" "$log_file" | grep -v "no hosted zone" | grep -v "DNS record found" | grep -v "Points to different IP" | grep -v "AWS CLI not" | wc -l | tr -d ' ')
@@ -120,13 +120,21 @@ parse_test_results() {
     echo "=== 📋 Test Categories ==="
     
     # Count tests by category using simpler approach
-    local help_tests=$(grep -A20 "Testing DNS help commands" "$log_file" 2>/dev/null | grep -B20 "Testing DNS configuration" 2>/dev/null | grep -c "✅" 2>/dev/null | tr -d '\n' | head -c 10)
-    local config_tests=$(grep -A20 "Testing DNS configuration" "$log_file" 2>/dev/null | grep -B20 "Testing DNS verification" 2>/dev/null | grep -c "✅" 2>/dev/null | tr -d '\n' | head -c 10)
-    local app_tests=$(grep -A20 "Testing DNS app management" "$log_file" 2>/dev/null | grep -B20 "Testing DNS cron" 2>/dev/null | grep -c "✅" 2>/dev/null | tr -d '\n' | head -c 10)
-    local cron_tests=$(grep -A30 "Testing DNS cron" "$log_file" 2>/dev/null | grep -B30 "Testing DNS zones" 2>/dev/null | grep -c "✅" 2>/dev/null | tr -d '\n' | head -c 10)
-    local zone_tests=$(grep -A20 "Testing DNS zones" "$log_file" 2>/dev/null | grep -B20 "Testing DNS triggers" 2>/dev/null | grep -c "✅" 2>/dev/null | tr -d '\n' | head -c 10)
-    local trigger_tests=$(grep -A20 "Testing DNS triggers" "$log_file" 2>/dev/null | grep -B20 "Testing error conditions" 2>/dev/null | grep -c "✅" 2>/dev/null | tr -d '\n' | head -c 10)
-    local error_tests=$(grep -A20 "Testing error conditions" "$log_file" 2>/dev/null | grep -c "✅" 2>/dev/null | tr -d '\n' | head -c 10)
+    local help_tests
+    local config_tests
+    local app_tests
+    local cron_tests
+    local zone_tests
+    local trigger_tests
+    local error_tests
+    
+    help_tests=$(grep -A20 "Testing DNS help commands" "$log_file" 2>/dev/null | grep -B20 "Testing DNS configuration" 2>/dev/null | grep -c "✅" 2>/dev/null | tr -d '\n' | head -c 10)
+    config_tests=$(grep -A20 "Testing DNS configuration" "$log_file" 2>/dev/null | grep -B20 "Testing DNS verification" 2>/dev/null | grep -c "✅" 2>/dev/null | tr -d '\n' | head -c 10)
+    app_tests=$(grep -A20 "Testing DNS app management" "$log_file" 2>/dev/null | grep -B20 "Testing DNS cron" 2>/dev/null | grep -c "✅" 2>/dev/null | tr -d '\n' | head -c 10)
+    cron_tests=$(grep -A30 "Testing DNS cron" "$log_file" 2>/dev/null | grep -B30 "Testing DNS zones" 2>/dev/null | grep -c "✅" 2>/dev/null | tr -d '\n' | head -c 10)
+    zone_tests=$(grep -A20 "Testing DNS zones" "$log_file" 2>/dev/null | grep -B20 "Testing DNS triggers" 2>/dev/null | grep -c "✅" 2>/dev/null | tr -d '\n' | head -c 10)
+    trigger_tests=$(grep -A20 "Testing DNS triggers" "$log_file" 2>/dev/null | grep -B20 "Testing error conditions" 2>/dev/null | grep -c "✅" 2>/dev/null | tr -d '\n' | head -c 10)
+    error_tests=$(grep -A20 "Testing error conditions" "$log_file" 2>/dev/null | grep -c "✅" 2>/dev/null | tr -d '\n' | head -c 10)
     
     # Clean up any non-numeric values
     help_tests=${help_tests//[^0-9]/}
