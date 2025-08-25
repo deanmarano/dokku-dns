@@ -47,7 +47,6 @@ if [[ $EXIT_CODE -eq 0 ]]; then
         grep -A10 "📊 Test Results" "$LOG_FILE" | grep -E "(Total tests|Passed|Failed|All tests)" | tail -4 | tee -a "$LOG_FILE"
     else
         # Fallback count
-        local passed_count
         passed_count=$(grep -o "✅" "$LOG_FILE" | wc -l | tr -d ' ')
         echo "✅ Tests passed: $passed_count" | tee -a "$LOG_FILE"
     fi
@@ -58,8 +57,7 @@ else
     # Show failure summary
     echo "" | tee -a "$LOG_FILE"
     echo "=== ⚠️  Failure Summary ===" | tee -a "$LOG_FILE"
-    local failure_count
-    failure_count=$(grep "❌" "$LOG_FILE" | grep -v "no hosted zone" | grep -v "DNS record found" | grep -v "Points to different IP" | wc -l | tr -d ' ')
+    failure_count=$(grep -c "❌" "$LOG_FILE" | grep -v "no hosted zone" | grep -v "DNS record found" | grep -v "Points to different IP" || echo "0")
     if [[ "$failure_count" -gt 0 ]]; then
         echo "❌ Failed tests: $failure_count" | tee -a "$LOG_FILE"
         echo "Recent failures:" | tee -a "$LOG_FILE"
