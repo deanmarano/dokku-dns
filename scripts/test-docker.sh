@@ -1,76 +1,376 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Unified Docker-based DNS plugin testing script
-# This is a wrapper that calls the integration test orchestrator with enhanced logging
+# Consolidated Docker-based DNS plugin testing script
+# Combines orchestration and logging functionality in a single script
 # Usage: scripts/test-docker.sh [--build] [--logs] [--direct] [TEST_SUITE]
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ORCHESTRATOR="$SCRIPT_DIR/../tests/integration/docker-orchestrator.sh"
 LOG_DIR="$SCRIPT_DIR/../tmp/test-results"
 LOG_FILE="$LOG_DIR/docker-tests-$(date +%Y%m%d-%H%M%S).log"
 
 # Create log directory
 mkdir -p "$LOG_DIR"
 
-# Check if the orchestrator exists
-if [[ ! -f "$ORCHESTRATOR" ]]; then
-    echo "❌ Integration test orchestrator not found: $ORCHESTRATOR" | tee -a "$LOG_FILE"
-    echo "   Make sure tests/integration/docker-orchestrator.sh exists" | tee -a "$LOG_FILE"
-    exit 1
-fi
+show_help() {
+    echo "Usage: $0 [--build] [--logs] [--direct]"
+    echo ""
+    echo "Options:"
+    echo "  --build    Force rebuild of Docker images"
+    echo "  --logs     Show container logs after test completion"
+    echo "  --direct   Run tests directly (skip Docker Compose orchestration)"
+    echo "  --help     Show this help message"
+    echo ""
+    echo "Environment variables:"
+    echo "  AWS_ACCESS_KEY_ID      - AWS access key for Route53 testing"
+    echo "  AWS_SECRET_ACCESS_KEY  - AWS secret key for Route53 testing"
+    echo "  AWS_DEFAULT_REGION     - AWS region (default: us-east-1)"
+    echo ""
+    echo "Examples:"
+    echo "  $0 --build                                    # Full Docker Compose testing"
+    echo "  AWS_ACCESS_KEY_ID=xxx $0 --logs               # With AWS credentials"
+    echo "  $0 --direct                                   # Direct testing (containers must be running)"
+}
 
-echo "🚀 Starting Docker tests with logging..." | tee -a "$LOG_FILE"
-echo "📝 Log file: $LOG_FILE" | tee -a "$LOG_FILE"
-echo "⏰ Started at: $(date)" | tee -a "$LOG_FILE"
-echo "" | tee -a "$LOG_FILE"
+log_with_timestamp() {
+    local message="$*"
+    echo "$message" | tee -a "$LOG_FILE"
+}
 
-# Run the orchestrator with logging
-set +e  # Don't exit on error so we can capture exit code
-"$ORCHESTRATOR" "$@" 2>&1 | tee -a "$LOG_FILE"
-EXIT_CODE=${PIPESTATUS[0]}
-set -e
-
-echo "" | tee -a "$LOG_FILE"
-echo "⏰ Completed at: $(date)" | tee -a "$LOG_FILE"
-echo "📊 Exit code: $EXIT_CODE" | tee -a "$LOG_FILE"
-
-# Enhanced result reporting
-if [[ $EXIT_CODE -eq 0 ]]; then
-    echo "✅ Docker tests completed successfully!" | tee -a "$LOG_FILE"
+run_direct_tests() {
+    log_with_timestamp "🧪 Running tests directly against existing Docker containers..."
     
-    # Extract and display test summary if available
-    echo "" | tee -a "$LOG_FILE"
-    echo "=== 🔍 Quick Test Summary ===" | tee -a "$LOG_FILE"
-    if grep -q "📊 Test Results" "$LOG_FILE"; then
-        # Extract the formal test summary
-        grep -A10 "📊 Test Results" "$LOG_FILE" | grep -E "(Total tests|Passed|Failed|All tests)" | tail -4 | tee -a "$LOG_FILE"
-    else
-        # Fallback count
-        passed_count=$(grep -o "✅" "$LOG_FILE" | wc -l | tr -d ' ')
-        echo "✅ Tests passed: $passed_count" | tee -a "$LOG_FILE"
-    fi
-else
-    echo "❌ Docker tests failed!" | tee -a "$LOG_FILE"
-    echo "📝 Full log available at: $LOG_FILE" | tee -a "$LOG_FILE"
-    
-    # Show failure summary
-    echo "" | tee -a "$LOG_FILE"
-    echo "=== ⚠️  Failure Summary ===" | tee -a "$LOG_FILE"
-    failure_count=$(grep -c "❌" "$LOG_FILE" | grep -v "no hosted zone" | grep -v "DNS record found" | grep -v "Points to different IP" || echo "0")
-    if [[ "$failure_count" -gt 0 ]]; then
-        echo "❌ Failed tests: $failure_count" | tee -a "$LOG_FILE"
-        echo "Recent failures:" | tee -a "$LOG_FILE"
-        grep "❌" "$LOG_FILE" | grep -v "no hosted zone" | grep -v "DNS record found" | grep -v "Points to different IP" | tail -5 | tee -a "$LOG_FILE"
-    else
-        echo "No specific test failures found. Check full log for details." | tee -a "$LOG_FILE"
+    # Check if Dokku container is accessible
+    DOKKU_CONTAINER="${DOKKU_CONTAINER:-dokku-local}"
+    if ! docker exec "$DOKKU_CONTAINER" echo "Container accessible" >/dev/null 2>&1; then
+        log_with_timestamp "❌ Dokku container not accessible: $DOKKU_CONTAINER"
+        log_with_timestamp "   Start containers first: docker-compose -f tests/docker/docker-compose.yml up -d"
+        exit 1
     fi
     
-    echo "" | tee -a "$LOG_FILE"
-    echo "💡 Troubleshooting tips:" | tee -a "$LOG_FILE"
-    echo "   • View detailed results: scripts/view-test-log.sh --parse" | tee -a "$LOG_FILE"
-    echo "   • Follow test execution: scripts/view-test-log.sh --follow" | tee -a "$LOG_FILE"
-    echo "   • View last 50 lines: scripts/view-test-log.sh --tail" | tee -a "$LOG_FILE"
-fi
+    # Colors for output
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    YELLOW='\033[1;33m'
+    BLUE='\033[0;34m'
+    NC='\033[0m'
+    
+    log() {
+        local level="$1"
+        shift
+        local message="$*"
+        
+        case "$level" in
+            "INFO")
+                echo -e "${BLUE}[INFO]${NC} $message" | tee -a "$LOG_FILE"
+                ;;
+            "SUCCESS")
+                echo -e "${GREEN}[SUCCESS]${NC} $message" | tee -a "$LOG_FILE"
+                ;;
+            "WARNING")
+                echo -e "${YELLOW}[WARNING]${NC} $message" | tee -a "$LOG_FILE"
+                ;;
+            "ERROR")
+                echo -e "${RED}[ERROR]${NC} $message" | tee -a "$LOG_FILE"
+                ;;
+        esac
+    }
+    
+    # Test Docker connection  
+    log "INFO" "Testing connection to Dokku container..."
+    if ! docker exec "$DOKKU_CONTAINER" echo "Container accessible" >/dev/null 2>&1; then
+        log "ERROR" "Cannot connect to Dokku container: $DOKKU_CONTAINER"
+        exit 1
+    fi
+    log "SUCCESS" "Connection to Dokku container established"
+    
+    # Generate and run test script inside container
+    log "INFO" "Generating and executing comprehensive test suite..."
+    
+    # Copy the assertion functions and integration test script
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    INTEGRATION_DIR="$SCRIPT_DIR/../tests/integration"
+    
+    log "INFO" "Copying report assertion functions to container..."
+    docker exec -i "$DOKKU_CONTAINER" bash -c "cat > /tmp/report-assertions.sh && chmod +x /tmp/report-assertions.sh" < "$INTEGRATION_DIR/report-assertions.sh" || {
+        log "WARNING" "Failed to copy report assertions, falling back to basic verification"
+    }
+    
+    log "INFO" "Installing DNS plugin in container..."
+    # Copy plugin to proper location and install it using Dokku's plugin installer
+    docker exec "$DOKKU_CONTAINER" bash -c "cp -r /tmp/dokku-dns /var/lib/dokku/plugins/available/dns"
+    
+    # Enable the plugin 
+    if ! docker exec "$DOKKU_CONTAINER" bash -c "dokku plugin:enable dns"; then
+        log "WARNING" "Failed to enable plugin via dokku command, trying manual approach"
+        # Manual enable as fallback
+        docker exec "$DOKKU_CONTAINER" bash -c "ln -sf /var/lib/dokku/plugins/available/dns /var/lib/dokku/plugins/enabled/dns"
+    fi
+    
+    # Run the install script after the plugin is enabled
+    if ! docker exec "$DOKKU_CONTAINER" bash -c "cd /var/lib/dokku/plugins/available/dns && ./install"; then
+        log "ERROR" "Failed to run DNS plugin install script"
+        return 1
+    fi
+    
+    # Initialize cron for DNS plugin testing
+    log "INFO" "Installing and configuring cron service..."
+    if ! docker exec "$DOKKU_CONTAINER" bash -c "/usr/local/bin/init-cron.sh"; then
+        log "WARNING" "Failed to initialize cron service, DNS cron functionality may not work"
+    fi
+    
+    # Fix permissions after installation
+    log "INFO" "Fixing DNS plugin data directory permissions..."
+    docker exec "$DOKKU_CONTAINER" bash -c "mkdir -p /var/lib/dokku/services/dns && chown -R dokku:dokku /var/lib/dokku/services/dns 2>/dev/null || true"
+    
+    # Verify plugin is properly installed and available
+    log "INFO" "Verifying DNS plugin installation..."
+    local retry_count=0
+    local max_retries=10
+    while [[ $retry_count -lt $max_retries ]]; do
+        if docker exec "$DOKKU_CONTAINER" bash -c "dokku help | grep -q dns" 2>/dev/null; then
+            log "SUCCESS" "DNS plugin is available and working"
+            break
+        else
+            retry_count=$((retry_count + 1))
+            log "INFO" "Plugin not yet available, retrying... ($retry_count/$max_retries)"
+            sleep 2
+        fi
+    done
+    
+    if [[ $retry_count -eq $max_retries ]]; then
+        log "ERROR" "DNS plugin installation verification failed after $max_retries attempts"
+        log "INFO" "Debugging plugin installation..."
+        docker exec "$DOKKU_CONTAINER" bash -c "ls -la /var/lib/dokku/plugins/available/ | grep dns || echo 'DNS plugin not found in available plugins'"
+        docker exec "$DOKKU_CONTAINER" bash -c "ls -la /var/lib/dokku/plugins/enabled/ | grep dns || echo 'DNS plugin not found in enabled plugins'"
+        docker exec "$DOKKU_CONTAINER" bash -c "ls -la /var/lib/dokku/services/ | grep dns || echo 'DNS data directory not found'"
+        return 1
+    fi
+    
+    log "SUCCESS" "DNS plugin installed and verified successfully"
+    
+    log "INFO" "Copying and executing integration test script..."
+    # Use the new comprehensive integration test script
+    local INTEGRATION_SCRIPT="$SCRIPT_DIR/test-integration.sh"
+    if [[ ! -f "$INTEGRATION_SCRIPT" ]]; then
+        log "ERROR" "Integration test script not found: $INTEGRATION_SCRIPT"
+        return 1
+    fi
+    
+    if docker exec -i "$DOKKU_CONTAINER" bash -c "cat > /tmp/test-integration.sh && chmod +x /tmp/test-integration.sh && cd /tmp/dokku-dns && /tmp/test-integration.sh" < "$INTEGRATION_SCRIPT"; then
+        log "SUCCESS" "All tests completed successfully!"
+        log "INFO" "DNS plugin functionality verified with comprehensive test suite"
+        return 0
+    else
+        log "ERROR" "Tests failed. Check the output above for details."
+        return 1
+    fi
+}
 
-exit "$EXIT_CODE"
+run_orchestrated_tests() {
+    local build_flag="$1"
+    local logs_flag="$2"
+    local compose_file="tests/docker/docker-compose.yml"
+    
+    log_with_timestamp "🚀 Starting Docker-based Dokku DNS plugin tests..."
+    log_with_timestamp ""
+    
+    # Check if Docker is running
+    if ! docker info >/dev/null 2>&1; then
+        log_with_timestamp "❌ Docker is not running. Please start Docker and try again."
+        exit 1
+    fi
+    
+    # Check if .env file exists and load it
+    if [[ -f ".env" ]]; then
+        log_with_timestamp "📄 Loading environment variables from .env file..."
+        set -a
+        source .env
+        set +a
+    elif [[ -f "../.env" ]]; then
+        log_with_timestamp "📄 Loading environment variables from ../.env file..."
+        set -a
+        source ../.env
+        set +a
+    fi
+    
+    # Clean up any existing containers
+    log_with_timestamp "🧹 Cleaning up existing containers..."
+    docker-compose -f "$compose_file" down -v 2>/dev/null || true
+    
+    # In CI, give containers more time to stop cleanly
+    if [[ "${CI:-}" == "true" || "${GITHUB_ACTIONS:-}" == "true" ]]; then
+        log_with_timestamp "⏱️  Waiting for clean container shutdown in CI..."
+        sleep 3
+    fi
+    
+    # Start the containers (build step now separate in CI)
+    local start_message="🚀 Starting containers and running tests..."
+    if [[ "$build_flag" == "--build" ]]; then
+        start_message="🏗️  Building and starting containers..."
+    fi
+    log_with_timestamp "$start_message"
+    
+    # Add CI-specific resource handling
+    if [[ "${CI:-}" == "true" || "${GITHUB_ACTIONS:-}" == "true" ]]; then
+        log_with_timestamp "🔍 CI environment detected - using CI optimizations"
+    fi
+    
+    # Build the docker-compose command properly
+    local compose_cmd="docker-compose -f $compose_file up"
+    if [[ -n "$build_flag" ]]; then
+        compose_cmd="$compose_cmd $build_flag"
+    fi
+    compose_cmd="$compose_cmd --abort-on-container-exit"
+    
+    # Run docker-compose with logging
+    set +e  # Don't exit on error so we can capture exit code
+    if eval "$compose_cmd" 2>&1 | tee -a "$LOG_FILE"; then
+        local docker_exit_code=0
+    else
+        local docker_exit_code=$?
+    fi
+    set -e
+    
+    log_with_timestamp ""
+    if [[ $docker_exit_code -eq 0 ]]; then
+        log_with_timestamp "✅ Tests completed successfully!"
+        
+        if [[ "$logs_flag" == "true" ]]; then
+            log_with_timestamp ""
+            log_with_timestamp "📋 Container logs:"
+            log_with_timestamp "===================="
+            docker-compose -f "$compose_file" logs | tee -a "$LOG_FILE"
+        fi
+    else
+        log_with_timestamp "❌ Tests failed!"
+        
+        log_with_timestamp ""
+        log_with_timestamp "📋 Container logs for debugging:"
+        log_with_timestamp "================================"
+        docker-compose -f "$compose_file" logs | tee -a "$LOG_FILE"
+        
+        # In CI environments, show additional debugging info
+        if [[ "${CI:-}" == "true" || "${GITHUB_ACTIONS:-}" == "true" ]]; then
+            log_with_timestamp ""
+            log_with_timestamp "🔍 Container status for CI debugging:"
+            log_with_timestamp "===================================="
+            docker-compose -f "$compose_file" ps -a 2>&1 | tee -a "$LOG_FILE" || true
+            
+            log_with_timestamp ""
+            log_with_timestamp "🐳 Docker system info:"
+            log_with_timestamp "====================="
+            docker system df 2>&1 | tee -a "$LOG_FILE" || true
+        fi
+    fi
+    
+    # Clean up
+    log_with_timestamp ""
+    log_with_timestamp "🧹 Cleaning up containers..."
+    docker-compose -f "$compose_file" down -v 2>/dev/null || true
+    
+    if [[ $docker_exit_code -eq 0 ]]; then
+        log_with_timestamp ""
+        log_with_timestamp "🎉 Docker-based testing completed!"
+        log_with_timestamp "   Your DNS plugin has been verified!"
+        return 0
+    else
+        return $docker_exit_code
+    fi
+}
+
+main() {
+    local build_flag=""
+    local logs_flag=""
+    local direct_mode=false
+    
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --build)
+                build_flag="--build"
+                shift
+                ;;
+            --logs)
+                logs_flag="true"
+                shift
+                ;;
+            --direct)
+                direct_mode=true
+                shift
+                ;;
+            --help|-h)
+                show_help
+                exit 0
+                ;;
+            *)
+                echo "Unknown option: $1"
+                echo "Use --help for usage information"
+                exit 1
+                ;;
+        esac
+    done
+    
+    # Initialize logging
+    log_with_timestamp "🚀 Starting Docker tests with logging..."
+    log_with_timestamp "📝 Log file: $LOG_FILE"
+    log_with_timestamp "⏰ Started at: $(date)"
+    log_with_timestamp ""
+    
+    # Run tests based on mode
+    set +e  # Don't exit on error so we can capture exit code
+    if [[ "$direct_mode" == "true" ]]; then
+        run_direct_tests
+        EXIT_CODE=$?
+    else
+        run_orchestrated_tests "$build_flag" "$logs_flag"
+        EXIT_CODE=$?
+    fi
+    set -e
+    
+    log_with_timestamp ""
+    log_with_timestamp "⏰ Completed at: $(date)"
+    log_with_timestamp "📊 Exit code: $EXIT_CODE"
+    
+    # Enhanced result reporting
+    if [[ $EXIT_CODE -eq 0 ]]; then
+        log_with_timestamp "✅ Docker tests completed successfully!"
+        
+        # Extract and display test summary if available
+        log_with_timestamp ""
+        log_with_timestamp "=== 🔍 Quick Test Summary ==="
+        if grep -q "📊 Test Results" "$LOG_FILE"; then
+            # Extract the formal test summary
+            grep -A10 "📊 Test Results" "$LOG_FILE" | grep -E "(Total tests|Passed|Failed|All tests)" | tail -4 | tee -a "$LOG_FILE"
+        else
+            # Fallback count
+            passed_count=$(grep -c "✅" "$LOG_FILE" | grep -v "no hosted zone" | grep -v "DNS record found" | grep -v "Points to different IP" || echo "0")
+            log_with_timestamp "✅ Tests passed: $passed_count"
+        fi
+    else
+        log_with_timestamp "❌ Docker tests failed!"
+        log_with_timestamp "📝 Full log available at: $LOG_FILE"
+        
+        # Show failure summary
+        log_with_timestamp ""
+        log_with_timestamp "=== ⚠️  Failure Summary ==="
+        failure_count=$(grep -c "❌" "$LOG_FILE" | grep -v "no hosted zone" | grep -v "DNS record found" | grep -v "Points to different IP" || echo "0")
+        if [[ "$failure_count" -gt 0 ]]; then
+            log_with_timestamp "❌ Failed tests: $failure_count"
+            log_with_timestamp "Recent failures:"
+            grep "❌" "$LOG_FILE" | grep -v "no hosted zone" | grep -v "DNS record found" | grep -v "Points to different IP" | tail -5 | tee -a "$LOG_FILE"
+        else
+            log_with_timestamp "No specific test failures found. Check full log for details."
+        fi
+        
+        log_with_timestamp ""
+        log_with_timestamp "💡 Troubleshooting tips:"
+        log_with_timestamp "   • View detailed results: scripts/view-test-log.sh --parse"
+        log_with_timestamp "   • Follow test execution: scripts/view-test-log.sh --follow"
+        log_with_timestamp "   • View last 50 lines: scripts/view-test-log.sh --tail"
+    fi
+    
+    exit "$EXIT_CODE"
+}
+
+main "$@"
