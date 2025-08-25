@@ -68,31 +68,40 @@ tmp/test-results/
 
 ### Phase 8d: Extract Integration Test Suites (INCREMENTAL)
 **Deliverable**: Split monolithic integration test into focused test files
-Extract from `tests/integration/dns-integration-tests.sh` (67 tests) into:
+Extract from `tests/integration/dns-integration-tests.sh` (67 tests) incrementally with proof-of-concept approach:
 
-#### Core Functionality Tests (30 tests)
+#### Phase 8d.1: Proof of Concept - Extract Help Tests (LOW RISK)
+**Deliverable**: Extract simplest, most isolated test suite as proof of concept
 - **`tests/integration/help-test.sh`** - Help and version commands (4 tests)
   - Main help display, command listing, version output, help for subcommands
+- **Goal**: Validate extraction process, test runner integration, logging compatibility
+- **Validation**: 4 tests pass independently + 63 tests remain in main file = 67 total
+
+#### Phase 8d.2: Extract Core Functionality Tests (26 tests)
+**Deliverable**: Extract stable, well-defined functionality after proof-of-concept success
 - **`tests/integration/app-management-test.sh`** - App add/remove/sync (5 tests) 
-  - Add app to DNS, remove app, sync operations, app reporting
 - **`tests/integration/providers-test.sh`** - Provider verification (3 tests)
-  - AWS provider setup, credential verification, provider status
 - **`tests/integration/sync-all-test.sh`** - Global sync operations (6 tests)
-  - Sync all apps, timing, error handling, empty state handling
 - **`tests/integration/report-test.sh`** - DNS reporting (12 tests)
-  - Global reports, app-specific reports, domain status, mixed scenarios
+- **Validation**: Each file runs independently, combined = 67 total
 
-#### Advanced Functionality Tests (25 tests)  
+#### Phase 8d.3: Extract Advanced Functionality Tests (25 tests)
+**Deliverable**: Extract complex functionality with established patterns  
 - **`tests/integration/cron-test.sh`** - Cron automation (19 tests)
-  - Enable/disable cron, schedule validation, status reporting, metadata handling
 - **`tests/integration/zones-test.sh`** - Zone management (6 tests)
-  - Zone listing, enable/disable zones, zone discovery, AWS integration
+- **Validation**: Full suite maintains stability and performance
 
-#### System Integration Tests (12 tests)
+#### Phase 8d.4: Extract System Integration Tests (12 tests)
+**Deliverable**: Extract most complex, interdependent tests last
 - **`tests/integration/triggers-test.sh`** - App lifecycle triggers (12 tests)
-  - post-create, post-delete, post-domains-update, trigger file verification
-- **`tests/integration/error-conditions-test.sh`** - Error handling (7 tests) 
-  - Invalid apps, missing arguments, edge cases, graceful failures
+- **`tests/integration/error-conditions-test.sh`** - Error handling (7 tests)
+- **Final Validation**: Original monolithic file removed, all 67 tests in modular files
+
+**Incremental Approach Benefits:**
+- **Risk Mitigation**: Each phase can be tested and validated before proceeding
+- **Early Feedback**: Proof of concept validates approach before major work
+- **Rollback Safety**: Any phase can be reverted without affecting others
+- **Stakeholder Confidence**: Visible progress with each small deliverable
 
 **Test File Structure**: Each file follows same pattern:
 ```bash
@@ -101,10 +110,11 @@ Extract from `tests/integration/dns-integration-tests.sh` (67 tests) into:
 # Expected: X passing, 0 failing
 ```
 
-**Validation Requirements**: 
-- Each file must run independently: `scripts/test-docker.sh integration/[file]`
+**Phase Validation Requirements**: 
+- Each extracted file must run independently: `scripts/test-docker.sh integration/[file]`
 - Combined execution must maintain: 67 passing, 0 failing
-- All files use shared test infrastructure and logging
+- All files use shared test infrastructure and enhanced logging from Phase 8a
+- Each phase completion tagged for easy rollback if needed
 
 #### Current Unit Test Organization (127 tests - Already Modular ✅)
 These BATS unit tests are already well-organized and don't need extraction:
@@ -148,25 +158,37 @@ These BATS unit tests are already well-organized and don't need extraction:
 - [ ] 67 passing / 0 failing baseline preserved
 
 ### Phase 8d Success
-**Core Functionality Tests (30 tests)**
-- [ ] `help-test.sh` - 4 tests passing independently
+**Phase 8d.1: Proof of Concept Success**
+- [ ] `help-test.sh` - 4 tests extracted and running independently
+- [ ] Original file reduced to 63 tests, still passing
+- [ ] Combined execution: 4 (help) + 63 (remaining) = 67 total
+- [ ] Test runner integration with logging working properly
+- [ ] Extraction process documented and repeatable
+
+**Phase 8d.2: Core Functionality Success**
 - [ ] `app-management-test.sh` - 5 tests passing independently  
 - [ ] `providers-test.sh` - 3 tests passing independently
 - [ ] `sync-all-test.sh` - 6 tests passing independently
 - [ ] `report-test.sh` - 12 tests passing independently
+- [ ] Combined execution maintains 67 total (4+5+3+6+12 + remaining)
 
-**Advanced Functionality Tests (25 tests)**
+**Phase 8d.3: Advanced Functionality Success**
 - [ ] `cron-test.sh` - 19 tests passing independently
 - [ ] `zones-test.sh` - 6 tests passing independently
+- [ ] All previous extractions remain stable
+- [ ] Combined execution maintains 67 total
 
-**System Integration Tests (12 tests)**  
+**Phase 8d.4: System Integration Success**  
 - [ ] `triggers-test.sh` - 12 tests passing independently
 - [ ] `error-conditions-test.sh` - 7 tests passing independently
+- [ ] Original monolithic file completely replaced
+- [ ] All 67 tests now in 9 focused, modular files
 
-**Overall Requirements**
+**Overall Requirements (All Phases)**
 - [ ] Each test file runs independently via `scripts/test-docker.sh integration/[file]`
 - [ ] Combined execution maintains 67 passing / 0 failing total
-- [ ] All files use shared test infrastructure and enhanced logging
+- [ ] All files use shared test infrastructure and enhanced logging from Phase 8a
+- [ ] Performance maintained or improved compared to monolithic approach
 
 ### Phase 8e Success
 - [ ] Individual test file execution and result aggregation
