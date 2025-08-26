@@ -2,20 +2,38 @@
 
 ## Overview
 
-The Dokku DNS plugin uses integration testing to validate functionality with real cloud provider APIs. This approach is more reliable than unit tests for DNS operations that depend on external services.
+The Dokku DNS plugin uses comprehensive BATS-based testing to validate functionality with real cloud provider APIs. The test infrastructure includes both unit tests and integration tests, providing reliable validation for DNS operations that depend on external services.
 
 ## Quick Start
 
 ### Local Docker Testing (Recommended)
 ```bash
-# Run comprehensive tests in Docker
+# Run comprehensive tests in Docker (127 unit + 66 integration tests)
 scripts/test-docker.sh
 
 # With AWS credentials for full testing
 AWS_ACCESS_KEY_ID=xxx AWS_SECRET_ACCESS_KEY=yyy scripts/test-docker.sh
 
+# List available test suites
+scripts/test-docker.sh --list
+
+# Run specific BATS integration suite
+scripts/test-docker.sh --direct apps-integration.bats
+
+# Run all tests with detailed summary
+scripts/test-docker.sh --summary
+
 # Force rebuild and show logs
 scripts/test-docker.sh --build --logs
+```
+
+### Unit Testing Only
+```bash
+# Run 127 BATS unit tests (fast, no Docker required)
+make unit-tests
+
+# Run specific unit test suite
+bats tests/dns_cron.bats
 ```
 
 ### Remote Server Testing
@@ -24,33 +42,53 @@ scripts/test-docker.sh --build --logs
 scripts/test-server.sh your-server.com root nextcloud
 ```
 
-## Test Methods
+## Test Architecture
 
-### 1. Docker Testing (`scripts/test-docker.sh`)
-✅ **Best for development** - Fast, isolated, consistent environment  
-✅ **No remote server required** - 2-3 minutes execution time  
-✅ **Complete test coverage** - All fixes and edge cases verified
+### 1. Unit Tests (127 tests)
+✅ **Fast execution** - No Docker required, runs in seconds  
+✅ **Comprehensive coverage** - All commands and edge cases  
+✅ **BATS framework** - Professional test reporting
 
-**What it tests:**
-- Plugin installation and configuration
-- All DNS commands (apps:enable, apps:sync, report, apps:disable, providers:configure, providers:verify)
-- Domain parsing for multiple domains
-- DNS management tracking with LINKS file
-- Hosted zone validation
-- Error handling and edge cases
+**Test files:**
+- `dns_add.bats` (8 tests) - App enable/add functionality
+- `dns_cron.bats` (16 tests) - Cron job management  
+- `dns_help.bats` (9 tests) - Help system
+- `dns_namespace_apps.bats` (7 tests) - App namespace commands
+- `dns_namespace_zones.bats` (6 tests) - Zone namespace commands
+- `dns_report.bats` (9 tests) - Reporting functionality
+- `dns_sync_all.bats` (8 tests) - Global sync operations
+- `dns_sync.bats` (7 tests) - Individual app sync
+- `dns_triggers.bats` (13 tests) - App lifecycle triggers
+- `dns_verify.bats` (11 tests) - Provider verification
+- `dns_zones.bats` (33 tests) - Zone management
 
-### 2. Remote Server Testing (`scripts/test-server.sh`)
-✅ **Best for final validation** - Real AWS Route53 integration  
-✅ **Production-like environment** - Tests against actual hosted zones  
+### 2. Integration Tests (66 tests)  
+✅ **Docker-based testing** - Isolated, consistent environment  
+✅ **Real plugin installation** - Full Dokku integration  
+✅ **BATS framework** - Organized by functionality
+
+**Test suites:**
+- `apps-integration.bats` (6 tests) - App management functionality
+- `cron-integration.bats` (17 tests) - Cron automation and scheduling
+- `help-integration.bats` (4 tests) - Help commands and version
+- `providers-integration.bats` (3 tests) - Provider configuration
+- `report-integration.bats` (6 tests) - DNS reporting
+- `triggers-integration.bats` (10 tests) - App lifecycle triggers
+- `zones-integration.bats` (20 tests) - Zone operations and integration
+
+### 3. Docker Testing (`scripts/test-docker.sh`)
+✅ **Complete test environment** - Runs all 193 tests (127 unit + 66 integration)  
+✅ **Enhanced reporting** - Detailed summaries and failure analysis  
+✅ **Flexible execution** - Run specific suites or comprehensive testing
+
+### 4. Remote Server Testing (`scripts/test-server.sh`)
+✅ **Production validation** - Real AWS Route53 integration  
+✅ **Live environment testing** - Tests against actual hosted zones
 
 **Requires:**
 - SSH access to Dokku server
 - AWS credentials for Route53 testing
 - Real domains with hosted zones
-
-### 3. Integration Testing (`scripts/test-integration.sh`)
-✅ **Lightweight testing** - Core functionality without Docker overhead  
-✅ **CI/CD friendly** - No external dependencies
 
 ## Credentials Setup
 
@@ -152,11 +190,22 @@ docker exec dokku-local aws sts get-caller-identity
 
 ## Test Selection Guide
 
-**Use Docker testing (`scripts/test-docker.sh`) for:**
+**Use unit tests (`make unit-tests`) for:**
 - Daily development work
-- Regression testing
+- Quick validation of command logic
+- Pre-commit testing
+- Fast feedback loops
+
+**Use Docker testing (`scripts/test-docker.sh`) for:**
+- Comprehensive integration testing
+- Full plugin lifecycle validation
 - CI/CD pipelines
-- Quick validation of changes
+- Regression testing
+
+**Use specific BATS suites for:**
+- Focused testing of specific functionality
+- Debugging specific command groups
+- Development of new features
 
 **Use remote server testing (`scripts/test-server.sh`) for:**
 - Final release validation
@@ -164,4 +213,4 @@ docker exec dokku-local aws sts get-caller-identity
 - Production environment validation
 - Performance testing against live AWS APIs
 
-The DNS plugin's comprehensive test suite ensures all implemented fixes work correctly across different environments and validates both local development and production deployment scenarios.
+The DNS plugin's comprehensive BATS-based test suite (193 tests total) ensures all implemented functionality works correctly across different environments and validates both local development and production deployment scenarios.
