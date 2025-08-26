@@ -174,10 +174,24 @@ jobs:
         
     - name: Run BATS integration tests  
       run: |
-        echo "🧪 Running BATS integration tests in test-runner container..."
-        # Run BATS tests in the test-runner container where BATS is installed
-        docker exec test-runner bash -c "
-          cd /plugin &&
+        echo "🧪 Running BATS integration tests in dokku-local container..."
+        # Install and run BATS tests in the Dokku container 
+        docker exec -i dokku-local bash -c "
+          # Install BATS in dokku container
+          if ! command -v bats >/dev/null 2>&1; then
+            echo '📦 Installing BATS for integration testing...' &&
+            apt-get update -qq >/dev/null 2>&1 &&
+            git clone --quiet https://github.com/bats-core/bats-core.git /tmp/bats-install &&
+            cd /tmp/bats-install &&
+            ./install.sh /usr/local >/dev/null 2>&1 &&
+            rm -rf /tmp/bats-install &&
+            echo '✅ BATS installed successfully'
+          else
+            echo '✅ BATS already available'
+          fi &&
+          
+          # Run BATS integration tests
+          cd /tmp/dokku-dns &&
           if ls tests/integration/*.bats 1> /dev/null 2>&1; then
             cd tests/integration &&
             echo '🧪 Found BATS integration tests, running...' &&
