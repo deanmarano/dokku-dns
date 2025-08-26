@@ -130,6 +130,21 @@ jobs:
         echo "⏳ Initializing test environment..."
         sleep 10
         
+        # Install BATS in dokku container for integration testing
+        echo "📦 Installing BATS for integration testing..."
+        docker exec dokku-local bash -c "
+          if ! command -v bats >/dev/null 2>&1; then
+            apt-get update -qq >/dev/null 2>&1 &&
+            git clone --quiet https://github.com/bats-core/bats-core.git /tmp/bats-install &&
+            cd /tmp/bats-install &&
+            ./install.sh /usr/local >/dev/null 2>&1 &&
+            rm -rf /tmp/bats-install &&
+            echo '✅ BATS installed successfully'
+          else
+            echo '✅ BATS already available'
+          fi
+        "
+        
     - name: Run integration tests
       run: |
         echo "🧪 Running integration tests..."
@@ -154,11 +169,18 @@ jobs:
           chmod +x /tmp/test-integration.sh &&
           /tmp/test-integration.sh &&
           
-          # Run BATS integration tests
-          echo '🧪 Running BATS integration tests...' &&
+          echo '✅ Main integration tests completed'
+        "
+        
+    - name: Run BATS integration tests  
+      run: |
+        echo "🧪 Running BATS integration tests in test-runner container..."
+        # Run BATS tests in the test-runner container where BATS is installed
+        docker exec tests-docker-test-runner bash -c "
           cd /tmp/dokku-dns &&
           if ls tests/integration/*.bats 1> /dev/null 2>&1; then
             cd tests/integration &&
+            echo '🧪 Found BATS integration tests, running...' &&
             BATS_OUTPUT=\$(bats *.bats 2>&1) &&
             echo \"\$BATS_OUTPUT\" &&
             TOTAL_TESTS=\$(echo \"\$BATS_OUTPUT\" | head -1 | cut -d'.' -f2) &&
@@ -167,9 +189,13 @@ jobs:
             echo \"📊 BATS Integration Test Summary:\" &&
             echo \"   Total: \$TOTAL_TESTS tests\" &&
             echo \"   Passed: \$PASSED_TESTS tests\" &&
-            echo \"   Failed: \$FAILED_TESTS tests\"
+            echo \"   Failed: \$FAILED_TESTS tests\" &&
+            if [ \"\$FAILED_TESTS\" -gt 0 ]; then
+              exit 1
+            fi
           else
-            echo 'No BATS integration tests found, skipping...'
+            echo '❌ No BATS integration tests found'
+            exit 1
           fi
         "
       

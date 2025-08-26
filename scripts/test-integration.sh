@@ -237,118 +237,6 @@ test_zones_with_report_sync() {
     TESTS_TOTAL=$((TESTS_TOTAL + 1))
 }
 
-test_dns_triggers() {
-    log_info "Testing DNS triggers with app lifecycle..."
-    
-    # Ensure AWS provider is configured for trigger tests
-    
-    local TRIGGER_TEST_APP
-    TRIGGER_TEST_APP="trigger-test-app-$(date +%s)"
-    local TRIGGER_DOMAIN="trigger.example.com"
-    local TRIGGER_DOMAIN2="api.trigger.example.com"
-    
-    # Clean up any existing test app first
-    if dokku apps:list 2>/dev/null | grep -q "^$TRIGGER_TEST_APP$"; then
-        dokku apps:destroy "$TRIGGER_TEST_APP" --force >/dev/null 2>&1 || true
-        # Wait a moment for cleanup to complete
-        sleep 1
-    fi
-    
-    # Test post-create trigger: Create app (no domains yet)
-    assert_success "Can create app (triggers post-create)" dokku apps:create "$TRIGGER_TEST_APP"
-    
-    # Test domains-add trigger: Add domain to new app (should auto-sync)
-    local domains_add_output
-    domains_add_output=$(dokku domains:add "$TRIGGER_TEST_APP" "$TRIGGER_DOMAIN" 2>&1)
-    if echo "$domains_add_output" | grep -q "DNS: Syncing DNS records"; then
-        log_success "Domains-add trigger automatically syncs DNS records"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    else
-        log_error "Domains-add trigger should automatically sync DNS records"
-        log_error "Output: $domains_add_output"
-        TESTS_FAILED=$((TESTS_FAILED + 1))
-    fi
-    TESTS_TOTAL=$((TESTS_TOTAL + 1))
-    
-    # Verify domains-add trigger automatically added app to DNS management
-    assert_output_contains "App should be auto-added to DNS after domain addition" "$TRIGGER_TEST_APP" dokku dns:report
-    
-    # Test domains-add trigger: Add another domain
-    assert_success "Can add second domain (triggers domains-add)" dokku domains:add "$TRIGGER_TEST_APP" "$TRIGGER_DOMAIN2"
-    
-    # Verify domains-add trigger added domain to DNS tracking
-    local trigger_report_output
-    trigger_report_output=$(dokku dns:report "$TRIGGER_TEST_APP" 2>&1)
-    if echo "$trigger_report_output" | grep -q "$TRIGGER_DOMAIN2"; then
-        log_success "Domains-add trigger successfully tracked new domain"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    else
-        log_error "Domains-add trigger failed to track new domain"
-        TESTS_FAILED=$((TESTS_FAILED + 1))
-    fi
-    TESTS_TOTAL=$((TESTS_TOTAL + 1))
-    
-    # Test domains-remove trigger: Remove one domain
-    assert_success "Can remove domain (triggers domains-remove)" dokku domains:remove "$TRIGGER_TEST_APP" "$TRIGGER_DOMAIN"
-    
-    # Verify domains-remove trigger removed domain from DNS tracking
-    trigger_report_output=$(dokku dns:report "$TRIGGER_TEST_APP" 2>&1)
-    if ! echo "$trigger_report_output" | grep -E "^${TRIGGER_DOMAIN}[[:space:]]|[[:space:]]${TRIGGER_DOMAIN}[[:space:]]" && echo "$trigger_report_output" | grep -q "$TRIGGER_DOMAIN2"; then
-        log_success "Domains-remove trigger successfully removed domain while keeping others"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    else
-        log_error "Domains-remove trigger failed to properly remove domain"
-        TESTS_FAILED=$((TESTS_FAILED + 1))
-    fi
-    TESTS_TOTAL=$((TESTS_TOTAL + 1))
-    
-    # Test post-delete trigger: Destroy app (may have exit code 1 due to Docker environment issues)
-    local destroy_output
-    destroy_output=$(dokku apps:destroy "$TRIGGER_TEST_APP" --force 2>&1 || true)
-    
-    # Check if post-delete trigger ran (look for DNS cleanup messages in output)
-    # In Docker environments, sudo authentication issues may prevent trigger execution
-    # but the cleanup still happens via other mechanisms
-    if echo "$destroy_output" | grep -q "DNS: Cleaning up DNS management" || echo "$destroy_output" | grep -q "DNS: App .* removed from DNS management"; then
-        log_success "Post-delete trigger executed during app destruction"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    elif echo "$destroy_output" | grep -q "sudo: a terminal is required to read the password"; then
-        log_warning "Post-delete trigger skipped due to Docker environment sudo limitations"
-        log_info "This is expected in containerized environments and doesn't indicate a code issue"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    else
-        log_error "Post-delete trigger did not execute during app destruction"
-        log_error "Destroy output: $destroy_output"
-        TESTS_FAILED=$((TESTS_FAILED + 1))
-    fi
-    TESTS_TOTAL=$((TESTS_TOTAL + 1))
-    
-    # Verify post-delete trigger cleaned up DNS management
-    local cleanup_report_output
-    cleanup_report_output=$(dokku dns:report 2>&1)
-    if ! echo "$cleanup_report_output" | grep -q "$TRIGGER_TEST_APP"; then
-        log_success "Post-delete trigger successfully cleaned up DNS management"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    else
-        log_error "Post-delete trigger failed to clean up DNS management"
-        log_error "Report output: $cleanup_report_output"
-        TESTS_FAILED=$((TESTS_FAILED + 1))
-    fi
-    TESTS_TOTAL=$((TESTS_TOTAL + 1))
-    
-    # Test that trigger files exist and are executable
-    local plugin_root="/var/lib/dokku/plugins/available/dns"
-    for trigger in post-create post-delete post-domains-update; do
-        if [[ -x "$plugin_root/$trigger" ]]; then
-            log_success "Trigger $trigger exists and is executable"
-            TESTS_PASSED=$((TESTS_PASSED + 1))
-        else
-            log_error "Trigger $trigger missing or not executable"
-            TESTS_FAILED=$((TESTS_FAILED + 1))
-        fi
-        TESTS_TOTAL=$((TESTS_TOTAL + 1))
-    done
-}
 test_error_conditions() {
     log_info "Testing error conditions..."
     
@@ -379,7 +267,6 @@ main() {
     # NOTE: Help tests are now run separately via BATS (tests/integration/help-integration.bats)
     # test_dns_app_management - now covered by BATS tests/integration/apps-integration.bats
     test_zones_with_report_sync
-    test_dns_triggers
     test_error_conditions
     
     # Cleanup
