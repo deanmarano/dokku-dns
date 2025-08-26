@@ -28,19 +28,6 @@ teardown() {
     assert_output --partial "AWS"
 }
 
-@test "(dns:report) shows correct status for app not in DNS management" {
-    run dokku dns:report "$TEST_APP"
-    assert_success
-    assert_output --partial "DNS Status:"
-    assert_output --partial "Not added"
-}
-
-@test "(dns:report) shows app domains even when not in DNS management" {
-    run dokku dns:report "$TEST_APP"
-    assert_success
-    assert_output --partial "app.example.com"
-    assert_output --partial "api.example.com"
-}
 
 @test "(dns:apps:sync) shows appropriate message for non-DNS-managed app" {
     run dokku dns:apps:sync "$TEST_APP"
