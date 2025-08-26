@@ -207,10 +207,11 @@ jobs:
               cat /tmp/bats_output || echo 'No output captured' &&
               exit 1
             fi &&
-            PASSED_TESTS=\$(echo \"\$BATS_OUTPUT\" | grep -c '^ok ' || echo '0') &&
-            FAILED_TESTS=\$(echo \"\$BATS_OUTPUT\" | grep -c '^not ok ' || echo '0') &&
-            echo \"Debug: PASSED_TESTS=''\$PASSED_TESTS''\" &&
-            echo \"Debug: FAILED_TESTS=''\$FAILED_TESTS''\" &&
+            PASSED_TESTS=\$(echo \"\$BATS_OUTPUT\" | grep -c '^ok ' | tr -d '\\n' || echo '0') &&
+            FAILED_TESTS=\$(echo \"\$BATS_OUTPUT\" | grep -c '^not ok ' | tr -d '\\n' || echo '0') &&
+            # Clean up any extra characters
+            PASSED_TESTS=\$(echo \"\$PASSED_TESTS\" | head -1 | tr -cd '0-9') &&
+            FAILED_TESTS=\$(echo \"\$FAILED_TESTS\" | head -1 | tr -cd '0-9') &&
             TOTAL_TESTS=\$((\${PASSED_TESTS:-0} + \${FAILED_TESTS:-0})) &&
             echo \"📊 BATS Integration Test Summary:\" &&
             echo \"   Total: \$TOTAL_TESTS tests\" &&
