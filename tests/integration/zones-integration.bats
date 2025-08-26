@@ -34,3 +34,154 @@ teardown() {
     [[ "$status" -ne 0 ]] || [[ "$output" =~ (Usage|usage|help|argument) ]]
 }
 
+@test "(dns:zones) shows zone details when AWS CLI available and zone exists" {
+    # Skip if AWS CLI not available
+    if ! command -v aws >/dev/null 2>&1 || ! aws sts get-caller-identity >/dev/null 2>&1; then
+        skip "AWS CLI not available or not configured"
+    fi
+    
+    local test_zone
+    test_zone=$(aws route53 list-hosted-zones --query 'HostedZones[0].Name' --output text 2>/dev/null | sed 's/\.$//')
+    
+    if [[ -n "$test_zone" ]]; then
+        run dokku dns:zones "$test_zone"
+        assert_success
+        assert_output --partial "DNS Zone Details: $test_zone"
+        assert_output --partial "AWS Route53 Information"
+        assert_output --partial "Zone ID:"
+        assert_output --partial "DNS Records"
+        assert_output --partial "Dokku Integration"
+    else
+        skip "No test zone available"
+    fi
+}
+
+@test "(dns:zones) fails for non-existent zone when AWS CLI available" {
+    # Skip if AWS CLI not available
+    if ! command -v aws >/dev/null 2>&1 || ! aws sts get-caller-identity >/dev/null 2>&1; then
+        skip "AWS CLI not available or not configured"
+    fi
+    
+    run dokku dns:zones "nonexistent-test-zone-12345.com"
+    assert_failure
+    assert_output --partial "not found in Route53"
+}
+
+@test "(dns:zones:enable) fails with both zone name and --all flag" {
+    run dokku dns:zones:enable example.com --all
+    assert_failure
+}
+
+@test "(dns:zones:disable) fails with both zone name and --all flag" {
+    run dokku dns:zones:disable example.com --all
+    assert_failure
+}
+
+@test "(dns:zones:enable) processes real zone when AWS CLI available" {
+    # Skip if AWS CLI not available
+    if ! command -v aws >/dev/null 2>&1 || ! aws sts get-caller-identity >/dev/null 2>&1; then
+        skip "AWS CLI not available or not configured"
+    fi
+    
+    local test_zone
+    test_zone=$(aws route53 list-hosted-zones --query 'HostedZones[0].Name' --output text 2>/dev/null | sed 's/\.$//')
+    
+    if [[ -n "$test_zone" ]]; then
+        run dokku dns:zones:enable "$test_zone"
+        # May succeed or fail depending on zone configuration
+        assert_output --partial "Adding zone to auto-discovery: $test_zone"
+    else
+        skip "No test zone available"
+    fi
+}
+
+@test "(dns:zones:disable) works with real zone when AWS CLI available" {
+    # Skip if AWS CLI not available
+    if ! command -v aws >/dev/null 2>&1 || ! aws sts get-caller-identity >/dev/null 2>&1; then
+        skip "AWS CLI not available or not configured"
+    fi
+    
+    local test_zone
+    test_zone=$(aws route53 list-hosted-zones --query 'HostedZones[0].Name' --output text 2>/dev/null | sed 's/\.$//')
+    
+    if [[ -n "$test_zone" ]]; then
+        run dokku dns:zones:disable "$test_zone"
+        assert_success
+        assert_output --partial "Removing zone from auto-discovery: $test_zone"
+    else
+        skip "No test zone available"
+    fi
+}
+
+@test "(dns:zones:enable --all) processes all zones when AWS CLI available" {
+    # Skip if AWS CLI not available
+    if ! command -v aws >/dev/null 2>&1 || ! aws sts get-caller-identity >/dev/null 2>&1; then
+        skip "AWS CLI not available or not configured"
+    fi
+    
+    run dokku dns:zones:enable --all
+    # May succeed or fail depending on zone configuration
+    assert_output --partial "Adding all zones to auto-discovery"
+}
+
+@test "(dns:zones:disable --all) works when AWS CLI available" {
+    # Skip if AWS CLI not available
+    if ! command -v aws >/dev/null 2>&1 || ! aws sts get-caller-identity >/dev/null 2>&1; then
+        skip "AWS CLI not available or not configured"
+    fi
+    
+    run dokku dns:zones:disable --all
+    assert_success
+    assert_output --partial "Removing all zones from auto-discovery"
+}
+
+@test "(dns:zones:enable) shows AWS CLI requirement when not available" {
+    # Only run if AWS CLI is NOT available
+    if command -v aws >/dev/null 2>&1 && aws sts get-caller-identity >/dev/null 2>&1; then
+        skip "AWS CLI is available and configured"
+    fi
+    
+    run dokku dns:zones:enable example.com
+    # Should fail and show AWS CLI requirement
+    assert_output --partial "AWS CLI is not installed"
+}
+
+@test "(dns:zones:disable) works without AWS CLI" {
+    # Only run if AWS CLI is NOT available
+    if command -v aws >/dev/null 2>&1 && aws sts get-caller-identity >/dev/null 2>&1; then
+        skip "AWS CLI is available and configured"
+    fi
+    
+    run dokku dns:zones:disable example.com
+    assert_success
+    assert_output --partial "removed from auto-discovery"
+}
+
+@test "(dns:zones:enable --all) shows AWS CLI requirement when not available" {
+    # Only run if AWS CLI is NOT available
+    if command -v aws >/dev/null 2>&1 && aws sts get-caller-identity >/dev/null 2>&1; then
+        skip "AWS CLI is available and configured"
+    fi
+    
+    run dokku dns:zones:enable --all
+    # Should fail and show AWS CLI requirement
+    assert_output --partial "AWS CLI is not installed"
+}
+
+@test "(dns:zones:disable --all) works without AWS CLI" {
+    # Only run if AWS CLI is NOT available
+    if command -v aws >/dev/null 2>&1 && aws sts get-caller-identity >/dev/null 2>&1; then
+        skip "AWS CLI is available and configured"
+    fi
+    
+    run dokku dns:zones:disable --all
+    assert_success
+    assert_output --partial "No apps are currently managed by DNS"
+}
+
+@test "(dns:zones) rejects unknown flags" {
+    run dokku dns:zones --invalid-flag
+    assert_failure
+    assert_output --partial "Flags are no longer supported"
+}
+

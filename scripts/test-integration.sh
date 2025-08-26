@@ -153,64 +153,6 @@ cleanup_test_environment() {
 # This function has been removed to eliminate test duplication
 
 
-test_dns_zones() {
-    log_info "Testing DNS zones functionality..."
-    
-    # Ensure AWS provider is configured (required for zones operations)
-    
-    # Check if AWS CLI and credentials are available
-    local aws_available=false
-    local test_zone=""
-    if command -v aws >/dev/null 2>&1 && aws sts get-caller-identity >/dev/null 2>&1; then
-        aws_available=true
-        # Get the first available hosted zone for testing
-        test_zone=$(aws route53 list-hosted-zones --query 'HostedZones[0].Name' --output text 2>/dev/null | sed 's/\.$//')
-        log_info "AWS CLI available, testing with real zone: $test_zone"
-    else
-        log_info "AWS CLI not available or not configured, testing error handling"
-    fi
-    
-    
-    # Test zone details only when AWS CLI is available
-    if [[ "$aws_available" == "true" && -n "$test_zone" ]]; then
-        assert_output_contains "Zone details shows real zone info" "DNS Zone Details: $test_zone" dokku dns:zones "$test_zone"
-        assert_output_contains "Zone details shows AWS info" "AWS Route53 Information" dokku dns:zones "$test_zone"
-        assert_output_contains "Zone details shows zone ID" "Zone ID:" dokku dns:zones "$test_zone"
-        assert_output_contains "Zone details shows records section" "DNS Records" dokku dns:zones "$test_zone"
-        assert_output_contains "Zone details shows Dokku integration" "Dokku Integration" dokku dns:zones "$test_zone"
-        
-        # Test with non-existent zone
-        assert_failure "Non-existent zone should fail" dokku dns:zones "nonexistent-test-zone-12345.com"
-        assert_output_contains_ignore_exit "Non-existent zone shows error" "not found in Route53" dokku dns:zones "nonexistent-test-zone-12345.com"
-    fi
-    
-    assert_failure "Add zone fails with both name and --all" dokku dns:zones:enable example.com --all
-    assert_failure "Remove zone fails with both name and --all" dokku dns:zones:disable example.com --all
-    
-    # Test add/remove zone functionality
-    if [[ "$aws_available" == "true" && -n "$test_zone" ]]; then
-        # These will work but may not find matching Dokku apps, which is expected
-        assert_output_contains_ignore_exit "Add zone processes real zone" "Adding zone to auto-discovery: $test_zone" dokku dns:zones:enable "$test_zone"
-        assert_output_contains "Remove zone works with real zone" "Removing zone from auto-discovery: $test_zone" dokku dns:zones:disable "$test_zone"
-        
-        # Test add-all
-        assert_output_contains_ignore_exit "Add-all processes real zones" "Adding all zones to auto-discovery" dokku dns:zones:enable --all
-        
-        # Test remove-all
-        assert_output_contains "Remove-all works with AWS CLI" "Removing all zones from auto-discovery" dokku dns:zones:disable --all
-    else
-        assert_output_contains_ignore_exit "Add zone shows AWS CLI requirement" "AWS CLI is not installed" dokku dns:zones:enable example.com
-        assert_output_contains "Remove zone works without AWS CLI" "removed from DNS management" dokku dns:zones:disable example.com
-        assert_output_contains_ignore_exit "Add-all shows AWS CLI requirement" "AWS CLI is not installed" dokku dns:zones:enable --all
-        
-        # Test remove-all (should work without AWS CLI)
-        assert_output_contains "Remove-all works without AWS CLI" "No apps are currently managed by DNS" dokku dns:zones:disable --all
-    fi
-    
-    # Test unknown flag (should work regardless of AWS availability)
-    assert_failure "Unknown flag should fail" dokku dns:zones --invalid-flag
-    assert_output_contains_ignore_exit "Unknown flag shows error" "Flags are no longer supported" dokku dns:zones --invalid-flag
-}
 
 test_zones_with_report_sync() {
     log_info "Testing zones functionality with report and sync..."
@@ -410,15 +352,7 @@ test_dns_triggers() {
 test_error_conditions() {
     log_info "Testing error conditions..."
     
-    # Test commands with nonexistent apps
-    assert_failure "Add nonexistent app should fail" dokku dns:apps:enable nonexistent-app
-    assert_failure "Sync nonexistent app should fail" dokku dns:apps:sync nonexistent-app
-    assert_failure "Remove nonexistent app should fail" dokku dns:apps:disable nonexistent-app
-    
-    # Test missing arguments
-    assert_failure "Add without app should fail" dokku dns:apps:enable
-    assert_failure "Sync without app should fail" dokku dns:apps:sync
-    assert_failure "Remove without app should fail" dokku dns:apps:disable
+    # NOTE: DNS apps error condition tests moved to apps-integration.bats
 }
 
 # Main test execution
@@ -444,7 +378,6 @@ main() {
     # Run test suites
     # NOTE: Help tests are now run separately via BATS (tests/integration/help-integration.bats)
     # test_dns_app_management - now covered by BATS tests/integration/apps-integration.bats
-    test_dns_zones
     test_zones_with_report_sync
     test_dns_triggers
     test_error_conditions

@@ -51,3 +51,14 @@ teardown() {
     assert_success
 }
 
+@test "(dns:apps:enable) rejects nonexistent app" {
+    run dokku dns:apps:enable nonexistent-app
+    assert_failure
+}
+
+@test "(dns:apps:sync) rejects nonexistent app" {
+    run dokku dns:apps:sync nonexistent-app
+    assert_failure
+}
+
+
