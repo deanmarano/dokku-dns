@@ -185,3 +185,106 @@ teardown() {
     assert_output --partial "Flags are no longer supported"
 }
 
+@test "(zones integration) can create test app for zones testing" {
+    local ZONES_TEST_APP="zones-report-test"
+    
+    # Clean up any existing test app first
+    dokku apps:destroy "$ZONES_TEST_APP" --force >/dev/null 2>&1 || true
+    sleep 1
+    
+    # Ensure no zones are enabled to prevent auto-DNS management by triggers
+    mkdir -p /var/lib/dokku/services/dns
+    rm -f /var/lib/dokku/services/dns/ENABLED_ZONES
+    
+    # Create the test app
+    run dokku apps:create "$ZONES_TEST_APP"
+    assert_success
+    
+    # Clean up
+    dokku apps:destroy "$ZONES_TEST_APP" --force >/dev/null 2>&1 || true
+}
+
+@test "(zones integration) can add domains to zones test app" {
+    local ZONES_TEST_APP="zones-report-test-domains"
+    
+    # Setup
+    dokku apps:create "$ZONES_TEST_APP" >/dev/null 2>&1 || true
+    mkdir -p /var/lib/dokku/services/dns
+    rm -f /var/lib/dokku/services/dns/ENABLED_ZONES
+    
+    # Add domains that would be in example.com zone
+    run dokku domains:add "$ZONES_TEST_APP" "app.example.com"
+    assert_success
+    
+    run dokku domains:add "$ZONES_TEST_APP" "api.example.com"  
+    assert_success
+    
+    # Verify domains were added
+    run dokku domains:report "$ZONES_TEST_APP"
+    assert_success
+    assert_output --partial "app.example.com"
+    assert_output --partial "api.example.com"
+    
+    # Clean up
+    dokku apps:destroy "$ZONES_TEST_APP" --force >/dev/null 2>&1 || true
+}
+
+@test "(zones integration) DNS management works after zone enabled" {
+    # Skip if AWS CLI not available
+    if ! command -v aws >/dev/null 2>&1 || ! aws sts get-caller-identity >/dev/null 2>&1; then
+        skip "AWS CLI not available or not configured"
+    fi
+    
+    local ZONES_TEST_APP="zones-dns-test"
+    
+    # Setup app with domains
+    dokku apps:create "$ZONES_TEST_APP" >/dev/null 2>&1 || true
+    dokku domains:add "$ZONES_TEST_APP" "app.example.com" >/dev/null 2>&1 || true
+    
+    # Ensure app is not in DNS management initially
+    dokku dns:apps:disable "$ZONES_TEST_APP" >/dev/null 2>&1 || true
+    
+    # Create enabled zones file for testing
+    mkdir -p /var/lib/dokku/services/dns
+    echo "example.com" > /var/lib/dokku/services/dns/ENABLED_ZONES
+    
+    # Add app to DNS management after zone enabled
+    run dokku dns:apps:enable "$ZONES_TEST_APP"
+    assert_success
+    assert_output --partial "app.example.com"
+    
+    # Clean up
+    rm -f /var/lib/dokku/services/dns/ENABLED_ZONES
+    dokku dns:apps:disable "$ZONES_TEST_APP" >/dev/null 2>&1 || true
+    dokku apps:destroy "$ZONES_TEST_APP" --force >/dev/null 2>&1 || true
+}
+
+@test "(zones integration) sync works with enabled zones" {
+    # Skip if AWS CLI not available
+    if ! command -v aws >/dev/null 2>&1 || ! aws sts get-caller-identity >/dev/null 2>&1; then
+        skip "AWS CLI not available or not configured"
+    fi
+    
+    local ZONES_TEST_APP="zones-sync-test"
+    
+    # Setup app with domains and DNS management
+    dokku apps:create "$ZONES_TEST_APP" >/dev/null 2>&1 || true
+    dokku domains:add "$ZONES_TEST_APP" "sync.example.com" >/dev/null 2>&1 || true
+    
+    # Create enabled zones file and enable DNS for app
+    mkdir -p /var/lib/dokku/services/dns
+    echo "example.com" > /var/lib/dokku/services/dns/ENABLED_ZONES
+    dokku dns:apps:enable "$ZONES_TEST_APP" >/dev/null 2>&1 || true
+    
+    # Test sync with enabled zone
+    run dokku dns:apps:sync "$ZONES_TEST_APP"
+    assert_success
+    # Should show sync operation (exact output depends on AWS availability)
+    [[ "$output" =~ (sync|AWS|domain|Syncing) ]]
+    
+    # Clean up
+    rm -f /var/lib/dokku/services/dns/ENABLED_ZONES
+    dokku dns:apps:disable "$ZONES_TEST_APP" >/dev/null 2>&1 || true
+    dokku apps:destroy "$ZONES_TEST_APP" --force >/dev/null 2>&1 || true
+}
+
