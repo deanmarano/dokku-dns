@@ -350,7 +350,7 @@ test_dns_zones() {
         assert_output_contains "Remove-all works with AWS CLI" "Removing all zones from auto-discovery" dokku dns:zones:disable --all
     else
         assert_output_contains_ignore_exit "Add zone shows AWS CLI requirement" "AWS CLI is not installed" dokku dns:zones:enable example.com
-        assert_output_contains "Remove zone works without AWS CLI" "No apps are currently managed by DNS" dokku dns:zones:disable example.com
+        assert_output_contains "Remove zone works without AWS CLI" "removed from DNS management" dokku dns:zones:disable example.com
         assert_output_contains_ignore_exit "Add-all shows AWS CLI requirement" "AWS CLI is not installed" dokku dns:zones:enable --all
         
         # Test remove-all (should work without AWS CLI)
