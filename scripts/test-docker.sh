@@ -24,6 +24,9 @@ show_help() {
     echo "Arguments:"
     echo "  TEST_FILE  Optional: specific test file to run (e.g., help-integration.bats)"
     echo "             If not specified, runs all integration tests"
+    echo "             Special values:"
+    echo "               --list           List available test suites"
+    echo "               --summary        Run all tests and show detailed summary"
     echo ""
     echo "Environment variables:"
     echo "  AWS_ACCESS_KEY_ID      - AWS access key for Route53 testing"
@@ -40,6 +43,91 @@ show_help() {
 log_with_timestamp() {
     local message="$*"
     echo "$message" | tee -a "$LOG_FILE"
+}
+
+list_test_suites() {
+    echo "📋 Available Test Suites:"
+    echo ""
+    echo "🧪 BATS Integration Tests:"
+    if [[ -d "tests/integration" ]]; then
+        find tests/integration -name "*.bats" -type f | sort | while read -r file; do
+            local basename
+            basename=$(basename "$file" .bats)
+            local test_count
+            test_count=$(grep -c "^@test" "$file" 2>/dev/null || echo "?")
+            echo "   • ${basename} (${test_count} tests)"
+        done
+    fi
+    echo ""
+    echo "🔧 Legacy Integration Tests:"
+    if [[ -f "scripts/test-integration.sh" ]]; then
+        echo "   • test-integration.sh (setup/cleanup only)"
+    fi
+    echo ""
+    echo "Usage Examples:"
+    echo "   $0 --direct help-integration.bats     # Run only help tests"
+    echo "   $0 --direct zones-integration.bats    # Run only zones tests"
+    echo "   $0 --summary                          # Run all tests with summary"
+}
+
+run_test_suite_summary() {
+    log_with_timestamp "🧪 Running comprehensive test suite with detailed summary..."
+    
+    # Initialize summary tracking
+    local total_suites=0
+    local passed_suites=0
+    local failed_suites=0
+    local total_tests=0
+    local passed_tests=0
+    local failed_tests=0
+    
+    # Array to store suite results
+    declare -a suite_results
+    
+    # Run each BATS file individually for detailed tracking
+    if [[ -d "tests/integration" ]]; then
+        find tests/integration -name "*.bats" -type f | sort | while read -r bats_file; do
+            local suite_name
+            suite_name=$(basename "$bats_file" .bats)
+            total_suites=$((total_suites + 1))
+            
+            log_with_timestamp ""
+            log_with_timestamp "▶️  Running suite: $suite_name"
+            
+            if run_direct_tests "$bats_file"; then
+                suite_results+=("✅ $suite_name")
+                passed_suites=$((passed_suites + 1))
+                log_with_timestamp "✅ Suite $suite_name completed successfully"
+            else
+                suite_results+=("❌ $suite_name")
+                failed_suites=$((failed_suites + 1))
+                log_with_timestamp "❌ Suite $suite_name failed"
+            fi
+        done
+    fi
+    
+    # Generate comprehensive summary
+    log_with_timestamp ""
+    log_with_timestamp "═══════════════════════════════════════════"
+    log_with_timestamp "📊 COMPREHENSIVE TEST SUITE SUMMARY"
+    log_with_timestamp "═══════════════════════════════════════════"
+    log_with_timestamp "Suite Results:"
+    for result in "${suite_results[@]}"; do
+        log_with_timestamp "   $result"
+    done
+    log_with_timestamp ""
+    log_with_timestamp "📈 Overall Statistics:"
+    log_with_timestamp "   • Total Suites: $total_suites"
+    log_with_timestamp "   • Passed Suites: $passed_suites"
+    log_with_timestamp "   • Failed Suites: $failed_suites"
+    
+    if [[ $failed_suites -eq 0 ]]; then
+        log_with_timestamp "🎉 ALL TEST SUITES PASSED!"
+        return 0
+    else
+        log_with_timestamp "💥 Some test suites failed"
+        return 1
+    fi
 }
 
 run_direct_tests() {
@@ -333,6 +421,7 @@ main() {
     local logs_flag=""
     local direct_mode=false
     local test_file=""
+    local summary_mode=false
     
     # Parse arguments
     while [[ $# -gt 0 ]]; do
@@ -347,6 +436,15 @@ main() {
                 ;;
             --direct)
                 direct_mode=true
+                shift
+                ;;
+            --list)
+                list_test_suites
+                exit 0
+                ;;
+            --summary)
+                summary_mode=true
+                direct_mode=true  # Summary mode requires direct mode
                 shift
                 ;;
             --help|-h)
@@ -375,8 +473,13 @@ main() {
     # Run tests based on mode
     set +e  # Don't exit on error so we can capture exit code
     if [[ "$direct_mode" == "true" ]]; then
-        run_direct_tests "$test_file"
-        EXIT_CODE=$?
+        if [[ "$summary_mode" == "true" ]]; then
+            run_test_suite_summary
+            EXIT_CODE=$?
+        else
+            run_direct_tests "$test_file"
+            EXIT_CODE=$?
+        fi
     else
         if [[ -n "$test_file" ]]; then
             echo "Error: Test file argument only supported with --direct mode"

@@ -197,29 +197,7 @@ jobs:
             echo '🧪 Found BATS integration tests, running...' &&
             echo '📋 Available test files:' &&
             ls -la *.bats &&
-            echo '⏱️  Running BATS with 10-minute timeout...' &&
-            if timeout 600 bats --verbose-run *.bats > /tmp/bats_output 2>&1; then
-              BATS_OUTPUT=\$(cat /tmp/bats_output) &&
-              echo \"\$BATS_OUTPUT\" &&
-              echo '✅ BATS tests completed successfully'
-            else
-              echo '⚠️  BATS tests timed out or failed, showing partial output:' &&
-              cat /tmp/bats_output || echo 'No output captured' &&
-              exit 1
-            fi &&
-            PASSED_TESTS=\$(echo \"\$BATS_OUTPUT\" | grep -c '^ok ' | tr -d '\\n' || echo '0') &&
-            FAILED_TESTS=\$(echo \"\$BATS_OUTPUT\" | grep -c '^not ok ' | tr -d '\\n' || echo '0') &&
-            # Clean up any extra characters
-            PASSED_TESTS=\$(echo \"\$PASSED_TESTS\" | head -1 | tr -cd '0-9') &&
-            FAILED_TESTS=\$(echo \"\$FAILED_TESTS\" | head -1 | tr -cd '0-9') &&
-            TOTAL_TESTS=\$((\${PASSED_TESTS:-0} + \${FAILED_TESTS:-0})) &&
-            echo \"📊 BATS Integration Test Summary:\" &&
-            echo \"   Total: \$TOTAL_TESTS tests\" &&
-            echo \"   Passed: \$PASSED_TESTS tests\" &&
-            echo \"   Failed: \$FAILED_TESTS tests\" &&
-            if [ \"\$FAILED_TESTS\" -gt 0 ]; then
-              exit 1
-            fi
+            bats *.bats
           else
             echo '❌ No BATS integration tests found'
             exit 1
