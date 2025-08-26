@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+
+# Common helper functions for BATS integration tests
+# shellcheck disable=SC2154  # status and output are BATS built-in variables
+
+# Helper function to check if DNS plugin is available
+check_dns_plugin_available() {
+    if [[ ! -f "/var/lib/dokku/plugins/available/dns/plugin.toml" ]]; then
+        skip "DNS plugin not available in test environment"
+    fi
+}
+
+# Helper function to create test app with domains
+setup_test_app() {
+    local app_name="$1"
+    local domain1="${2:-app.example.com}"
+    local domain2="${3:-api.example.com}"
+    
+    if ! dokku apps:list 2>/dev/null | grep -q "$app_name"; then
+        dokku apps:create "$app_name" >/dev/null 2>&1
+    fi
+    
+    # Add test domains  
+    dokku domains:add "$app_name" "$domain1" >/dev/null 2>&1 || true
+    if [[ -n "$domain2" ]]; then
+        dokku domains:add "$app_name" "$domain2" >/dev/null 2>&1 || true
+    fi
+    
+    # Ensure app is not in DNS management initially
+    dokku dns:apps:disable "$app_name" >/dev/null 2>&1 || true
+}
+
+# Helper function to clean up test app
+cleanup_test_app() {
+    local app_name="$1"
+    
+    if [[ -n "$app_name" ]]; then
+        dokku dns:apps:disable "$app_name" >/dev/null 2>&1 || true
+        dokku apps:destroy "$app_name" --force >/dev/null 2>&1 || true
+    fi
+}
+
+# BATS assertion helpers
+assert_success() {
+    if [[ $status -ne 0 ]]; then
+        echo "Command failed with status $status"
+        echo "Output: $output"
+        return 1
+    fi
+}
+
+assert_failure() {
+    if [[ $status -eq 0 ]]; then
+        echo "Expected command to fail but it succeeded"
+        echo "Output: $output"
+        return 1
+    fi
+}
+
+assert_output() {
+    local flag="$1"
+    local expected="$2"
+    
+    case "$flag" in
+        --partial)
+            if [[ ! "$output" =~ $expected ]]; then
+                echo "Expected output to contain: '$expected'"
+                echo "Actual output: '$output'"
+                return 1
+            fi
+            ;;
+        *)
+            if [[ "$output" != "$expected" ]]; then
+                echo "Expected: '$expected'"
+                echo "Actual: '$output'"
+                return 1
+            fi
+            ;;
+    esac
+}
+
+# Helper to check if output contains any of multiple patterns
+assert_output_contains_any() {
+    local patterns=("$@")
+    local found=false
+    
+    for pattern in "${patterns[@]}"; do
+        if [[ "$output" =~ $pattern ]]; then
+            found=true
+            break
+        fi
+    done
+    
+    if [[ "$found" != true ]]; then
+        echo "Expected output to contain one of: ${patterns[*]}"
+        echo "Actual output: '$output'"
+        return 1
+    fi
+}

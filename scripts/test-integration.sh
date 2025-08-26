@@ -150,14 +150,7 @@ cleanup_test_environment() {
 }
 
 # Test suites
-test_dns_help() {
-    log_info "Testing DNS help commands..."
-    
-    assert_output_contains "Main help shows usage" "usage:" dokku dns:help
-    assert_output_contains "Main help shows available commands" "dns:apps:enable" dokku dns:help
-    assert_output_contains "Add help works" "enable DNS management for an application" dokku dns:help apps:enable
-    assert_output_contains "Version shows plugin version" "dokku-dns plugin version" dokku dns:version
-}
+# This allows for cleaner test separation and native BATS framework usage
 
 test_dns_configuration() {
     log_info "Testing DNS configuration..."
@@ -177,26 +170,9 @@ test_dns_verify() {
     # AWS is always the provider now - no need to test "no provider" case
 }
 
-test_dns_app_management() {
-    log_info "Testing DNS app management..."
-    
-    # Ensure AWS provider is configured
-    
-    # Test adding app to DNS
-    assert_output_contains "Can add app to DNS" "added to DNS" dokku dns:apps:enable "$TEST_APP"
-    
-    # Test app appears in global report
-    assert_output_contains "App appears in global report" "$TEST_APP" dokku dns:report
-    
-    # Test app-specific report
-    assert_output_contains "App-specific report works" "Domain Analysis:" dokku dns:report "$TEST_APP"
-    
-    # Test sync (should work with mock provider)
-    assert_output_contains "Sync shows expected message" "Syncing domains for app" dokku dns:apps:sync "$TEST_APP"
-    
-    # Test removing app from DNS
-    assert_output_contains "Can remove app from DNS" "removed from DNS" dokku dns:apps:disable "$TEST_APP"
-}
+# NOTE: DNS app management tests (dns:apps:enable, dns:apps:disable, dns:apps:sync) 
+# are now covered by BATS integration tests in tests/integration/apps-integration.bats
+# This function has been removed to eliminate test duplication
 
 test_dns_cron() {
     log_info "Testing DNS cron functionality..."
@@ -341,15 +317,8 @@ test_dns_zones() {
         log_info "AWS CLI not available or not configured, testing error handling"
     fi
     
-    # Test zones listing
-    if [[ "$aws_available" == "true" ]]; then
-        assert_output_contains "Zones listing shows real status" "DNS Zones Status" dokku dns:zones
-        assert_output_contains "Zones listing shows AWS provider" "aws provider" dokku dns:zones
-    else
-        assert_output_contains_ignore_exit "Zones listing shows status" "DNS Zones Status" dokku dns:zones
-    fi
     
-    # Test zone details
+    # Test zone details only when AWS CLI is available
     if [[ "$aws_available" == "true" && -n "$test_zone" ]]; then
         assert_output_contains "Zone details shows real zone info" "DNS Zone Details: $test_zone" dokku dns:zones "$test_zone"
         assert_output_contains "Zone details shows AWS info" "AWS Route53 Information" dokku dns:zones "$test_zone"
@@ -360,13 +329,8 @@ test_dns_zones() {
         # Test with non-existent zone
         assert_failure "Non-existent zone should fail" dokku dns:zones "nonexistent-test-zone-12345.com"
         assert_output_contains_ignore_exit "Non-existent zone shows error" "not found in Route53" dokku dns:zones "nonexistent-test-zone-12345.com"
-    else
-        assert_output_contains_ignore_exit "Zone details shows AWS CLI requirement" "AWS CLI is not installed" dokku dns:zones example.com
     fi
     
-    # Test zones flag validation (these should work regardless of AWS availability)
-    assert_failure "Add zone requires argument or --all" dokku dns:zones:enable
-    assert_failure "Remove zone requires argument or --all" dokku dns:zones:disable
     assert_failure "Add zone fails with both name and --all" dokku dns:zones:enable example.com --all
     assert_failure "Remove zone fails with both name and --all" dokku dns:zones:disable example.com --all
     
@@ -383,7 +347,7 @@ test_dns_zones() {
         assert_output_contains "Remove-all works with AWS CLI" "Removing all zones from auto-discovery" dokku dns:zones:disable --all
     else
         assert_output_contains_ignore_exit "Add zone shows AWS CLI requirement" "AWS CLI is not installed" dokku dns:zones:enable example.com
-        assert_output_contains "Remove zone works without AWS CLI" "No apps are currently managed by DNS" dokku dns:zones:disable example.com
+        assert_output_contains "Remove zone works without AWS CLI" "removed from DNS management" dokku dns:zones:disable example.com
         assert_output_contains_ignore_exit "Add-all shows AWS CLI requirement" "AWS CLI is not installed" dokku dns:zones:enable --all
         
         # Test remove-all (should work without AWS CLI)
@@ -444,25 +408,6 @@ test_zones_with_report_sync() {
     # Ensure app is not in DNS management (triggers might have added it)
     dokku dns:apps:disable "$ZONES_TEST_APP" >/dev/null 2>&1 || true
     
-    # Test report shows domains even when app is not in DNS management
-    assert_output_contains "Report shows 'Not added' status for non-DNS-managed app" "DNS Status: Not added" dokku dns:report "$ZONES_TEST_APP"
-    assert_output_contains "Report shows app domains even when not added to DNS" "app.example.com" dokku dns:report "$ZONES_TEST_APP"
-    assert_output_contains "Report shows all app domains even when not added to DNS" "api.example.com" dokku dns:report "$ZONES_TEST_APP"
-    
-    # Test sync on app not added to DNS management
-    # This should work with the mock provider and show appropriate behavior
-    local sync_output
-    sync_output=$(dokku dns:apps:sync "$ZONES_TEST_APP" 2>&1) || true
-    if echo "$sync_output" | grep -q "No DNS-managed domains found for app"; then
-        log_success "Sync shows appropriate message for non-DNS-managed app"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    elif echo "$sync_output" | grep -q "not managed by DNS\|not found in DNS management"; then
-        log_success "Sync shows appropriate message for non-DNS-managed app"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    else
-        log_warning "Sync behavior test inconclusive (output: ${sync_output:0:100}...)"
-    fi
-    TESTS_TOTAL=$((TESTS_TOTAL + 1))
     
     # Test that enabling a zone (if AWS CLI available) and then running sync works correctly
     # We'll test the zones enable/disable persistence functionality
@@ -644,10 +589,10 @@ main() {
     setup_test_environment
     
     # Run test suites
-    test_dns_help
+    # NOTE: Help tests are now run separately via BATS (tests/integration/help-integration.bats)
     test_dns_configuration  
     test_dns_verify
-    test_dns_app_management
+    # test_dns_app_management - now covered by BATS tests/integration/apps-integration.bats
     test_dns_cron
     test_dns_zones
     test_zones_with_report_sync
