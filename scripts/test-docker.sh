@@ -97,14 +97,9 @@ run_direct_tests() {
     # Generate and run test script inside container
     log "INFO" "Generating and executing comprehensive test suite..."
     
-    # Copy the assertion functions and integration test script
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    INTEGRATION_DIR="$SCRIPT_DIR/../tests/integration"
+    # All test files are available via Docker volume mount at /tmp/dokku-dns
     
-    log "INFO" "Copying report assertion functions to container..."
-    docker exec -i "$DOKKU_CONTAINER" bash -c "cat > /tmp/report-assertions.sh && chmod +x /tmp/report-assertions.sh" < "$INTEGRATION_DIR/report-assertions.sh" || {
-        log "WARNING" "Failed to copy report assertions, falling back to basic verification"
-    }
+    log "INFO" "Report assertion functions available via Docker volume at /tmp/dokku-dns/tests/integration/"
     
     log "INFO" "Installing DNS plugin in container..."
     # Copy plugin to proper location and install it using Dokku's plugin installer
@@ -177,13 +172,8 @@ run_direct_tests() {
     fi
     
     if [[ -n "$test_file" ]]; then
-        log "INFO" "Copying and executing specific test file: $test_file"
-        # Use specific test file
-        local INTEGRATION_SCRIPT="$SCRIPT_DIR/../tests/integration/$test_file"
-        if [[ ! -f "$INTEGRATION_SCRIPT" ]]; then
-            log "ERROR" "Integration test file not found: $INTEGRATION_SCRIPT"
-            return 1
-        fi
+        log "INFO" "Running specific test file from volume: $test_file"
+        # Check if test file exists in volume (we'll let Docker handle the actual execution)
         
         # Check if it's a BATS test file
         if [[ "$test_file" == *.bats ]]; then
@@ -196,8 +186,8 @@ run_direct_tests() {
                 return 1
             fi
         else
-            # Regular bash script
-            if docker exec -i "$DOKKU_CONTAINER" bash -c "cat > /tmp/test-specific.sh && chmod +x /tmp/test-specific.sh && cd /tmp/dokku-dns && /tmp/test-specific.sh" < "$INTEGRATION_SCRIPT"; then
+            # Regular bash script - run directly from volume
+            if docker exec "$DOKKU_CONTAINER" bash -c "cd /tmp/dokku-dns && chmod +x tests/integration/$test_file && tests/integration/$test_file"; then
                 log "SUCCESS" "Specific test file completed successfully!"
                 log "INFO" "DNS plugin functionality verified for: $test_file"
                 return 0
@@ -207,16 +197,9 @@ run_direct_tests() {
             fi
         fi
     else
-        log "INFO" "Copying and executing comprehensive integration test script..."
-        # Use the main comprehensive integration test script
-        local INTEGRATION_SCRIPT="$SCRIPT_DIR/test-integration.sh"
-        if [[ ! -f "$INTEGRATION_SCRIPT" ]]; then
-            log "ERROR" "Integration test script not found: $INTEGRATION_SCRIPT"
-            return 1
-        fi
-        
-        # Run main integration tests
-        if docker exec -i "$DOKKU_CONTAINER" bash -c "cat > /tmp/test-integration.sh && chmod +x /tmp/test-integration.sh && cd /tmp/dokku-dns && /tmp/test-integration.sh" < "$INTEGRATION_SCRIPT"; then
+        log "INFO" "Running comprehensive integration test script from volume..."
+        # Use the main comprehensive integration test script directly from volume
+        if docker exec "$DOKKU_CONTAINER" bash -c "cd /tmp/dokku-dns && chmod +x scripts/test-integration.sh && scripts/test-integration.sh"; then
             main_tests_passed=true
         else
             log "ERROR" "Main integration tests failed"
