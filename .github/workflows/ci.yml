@@ -168,10 +168,16 @@ jobs:
           echo '🧪 Running BATS integration tests...' &&
           cd /tmp/dokku-dns &&
           if ls tests/integration/*.bats 1> /dev/null 2>&1; then
-            for bats_file in tests/integration/*.bats; do
-              echo \"Running BATS test: \$bats_file\" &&
-              bats \"\$bats_file\"
-            done
+            cd tests/integration &&
+            BATS_OUTPUT=\$(bats *.bats 2>&1) &&
+            echo \"\$BATS_OUTPUT\" &&
+            TOTAL_TESTS=\$(echo \"\$BATS_OUTPUT\" | head -1 | cut -d'.' -f2) &&
+            PASSED_TESTS=\$(echo \"\$BATS_OUTPUT\" | grep -c '^ok ' || echo 0) &&
+            FAILED_TESTS=\$(echo \"\$BATS_OUTPUT\" | grep -c '^not ok ' || echo 0) &&
+            echo \"📊 BATS Integration Test Summary:\" &&
+            echo \"   Total: \$TOTAL_TESTS tests\" &&
+            echo \"   Passed: \$PASSED_TESTS tests\" &&
+            echo \"   Failed: \$FAILED_TESTS tests\"
           else
             echo 'No BATS integration tests found, skipping...'
           fi
