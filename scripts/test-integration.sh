@@ -133,11 +133,6 @@ setup_test_environment() {
 cleanup_test_environment() {
     log_info "Cleaning up test environment..."
     
-    # Clean up any cron jobs that might have been created during testing
-    if crontab -l 2>/dev/null | grep -q "dokku dns:sync-all"; then
-        crontab -l 2>/dev/null | grep -v "dokku dns:sync-all" | crontab - 2>/dev/null || true
-        log_info "Cleaned up DNS cron jobs"
-    fi
     
     # Remove from DNS management if added
     dokku dns:apps:disable "$TEST_APP" >/dev/null 2>&1 || true
@@ -152,421 +147,14 @@ cleanup_test_environment() {
 # Test suites
 # This allows for cleaner test separation and native BATS framework usage
 
-test_dns_configuration() {
-    log_info "Testing DNS configuration..."
-    
-    # AWS is now the only supported provider - no configuration needed
-    assert_output_contains "AWS provider is always available" "DNS Provider: AWS" dokku dns:report
-}
-
-test_dns_verify() {
-    log_info "Testing DNS verification..."
-    
-    # Configure AWS first
-    
-    # Test verification (will show AWS CLI not configured, which is expected)
-    assert_output_contains_ignore_exit "Verify shows AWS CLI status" "AWS CLI is not installed. Please install it first:" dokku dns:providers:verify
-    
-    # AWS is always the provider now - no need to test "no provider" case
-}
 
 # NOTE: DNS app management tests (dns:apps:enable, dns:apps:disable, dns:apps:sync) 
 # are now covered by BATS integration tests in tests/integration/apps-integration.bats
 # This function has been removed to eliminate test duplication
 
-test_dns_cron() {
-    log_info "Testing DNS cron functionality..."
-    
-    # Ensure AWS provider is configured (required for cron operations)
-    
-    # Test cron command parsing and validation first
-    assert_failure "Invalid cron flag should fail" dokku dns:cron --invalid-flag
-    assert_output_contains_ignore_exit "Invalid flag shows helpful error" "unknown flag.*invalid-flag" dokku dns:cron --invalid-flag
-    
-    # Test schedule validation
-    assert_failure "Invalid schedule should fail" dokku dns:cron --enable --schedule "invalid"
-    assert_output_contains_ignore_exit "Schedule validation works" "Invalid cron schedule" dokku dns:cron --enable --schedule "invalid"
-    
-    # Check if cron is available for full testing
-    if ! command -v crontab >/dev/null 2>&1; then
-        log_warning "crontab not available, skipping cron system integration tests"
-        assert_output_contains_ignore_exit "Cron status shows provider info" "DNS Cron Status" dokku dns:cron
-        return 0
-    fi
-    
-    # First, determine the current state and adapt tests accordingly
-    local cron_status_output
-    cron_status_output=$(dokku dns:cron 2>&1)
-    
-    if echo "$cron_status_output" | grep -q "Status: ✅ ENABLED"; then
-        # Cron is currently enabled, start by testing disable functionality
-        log_info "Cron is currently enabled, testing disable first..."
-        
-        assert_output_contains "Cron shows enabled status" "Status: ✅ ENABLED" dokku dns:cron
-        assert_output_contains "Cron shows active job details" "Active Job:" dokku dns:cron
-        
-        # Test disabling cron (shows schedule before removing)
-        output=$(dokku dns:cron --disable 2>&1)
-        if echo "$output" | grep -q "Disabling DNS Cron Job"; then
-            log_success "Can disable cron automation"
-            TESTS_PASSED=$((TESTS_PASSED + 1))
-        else
-            log_error "Can disable cron automation"
-            TESTS_FAILED=$((TESTS_FAILED + 1))
-        fi
-        if echo "$output" | grep -q "Current:.*\(default\|custom\)"; then
-            log_success "Shows current schedule when disabling" 
-            TESTS_PASSED=$((TESTS_PASSED + 1))
-        else
-            log_error "Shows current schedule when disabling"
-            log_error "Expected to see 'Current:' with either 'default' or 'custom'"
-            log_error "Actual output: $output"
-            TESTS_FAILED=$((TESTS_FAILED + 1))
-        fi
-        TESTS_TOTAL=$((TESTS_TOTAL + 2))
-        
-        # Verify disabled state
-        assert_output_contains "Cron shows disabled status after disable" "Status: ❌ DISABLED" dokku dns:cron
-        # Only test crontab removal if we're in an environment that supports it
-        if command -v crontab >/dev/null 2>&1; then
-            assert_failure "Cron job removed from system crontab" bash -c "crontab -l 2>/dev/null | grep -q \"dokku dns:sync-all\" || (command -v sudo >/dev/null 2>&1 && sudo -u dokku crontab -l 2>/dev/null | grep -q \"dokku dns:sync-all\" 2>/dev/null)"
-        else
-            log_info "Skipping crontab removal verification (not available in this environment)"
-        fi
-        
-        # Now test enabling 
-        assert_output_contains "Can enable cron automation" "✅ DNS cron job.*successfully!" dokku dns:cron --enable
-        # Only test crontab if we're in an environment that supports it
-        if command -v crontab >/dev/null 2>&1; then
-            assert_success "Cron job exists in system crontab" bash -c "crontab -l 2>/dev/null | grep -q \"dokku dns:sync-all\" || (command -v sudo >/dev/null 2>&1 && sudo -u dokku crontab -l 2>/dev/null | grep -q \"dokku dns:sync-all\" 2>/dev/null)"
-        else
-            log_info "Skipping crontab verification (not available in this environment)"
-        fi
-        
-    else
-        # Cron is currently disabled, start by testing enable functionality
-        log_info "Cron is currently disabled, testing enable first..."
-        
-        assert_output_contains "Cron shows disabled status initially" "Status: ❌ DISABLED" dokku dns:cron
-        assert_output_contains "Cron shows enable command when disabled" "Enable cron: dokku dns:cron --enable" dokku dns:cron
-        
-        # Test enabling cron
-        assert_output_contains_ignore_exit "Can enable cron automation" "✅ DNS cron job.*successfully!" dokku dns:cron --enable
-        # Only test crontab if we're in an environment that supports it
-        if command -v crontab >/dev/null 2>&1; then
-            assert_success "Cron job exists in system crontab" bash -c "crontab -l 2>/dev/null | grep -q \"dokku dns:sync-all\" || (command -v sudo >/dev/null 2>&1 && sudo -u dokku crontab -l 2>/dev/null | grep -q \"dokku dns:sync-all\" 2>/dev/null)"
-        else
-            log_info "Skipping crontab verification (not available in this environment)"
-        fi
-        
-        # Test enabled state
-        assert_output_contains "Cron shows enabled status" "Status: ✅ ENABLED" dokku dns:cron
-        assert_output_contains "Cron shows active job details" "Active Job:" dokku dns:cron
-        
-        # Now test disabling
-        assert_output_contains "Can disable cron automation" "Disabling DNS Cron Job" dokku dns:cron --disable
-        # Only test crontab removal if we're in an environment that supports it
-        if command -v crontab >/dev/null 2>&1; then
-            assert_failure "Cron job removed from system crontab" bash -c "crontab -l 2>/dev/null | grep -q \"dokku dns:sync-all\" || (command -v sudo >/dev/null 2>&1 && sudo -u dokku crontab -l 2>/dev/null | grep -q \"dokku dns:sync-all\" 2>/dev/null)"
-        else
-            log_info "Skipping crontab removal verification (not available in this environment)"
-        fi
-    fi
-    
-    # Test enabling when already exists (should show update message)
-    # First ensure cron is enabled, but only test the update if the first enable succeeded
-    if dokku dns:cron --enable >/dev/null 2>&1; then
-        assert_output_contains_ignore_exit "Enable shows update when already exists" "Updating DNS Cron Job" dokku dns:cron --enable
-    else
-        # If cron operations don't work in this environment, skip the update test
-        log_info "Skipping cron update test (cron operations not available in this environment)"
-    fi
-    
-    # Test that disabling again shows error
-    dokku dns:cron --disable >/dev/null 2>&1  # Disable it first
-    assert_failure "Disable shows error when not exists" dokku dns:cron --disable
-    
-    # Test cron flag validation
-    assert_failure "Invalid cron flag should fail" dokku dns:cron --invalid-flag
-    assert_output_contains_ignore_exit "Invalid flag shows helpful error" "unknown flag.*invalid-flag" dokku dns:cron --invalid-flag
-    
-    # Test metadata and file creation
-    dokku dns:cron --enable >/dev/null 2>&1
-    assert_success "Cron metadata files created" test -f /var/lib/dokku/services/dns/cron/status
-    assert_success "Cron log file created" test -f /var/lib/dokku/services/dns/cron/sync.log
-    assert_output_contains "Cron status file contains enabled" "enabled" cat /var/lib/dokku/services/dns/cron/status
-    
-    # Clean up - disable cron for other tests
-    dokku dns:cron --disable >/dev/null 2>&1 || true
-}
 
-test_dns_zones() {
-    log_info "Testing DNS zones functionality..."
-    
-    # Ensure AWS provider is configured (required for zones operations)
-    
-    # Check if AWS CLI and credentials are available
-    local aws_available=false
-    local test_zone=""
-    if command -v aws >/dev/null 2>&1 && aws sts get-caller-identity >/dev/null 2>&1; then
-        aws_available=true
-        # Get the first available hosted zone for testing
-        test_zone=$(aws route53 list-hosted-zones --query 'HostedZones[0].Name' --output text 2>/dev/null | sed 's/\.$//')
-        log_info "AWS CLI available, testing with real zone: $test_zone"
-    else
-        log_info "AWS CLI not available or not configured, testing error handling"
-    fi
-    
-    
-    # Test zone details only when AWS CLI is available
-    if [[ "$aws_available" == "true" && -n "$test_zone" ]]; then
-        assert_output_contains "Zone details shows real zone info" "DNS Zone Details: $test_zone" dokku dns:zones "$test_zone"
-        assert_output_contains "Zone details shows AWS info" "AWS Route53 Information" dokku dns:zones "$test_zone"
-        assert_output_contains "Zone details shows zone ID" "Zone ID:" dokku dns:zones "$test_zone"
-        assert_output_contains "Zone details shows records section" "DNS Records" dokku dns:zones "$test_zone"
-        assert_output_contains "Zone details shows Dokku integration" "Dokku Integration" dokku dns:zones "$test_zone"
-        
-        # Test with non-existent zone
-        assert_failure "Non-existent zone should fail" dokku dns:zones "nonexistent-test-zone-12345.com"
-        assert_output_contains_ignore_exit "Non-existent zone shows error" "not found in Route53" dokku dns:zones "nonexistent-test-zone-12345.com"
-    fi
-    
-    assert_failure "Add zone fails with both name and --all" dokku dns:zones:enable example.com --all
-    assert_failure "Remove zone fails with both name and --all" dokku dns:zones:disable example.com --all
-    
-    # Test add/remove zone functionality
-    if [[ "$aws_available" == "true" && -n "$test_zone" ]]; then
-        # These will work but may not find matching Dokku apps, which is expected
-        assert_output_contains_ignore_exit "Add zone processes real zone" "Adding zone to auto-discovery: $test_zone" dokku dns:zones:enable "$test_zone"
-        assert_output_contains "Remove zone works with real zone" "Removing zone from auto-discovery: $test_zone" dokku dns:zones:disable "$test_zone"
-        
-        # Test add-all
-        assert_output_contains_ignore_exit "Add-all processes real zones" "Adding all zones to auto-discovery" dokku dns:zones:enable --all
-        
-        # Test remove-all
-        assert_output_contains "Remove-all works with AWS CLI" "Removing all zones from auto-discovery" dokku dns:zones:disable --all
-    else
-        assert_output_contains_ignore_exit "Add zone shows AWS CLI requirement" "AWS CLI is not installed" dokku dns:zones:enable example.com
-        assert_output_contains "Remove zone works without AWS CLI" "removed from DNS management" dokku dns:zones:disable example.com
-        assert_output_contains_ignore_exit "Add-all shows AWS CLI requirement" "AWS CLI is not installed" dokku dns:zones:enable --all
-        
-        # Test remove-all (should work without AWS CLI)
-        assert_output_contains "Remove-all works without AWS CLI" "No apps are currently managed by DNS" dokku dns:zones:disable --all
-    fi
-    
-    # Test unknown flag (should work regardless of AWS availability)
-    assert_failure "Unknown flag should fail" dokku dns:zones --invalid-flag
-    assert_output_contains_ignore_exit "Unknown flag shows error" "Flags are no longer supported" dokku dns:zones --invalid-flag
-}
 
-test_zones_with_report_sync() {
-    log_info "Testing zones functionality with report and sync..."
-    
-    # Ensure AWS provider is configured
-    
-    # Create a test app with domains that would be in example.com zone
-    local ZONES_TEST_APP="zones-report-test"
-    
-    # Clean up any existing test app first
-    dokku apps:destroy "$ZONES_TEST_APP" --force >/dev/null 2>&1 || true
-    
-    # Wait a moment for cleanup to complete
-    sleep 1
-    
-    # Ensure no zones are enabled to prevent auto-DNS management by triggers
-    mkdir -p /var/lib/dokku/services/dns
-    rm -f /var/lib/dokku/services/dns/ENABLED_ZONES
-    
-    # Create the test app (or use existing if it already exists)
-    if ! dokku apps:list 2>/dev/null | grep -q "^$ZONES_TEST_APP$"; then
-        assert_success "Create zones test app" dokku apps:create "$ZONES_TEST_APP"
-    else
-        log_success "Create zones test app (already exists)"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    fi
-    TESTS_TOTAL=$((TESTS_TOTAL + 1))
-    
-    # Add domains that would be in example.com zone (ignore errors if domains already exist)
-    if dokku domains:add "$ZONES_TEST_APP" "app.example.com" >/dev/null 2>&1; then
-        log_success "Add app.example.com domain"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    else
-        log_success "Add app.example.com domain (already exists or added)"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    fi
-    TESTS_TOTAL=$((TESTS_TOTAL + 1))
-    
-    if dokku domains:add "$ZONES_TEST_APP" "api.example.com" >/dev/null 2>&1; then
-        log_success "Add api.example.com domain"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    else
-        log_success "Add api.example.com domain (already exists or added)"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    fi
-    TESTS_TOTAL=$((TESTS_TOTAL + 1))
-    
-    # Ensure app is not in DNS management (triggers might have added it)
-    dokku dns:apps:disable "$ZONES_TEST_APP" >/dev/null 2>&1 || true
-    
-    
-    # Test that enabling a zone (if AWS CLI available) and then running sync works correctly
-    # We'll test the zones enable/disable persistence functionality
-    if [[ -f "/tmp/test-enabled-zones" ]]; then
-        # Create fake enabled zones file for testing
-        mkdir -p /var/lib/dokku/services/dns
-        echo "example.com" > /var/lib/dokku/services/dns/ENABLED_ZONES
-        
-        # Now add the app to DNS and test sync behavior with enabled zones
-        assert_success "Add app to DNS management after zone enabled" dokku dns:apps:enable "$ZONES_TEST_APP"
-        
-        # Test sync with enabled zone
-        assert_output_contains "Sync works with enabled zone" "Syncing domains for app" dokku dns:apps:sync "$ZONES_TEST_APP"
-        
-        # Clean up
-        rm -f /var/lib/dokku/services/dns/ENABLED_ZONES
-        dokku dns:apps:disable "$ZONES_TEST_APP" >/dev/null 2>&1 || true
-    fi
-    
-    # Clean up the test app - make cleanup more robust
-    if dokku apps:list 2>/dev/null | grep -q "$ZONES_TEST_APP"; then
-        if dokku apps:destroy "$ZONES_TEST_APP" --force >/dev/null 2>&1; then
-            log_success "Clean up zones test app"
-            TESTS_PASSED=$((TESTS_PASSED + 1))
-        else
-            log_warning "Could not clean up zones test app (may have been removed already)"
-        fi
-    else
-        log_success "Clean up zones test app (already cleaned up)"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    fi
-    TESTS_TOTAL=$((TESTS_TOTAL + 1))
-}
 
-test_dns_triggers() {
-    log_info "Testing DNS triggers with app lifecycle..."
-    
-    # Ensure AWS provider is configured for trigger tests
-    
-    local TRIGGER_TEST_APP
-    TRIGGER_TEST_APP="trigger-test-app-$(date +%s)"
-    local TRIGGER_DOMAIN="trigger.example.com"
-    local TRIGGER_DOMAIN2="api.trigger.example.com"
-    
-    # Clean up any existing test app first
-    if dokku apps:list 2>/dev/null | grep -q "^$TRIGGER_TEST_APP$"; then
-        dokku apps:destroy "$TRIGGER_TEST_APP" --force >/dev/null 2>&1 || true
-        # Wait a moment for cleanup to complete
-        sleep 1
-    fi
-    
-    # Test post-create trigger: Create app (no domains yet)
-    assert_success "Can create app (triggers post-create)" dokku apps:create "$TRIGGER_TEST_APP"
-    
-    # Test domains-add trigger: Add domain to new app (should auto-sync)
-    local domains_add_output
-    domains_add_output=$(dokku domains:add "$TRIGGER_TEST_APP" "$TRIGGER_DOMAIN" 2>&1)
-    if echo "$domains_add_output" | grep -q "DNS: Syncing DNS records"; then
-        log_success "Domains-add trigger automatically syncs DNS records"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    else
-        log_error "Domains-add trigger should automatically sync DNS records"
-        log_error "Output: $domains_add_output"
-        TESTS_FAILED=$((TESTS_FAILED + 1))
-    fi
-    TESTS_TOTAL=$((TESTS_TOTAL + 1))
-    
-    # Verify domains-add trigger automatically added app to DNS management
-    assert_output_contains "App should be auto-added to DNS after domain addition" "$TRIGGER_TEST_APP" dokku dns:report
-    
-    # Test domains-add trigger: Add another domain
-    assert_success "Can add second domain (triggers domains-add)" dokku domains:add "$TRIGGER_TEST_APP" "$TRIGGER_DOMAIN2"
-    
-    # Verify domains-add trigger added domain to DNS tracking
-    local trigger_report_output
-    trigger_report_output=$(dokku dns:report "$TRIGGER_TEST_APP" 2>&1)
-    if echo "$trigger_report_output" | grep -q "$TRIGGER_DOMAIN2"; then
-        log_success "Domains-add trigger successfully tracked new domain"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    else
-        log_error "Domains-add trigger failed to track new domain"
-        TESTS_FAILED=$((TESTS_FAILED + 1))
-    fi
-    TESTS_TOTAL=$((TESTS_TOTAL + 1))
-    
-    # Test domains-remove trigger: Remove one domain
-    assert_success "Can remove domain (triggers domains-remove)" dokku domains:remove "$TRIGGER_TEST_APP" "$TRIGGER_DOMAIN"
-    
-    # Verify domains-remove trigger removed domain from DNS tracking
-    trigger_report_output=$(dokku dns:report "$TRIGGER_TEST_APP" 2>&1)
-    if ! echo "$trigger_report_output" | grep -E "^${TRIGGER_DOMAIN}[[:space:]]|[[:space:]]${TRIGGER_DOMAIN}[[:space:]]" && echo "$trigger_report_output" | grep -q "$TRIGGER_DOMAIN2"; then
-        log_success "Domains-remove trigger successfully removed domain while keeping others"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    else
-        log_error "Domains-remove trigger failed to properly remove domain"
-        TESTS_FAILED=$((TESTS_FAILED + 1))
-    fi
-    TESTS_TOTAL=$((TESTS_TOTAL + 1))
-    
-    # Test post-delete trigger: Destroy app (may have exit code 1 due to Docker environment issues)
-    local destroy_output
-    destroy_output=$(dokku apps:destroy "$TRIGGER_TEST_APP" --force 2>&1 || true)
-    
-    # Check if post-delete trigger ran (look for DNS cleanup messages in output)
-    # In Docker environments, sudo authentication issues may prevent trigger execution
-    # but the cleanup still happens via other mechanisms
-    if echo "$destroy_output" | grep -q "DNS: Cleaning up DNS management" || echo "$destroy_output" | grep -q "DNS: App .* removed from DNS management"; then
-        log_success "Post-delete trigger executed during app destruction"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    elif echo "$destroy_output" | grep -q "sudo: a terminal is required to read the password"; then
-        log_warning "Post-delete trigger skipped due to Docker environment sudo limitations"
-        log_info "This is expected in containerized environments and doesn't indicate a code issue"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    else
-        log_error "Post-delete trigger did not execute during app destruction"
-        log_error "Destroy output: $destroy_output"
-        TESTS_FAILED=$((TESTS_FAILED + 1))
-    fi
-    TESTS_TOTAL=$((TESTS_TOTAL + 1))
-    
-    # Verify post-delete trigger cleaned up DNS management
-    local cleanup_report_output
-    cleanup_report_output=$(dokku dns:report 2>&1)
-    if ! echo "$cleanup_report_output" | grep -q "$TRIGGER_TEST_APP"; then
-        log_success "Post-delete trigger successfully cleaned up DNS management"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    else
-        log_error "Post-delete trigger failed to clean up DNS management"
-        log_error "Report output: $cleanup_report_output"
-        TESTS_FAILED=$((TESTS_FAILED + 1))
-    fi
-    TESTS_TOTAL=$((TESTS_TOTAL + 1))
-    
-    # Test that trigger files exist and are executable
-    local plugin_root="/var/lib/dokku/plugins/available/dns"
-    for trigger in post-create post-delete post-domains-update; do
-        if [[ -x "$plugin_root/$trigger" ]]; then
-            log_success "Trigger $trigger exists and is executable"
-            TESTS_PASSED=$((TESTS_PASSED + 1))
-        else
-            log_error "Trigger $trigger missing or not executable"
-            TESTS_FAILED=$((TESTS_FAILED + 1))
-        fi
-        TESTS_TOTAL=$((TESTS_TOTAL + 1))
-    done
-}
-test_error_conditions() {
-    log_info "Testing error conditions..."
-    
-    # Test commands with nonexistent apps
-    assert_failure "Add nonexistent app should fail" dokku dns:apps:enable nonexistent-app
-    assert_failure "Sync nonexistent app should fail" dokku dns:apps:sync nonexistent-app
-    assert_failure "Remove nonexistent app should fail" dokku dns:apps:disable nonexistent-app
-    
-    # Test missing arguments
-    assert_failure "Add without app should fail" dokku dns:apps:enable
-    assert_failure "Sync without app should fail" dokku dns:apps:sync
-    assert_failure "Remove without app should fail" dokku dns:apps:disable
-}
 
 # Main test execution
 main() {
@@ -588,16 +176,16 @@ main() {
     # Setup
     setup_test_environment
     
-    # Run test suites
-    # NOTE: Help tests are now run separately via BATS (tests/integration/help-integration.bats)
-    test_dns_configuration  
-    test_dns_verify
-    # test_dns_app_management - now covered by BATS tests/integration/apps-integration.bats
-    test_dns_cron
-    test_dns_zones
-    test_zones_with_report_sync
-    test_dns_triggers
-    test_error_conditions
+    # All test suites have been moved to BATS integration tests:
+    # - Help tests: tests/integration/help-integration.bats  
+    # - Apps tests: tests/integration/apps-integration.bats
+    # - Zones tests: tests/integration/zones-integration.bats
+    # - Cron tests: tests/integration/cron-integration.bats
+    # - Provider tests: tests/integration/providers-integration.bats
+    # - Trigger tests: tests/integration/triggers-integration.bats
+    
+    log_info "All integration tests have been extracted to BATS framework"
+    log_info "This script now serves as a placeholder and test environment setup"
     
     # Cleanup
     cleanup_test_environment
@@ -605,19 +193,13 @@ main() {
     # Results
     echo
     echo "=================================="
-    echo -e "${BLUE}📊 Test Results${NC}"
+    echo -e "${BLUE}📊 Integration Test Status${NC}"
     echo "=================================="
-    echo -e "Total tests: ${TESTS_TOTAL}"
-    echo -e "${GREEN}Passed: ${TESTS_PASSED}${NC}"
-    echo -e "${RED}Failed: ${TESTS_FAILED}${NC}"
+    echo -e "${GREEN}✅ Test environment setup completed successfully${NC}"
+    echo -e "${BLUE}ℹ️  All integration tests now run via BATS framework${NC}"
+    echo -e "${BLUE}ℹ️  Run 'bats tests/integration/*.bats' to execute tests${NC}"
     
-    if [ "$TESTS_FAILED" -eq 0 ]; then
-        echo -e "${GREEN}🎉 All tests passed!${NC}"
-        exit 0
-    else
-        echo -e "${RED}💥 Some tests failed.${NC}"
-        exit 1
-    fi
+    exit 0
 }
 
 # Run main function if script is executed directly

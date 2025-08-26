@@ -130,6 +130,21 @@ jobs:
         echo "⏳ Initializing test environment..."
         sleep 10
         
+        # Install BATS in dokku container for integration testing
+        echo "📦 Installing BATS for integration testing..."
+        docker exec dokku-local bash -c "
+          if ! command -v bats >/dev/null 2>&1; then
+            apt-get update -qq >/dev/null 2>&1 &&
+            git clone --quiet https://github.com/bats-core/bats-core.git /tmp/bats-install &&
+            cd /tmp/bats-install &&
+            ./install.sh /usr/local >/dev/null 2>&1 &&
+            rm -rf /tmp/bats-install &&
+            echo '✅ BATS installed successfully'
+          else
+            echo '✅ BATS already available'
+          fi
+        "
+        
     - name: Run integration tests
       run: |
         echo "🧪 Running integration tests..."
@@ -152,7 +167,63 @@ jobs:
           cd /tmp/dokku-dns &&
           cp scripts/test-integration.sh /tmp/test-integration.sh &&
           chmod +x /tmp/test-integration.sh &&
-          /tmp/test-integration.sh
+          /tmp/test-integration.sh &&
+          
+          echo '✅ Main integration tests completed'
+        "
+        
+    - name: Run BATS integration tests  
+      run: |
+        echo "🧪 Running BATS integration tests in dokku-local container..."
+        # Install and run BATS tests in the Dokku container 
+        docker exec -i dokku-local bash -c "
+          # Install BATS in dokku container
+          if ! command -v bats >/dev/null 2>&1; then
+            echo '📦 Installing BATS for integration testing...' &&
+            apt-get update -qq >/dev/null 2>&1 &&
+            git clone --quiet https://github.com/bats-core/bats-core.git /tmp/bats-install &&
+            cd /tmp/bats-install &&
+            ./install.sh /usr/local >/dev/null 2>&1 &&
+            rm -rf /tmp/bats-install &&
+            echo '✅ BATS installed successfully'
+          else
+            echo '✅ BATS already available'
+          fi &&
+          
+          # Run BATS integration tests
+          cd /tmp/dokku-dns &&
+          if ls tests/integration/*.bats 1> /dev/null 2>&1; then
+            cd tests/integration &&
+            echo '🧪 Found BATS integration tests, running...' &&
+            echo '📋 Available test files:' &&
+            ls -la *.bats &&
+            echo '⏱️  Running BATS with 10-minute timeout...' &&
+            if timeout 600 bats --verbose-run *.bats > /tmp/bats_output 2>&1; then
+              BATS_OUTPUT=\$(cat /tmp/bats_output) &&
+              echo \"\$BATS_OUTPUT\" &&
+              echo '✅ BATS tests completed successfully'
+            else
+              echo '⚠️  BATS tests timed out or failed, showing partial output:' &&
+              cat /tmp/bats_output || echo 'No output captured' &&
+              exit 1
+            fi &&
+            PASSED_TESTS=\$(echo \"\$BATS_OUTPUT\" | grep -c '^ok ' | tr -d '\\n' || echo '0') &&
+            FAILED_TESTS=\$(echo \"\$BATS_OUTPUT\" | grep -c '^not ok ' | tr -d '\\n' || echo '0') &&
+            # Clean up any extra characters
+            PASSED_TESTS=\$(echo \"\$PASSED_TESTS\" | head -1 | tr -cd '0-9') &&
+            FAILED_TESTS=\$(echo \"\$FAILED_TESTS\" | head -1 | tr -cd '0-9') &&
+            TOTAL_TESTS=\$((\${PASSED_TESTS:-0} + \${FAILED_TESTS:-0})) &&
+            echo \"📊 BATS Integration Test Summary:\" &&
+            echo \"   Total: \$TOTAL_TESTS tests\" &&
+            echo \"   Passed: \$PASSED_TESTS tests\" &&
+            echo \"   Failed: \$FAILED_TESTS tests\" &&
+            if [ \"\$FAILED_TESTS\" -gt 0 ]; then
+              exit 1
+            fi
+          else
+            echo '❌ No BATS integration tests found'
+            exit 1
+          fi
         "
       
     - name: Stop test containers
