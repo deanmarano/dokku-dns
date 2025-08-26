@@ -130,21 +130,6 @@ jobs:
         echo "⏳ Initializing test environment..."
         sleep 10
         
-        # Install BATS in dokku container for integration testing
-        echo "📦 Installing BATS for integration testing..."
-        docker exec dokku-local bash -c "
-          if ! command -v bats >/dev/null 2>&1; then
-            apt-get update -qq >/dev/null 2>&1 &&
-            git clone --quiet https://github.com/bats-core/bats-core.git /tmp/bats-install &&
-            cd /tmp/bats-install &&
-            ./install.sh /usr/local >/dev/null 2>&1 &&
-            rm -rf /tmp/bats-install &&
-            echo '✅ BATS installed successfully'
-          else
-            echo '✅ BATS already available'
-          fi
-        "
-        
     - name: Run integration tests
       run: |
         echo "🧪 Running integration tests..."
@@ -167,25 +152,7 @@ jobs:
           cd /tmp/dokku-dns &&
           cp scripts/test-integration.sh /tmp/test-integration.sh &&
           chmod +x /tmp/test-integration.sh &&
-          /tmp/test-integration.sh &&
-          
-          # Run BATS integration tests
-          echo '🧪 Running BATS integration tests...' &&
-          cd /tmp/dokku-dns &&
-          if ls tests/integration/*.bats 1> /dev/null 2>&1; then
-            cd tests/integration &&
-            BATS_OUTPUT=\$(bats *.bats 2>&1) &&
-            echo \"\$BATS_OUTPUT\" &&
-            TOTAL_TESTS=\$(echo \"\$BATS_OUTPUT\" | head -1 | cut -d'.' -f2) &&
-            PASSED_TESTS=\$(echo \"\$BATS_OUTPUT\" | grep -c '^ok ' || echo 0) &&
-            FAILED_TESTS=\$(echo \"\$BATS_OUTPUT\" | grep -c '^not ok ' || echo 0) &&
-            echo \"📊 BATS Integration Test Summary:\" &&
-            echo \"   Total: \$TOTAL_TESTS tests\" &&
-            echo \"   Passed: \$PASSED_TESTS tests\" &&
-            echo \"   Failed: \$FAILED_TESTS tests\"
-          else
-            echo 'No BATS integration tests found, skipping...'
-          fi
+          /tmp/test-integration.sh
         "
       
     - name: Stop test containers
