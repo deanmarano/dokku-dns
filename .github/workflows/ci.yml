@@ -160,8 +160,9 @@ jobs:
           # Run main integration tests
           echo '🧪 Running main integration tests...' &&
           cd /tmp/dokku-dns &&
-          chmod +x scripts/test-integration.sh &&
-          scripts/test-integration.sh &&
+          cp scripts/test-integration.sh /tmp/test-integration.sh &&
+          chmod +x /tmp/test-integration.sh &&
+          /tmp/test-integration.sh &&
           
           # Run BATS integration tests
           echo '🧪 Running BATS integration tests...' &&
