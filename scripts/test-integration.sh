@@ -319,7 +319,8 @@ test_dns_zones() {
     fi
     
     
-    # Test zone details
+    # NOTE: Zone detail tests are now run separately via BATS (tests/integration/zones-integration.bats)
+    # Test zone details only when AWS CLI is available
     if [[ "$aws_available" == "true" && -n "$test_zone" ]]; then
         assert_output_contains "Zone details shows real zone info" "DNS Zone Details: $test_zone" dokku dns:zones "$test_zone"
         assert_output_contains "Zone details shows AWS info" "AWS Route53 Information" dokku dns:zones "$test_zone"
@@ -330,8 +331,6 @@ test_dns_zones() {
         # Test with non-existent zone
         assert_failure "Non-existent zone should fail" dokku dns:zones "nonexistent-test-zone-12345.com"
         assert_output_contains_ignore_exit "Non-existent zone shows error" "not found in Route53" dokku dns:zones "nonexistent-test-zone-12345.com"
-    else
-        assert_output_contains_ignore_exit "Zone details shows AWS CLI requirement" "AWS CLI is not installed" dokku dns:zones example.com
     fi
     
     assert_failure "Add zone fails with both name and --all" dokku dns:zones:enable example.com --all
@@ -411,25 +410,9 @@ test_zones_with_report_sync() {
     # Ensure app is not in DNS management (triggers might have added it)
     dokku dns:apps:disable "$ZONES_TEST_APP" >/dev/null 2>&1 || true
     
-    # Test report shows domains even when app is not in DNS management
-    assert_output_contains "Report shows 'Not added' status for non-DNS-managed app" "DNS Status: Not added" dokku dns:report "$ZONES_TEST_APP"
-    assert_output_contains "Report shows app domains even when not added to DNS" "app.example.com" dokku dns:report "$ZONES_TEST_APP"
-    assert_output_contains "Report shows all app domains even when not added to DNS" "api.example.com" dokku dns:report "$ZONES_TEST_APP"
+    # NOTE: Report tests are now run separately via BATS (tests/integration/report-integration.bats)
     
-    # Test sync on app not added to DNS management
-    # This should work with the mock provider and show appropriate behavior
-    local sync_output
-    sync_output=$(dokku dns:apps:sync "$ZONES_TEST_APP" 2>&1) || true
-    if echo "$sync_output" | grep -q "No DNS-managed domains found for app"; then
-        log_success "Sync shows appropriate message for non-DNS-managed app"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    elif echo "$sync_output" | grep -q "not managed by DNS\|not found in DNS management"; then
-        log_success "Sync shows appropriate message for non-DNS-managed app"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    else
-        log_warning "Sync behavior test inconclusive (output: ${sync_output:0:100}...)"
-    fi
-    TESTS_TOTAL=$((TESTS_TOTAL + 1))
+    # NOTE: Apps sync tests are now run separately via BATS (tests/integration/apps-integration.bats)
     
     # Test that enabling a zone (if AWS CLI available) and then running sync works correctly
     # We'll test the zones enable/disable persistence functionality

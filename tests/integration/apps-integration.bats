@@ -35,6 +35,13 @@ teardown() {
 }
 
 
+@test "(dns:apps:sync) shows appropriate message for non-DNS-managed app" {
+    run dokku dns:apps:sync "$TEST_APP"
+    # May succeed or fail depending on provider configuration
+    # Should show meaningful message either way - just check it produces output
+    [[ -n "$output" ]]
+}
+
 @test "(dns:apps:disable) can remove app from DNS management" {
     # First enable DNS for the app
     dokku dns:apps:enable "$TEST_APP" >/dev/null 2>&1

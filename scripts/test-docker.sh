@@ -199,7 +199,7 @@ run_direct_tests() {
     else
         log "INFO" "Running comprehensive integration test script from volume..."
         # Use the main comprehensive integration test script directly from volume
-        if docker exec "$DOKKU_CONTAINER" bash -c "cd /tmp/dokku-dns && chmod +x scripts/test-integration.sh && scripts/test-integration.sh"; then
+        if docker exec "$DOKKU_CONTAINER" bash -c "cd /tmp/dokku-dns && cp scripts/test-integration.sh /tmp/test-integration.sh && chmod +x /tmp/test-integration.sh && /tmp/test-integration.sh"; then
             main_tests_passed=true
         else
             log "ERROR" "Main integration tests failed"

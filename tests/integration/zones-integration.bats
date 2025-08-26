@@ -28,14 +28,6 @@ teardown() {
     assert_output --partial "AWS"
 }
 
-
-@test "(dns:apps:sync) shows appropriate message for non-DNS-managed app" {
-    run dokku dns:apps:sync "$TEST_APP"
-    # May succeed or fail depending on provider configuration
-    # Should show meaningful message either way - just check it produces output
-    [[ -n "$output" ]]
-}
-
 @test "(dns:zones:enable) requires zone name argument" {
     run dokku dns:zones:enable
     # Command should show help/usage when no arguments provided
