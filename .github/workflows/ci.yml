@@ -130,30 +130,16 @@ jobs:
         echo "⏳ Initializing test environment..."
         sleep 10
         
-        # Install BATS in dokku container for integration testing
-        echo "📦 Installing BATS for integration testing..."
-        docker exec dokku-local bash -c "
-          if ! command -v bats >/dev/null 2>&1; then
-            apt-get update -qq >/dev/null 2>&1 &&
-            git clone --quiet https://github.com/bats-core/bats-core.git /tmp/bats-install &&
-            cd /tmp/bats-install &&
-            ./install.sh /usr/local >/dev/null 2>&1 &&
-            rm -rf /tmp/bats-install &&
-            echo '✅ BATS installed successfully'
-          else
-            echo '✅ BATS already available'
-          fi
-        "
         
-    - name: Run integration tests
+    - name: Run BATS integration tests  
       run: |
-        echo "🧪 Running integration tests..."
-        # Execute the tests in the Dokku container where dokku command is available
+        echo "🧪 Running BATS integration tests in dokku-local container..."
+        # Setup plugin and run BATS tests in the Dokku container 
         docker exec -i dokku-local bash -c "
           # Set working directory to avoid shell-init errors
           cd /tmp &&
           
-          # Copy plugin to Dokku container and run tests there
+          # Copy plugin to Dokku container and install
           cp -r /tmp/dokku-dns /var/lib/dokku/plugins/available/dns &&
           dokku plugin:enable dns >/dev/null 2>&1 &&
           cd /var/lib/dokku/plugins/available/dns &&
@@ -162,21 +148,6 @@ jobs:
           mkdir -p /var/lib/dokku/services/dns &&
           chown -R dokku:dokku /var/lib/dokku/services/dns 2>/dev/null || true &&
           
-          # Run main integration tests
-          echo '🧪 Running main integration tests...' &&
-          cd /tmp/dokku-dns &&
-          cp scripts/test-integration.sh /tmp/test-integration.sh &&
-          chmod +x /tmp/test-integration.sh &&
-          /tmp/test-integration.sh &&
-          
-          echo '✅ Main integration tests completed'
-        "
-        
-    - name: Run BATS integration tests  
-      run: |
-        echo "🧪 Running BATS integration tests in dokku-local container..."
-        # Install and run BATS tests in the Dokku container 
-        docker exec -i dokku-local bash -c "
           # Install BATS in dokku container
           if ! command -v bats >/dev/null 2>&1; then
             echo '📦 Installing BATS for integration testing...' &&
