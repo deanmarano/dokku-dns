@@ -176,8 +176,8 @@ jobs:
       run: |
         echo "🧪 Running BATS integration tests in test-runner container..."
         # Run BATS tests in the test-runner container where BATS is installed
-        docker exec tests-docker-test-runner bash -c "
-          cd /tmp/dokku-dns &&
+        docker exec test-runner bash -c "
+          cd /plugin &&
           if ls tests/integration/*.bats 1> /dev/null 2>&1; then
             cd tests/integration &&
             echo '🧪 Found BATS integration tests, running...' &&
