@@ -154,22 +154,6 @@ run_direct_tests() {
     
     log "SUCCESS" "DNS plugin installed and verified successfully"
     
-    # Install BATS in container for integration tests
-    log "INFO" "Installing BATS in container for integration testing..."
-    if docker exec "$DOKKU_CONTAINER" bash -c "which bats" >/dev/null 2>&1; then
-        log "INFO" "BATS already installed in container"
-    else
-        # Install BATS
-        docker exec "$DOKKU_CONTAINER" bash -c "
-            apt-get update -qq &&
-            git clone https://github.com/bats-core/bats-core.git /tmp/bats &&
-            cd /tmp/bats &&
-            ./install.sh /usr/local &&
-            rm -rf /tmp/bats
-        " >/dev/null 2>&1 || {
-            log "WARNING" "Failed to install BATS, will skip BATS integration tests"
-        }
-    fi
     
     if [[ -n "$test_file" ]]; then
         log "INFO" "Running specific test file from volume: $test_file"

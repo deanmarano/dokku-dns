@@ -150,7 +150,6 @@ cleanup_test_environment() {
 }
 
 # Test suites
-# NOTE: Help and version tests are now run separately via BATS (tests/integration/help-integration.bats)
 # This allows for cleaner test separation and native BATS framework usage
 
 test_dns_configuration() {
@@ -319,7 +318,6 @@ test_dns_zones() {
     fi
     
     
-    # NOTE: Zone detail tests are now run separately via BATS (tests/integration/zones-integration.bats)
     # Test zone details only when AWS CLI is available
     if [[ "$aws_available" == "true" && -n "$test_zone" ]]; then
         assert_output_contains "Zone details shows real zone info" "DNS Zone Details: $test_zone" dokku dns:zones "$test_zone"
@@ -410,9 +408,6 @@ test_zones_with_report_sync() {
     # Ensure app is not in DNS management (triggers might have added it)
     dokku dns:apps:disable "$ZONES_TEST_APP" >/dev/null 2>&1 || true
     
-    # NOTE: Report tests are now run separately via BATS (tests/integration/report-integration.bats)
-    
-    # NOTE: Apps sync tests are now run separately via BATS (tests/integration/apps-integration.bats)
     
     # Test that enabling a zone (if AWS CLI available) and then running sync works correctly
     # We'll test the zones enable/disable persistence functionality
