@@ -195,8 +195,18 @@ jobs:
           if ls tests/integration/*.bats 1> /dev/null 2>&1; then
             cd tests/integration &&
             echo '🧪 Found BATS integration tests, running...' &&
-            BATS_OUTPUT=\$(bats *.bats 2>&1) &&
-            echo \"\$BATS_OUTPUT\" &&
+            echo '📋 Available test files:' &&
+            ls -la *.bats &&
+            echo '⏱️  Running BATS with 10-minute timeout...' &&
+            if timeout 600 bats --verbose-run *.bats > /tmp/bats_output 2>&1; then
+              BATS_OUTPUT=\$(cat /tmp/bats_output) &&
+              echo \"\$BATS_OUTPUT\" &&
+              echo '✅ BATS tests completed successfully'
+            else
+              echo '⚠️  BATS tests timed out or failed, showing partial output:' &&
+              cat /tmp/bats_output || echo 'No output captured' &&
+              exit 1
+            fi &&
             TOTAL_TESTS=\$(echo \"\$BATS_OUTPUT\" | head -1 | cut -d'.' -f2) &&
             PASSED_TESTS=\$(echo \"\$BATS_OUTPUT\" | grep -c '^ok ' || echo 0) &&
             FAILED_TESTS=\$(echo \"\$BATS_OUTPUT\" | grep -c '^not ok ' || echo 0) &&
