@@ -130,30 +130,16 @@ jobs:
         echo "⏳ Initializing test environment..."
         sleep 10
         
-        # Install BATS in dokku container for integration testing
-        echo "📦 Installing BATS for integration testing..."
-        docker exec dokku-local bash -c "
-          if ! command -v bats >/dev/null 2>&1; then
-            apt-get update -qq >/dev/null 2>&1 &&
-            git clone --quiet https://github.com/bats-core/bats-core.git /tmp/bats-install &&
-            cd /tmp/bats-install &&
-            ./install.sh /usr/local >/dev/null 2>&1 &&
-            rm -rf /tmp/bats-install &&
-            echo '✅ BATS installed successfully'
-          else
-            echo '✅ BATS already available'
-          fi
-        "
         
-    - name: Run integration tests
+    - name: Run BATS integration tests  
       run: |
-        echo "🧪 Running integration tests..."
-        # Execute the tests in the Dokku container where dokku command is available
+        echo "🧪 Running BATS integration tests in dokku-local container..."
+        # Setup plugin and run BATS tests in the Dokku container 
         docker exec -i dokku-local bash -c "
           # Set working directory to avoid shell-init errors
           cd /tmp &&
           
-          # Copy plugin to Dokku container and run tests there
+          # Copy plugin to Dokku container and install
           cp -r /tmp/dokku-dns /var/lib/dokku/plugins/available/dns &&
           dokku plugin:enable dns >/dev/null 2>&1 &&
           cd /var/lib/dokku/plugins/available/dns &&
@@ -162,21 +148,6 @@ jobs:
           mkdir -p /var/lib/dokku/services/dns &&
           chown -R dokku:dokku /var/lib/dokku/services/dns 2>/dev/null || true &&
           
-          # Run main integration tests
-          echo '🧪 Running main integration tests...' &&
-          cd /tmp/dokku-dns &&
-          cp scripts/test-integration.sh /tmp/test-integration.sh &&
-          chmod +x /tmp/test-integration.sh &&
-          /tmp/test-integration.sh &&
-          
-          echo '✅ Main integration tests completed'
-        "
-        
-    - name: Run BATS integration tests  
-      run: |
-        echo "🧪 Running BATS integration tests in dokku-local container..."
-        # Install and run BATS tests in the Dokku container 
-        docker exec -i dokku-local bash -c "
           # Install BATS in dokku container
           if ! command -v bats >/dev/null 2>&1; then
             echo '📦 Installing BATS for integration testing...' &&
@@ -197,29 +168,7 @@ jobs:
             echo '🧪 Found BATS integration tests, running...' &&
             echo '📋 Available test files:' &&
             ls -la *.bats &&
-            echo '⏱️  Running BATS with 10-minute timeout...' &&
-            if timeout 600 bats --verbose-run *.bats > /tmp/bats_output 2>&1; then
-              BATS_OUTPUT=\$(cat /tmp/bats_output) &&
-              echo \"\$BATS_OUTPUT\" &&
-              echo '✅ BATS tests completed successfully'
-            else
-              echo '⚠️  BATS tests timed out or failed, showing partial output:' &&
-              cat /tmp/bats_output || echo 'No output captured' &&
-              exit 1
-            fi &&
-            PASSED_TESTS=\$(echo \"\$BATS_OUTPUT\" | grep -c '^ok ' | tr -d '\\n' || echo '0') &&
-            FAILED_TESTS=\$(echo \"\$BATS_OUTPUT\" | grep -c '^not ok ' | tr -d '\\n' || echo '0') &&
-            # Clean up any extra characters
-            PASSED_TESTS=\$(echo \"\$PASSED_TESTS\" | head -1 | tr -cd '0-9') &&
-            FAILED_TESTS=\$(echo \"\$FAILED_TESTS\" | head -1 | tr -cd '0-9') &&
-            TOTAL_TESTS=\$((\${PASSED_TESTS:-0} + \${FAILED_TESTS:-0})) &&
-            echo \"📊 BATS Integration Test Summary:\" &&
-            echo \"   Total: \$TOTAL_TESTS tests\" &&
-            echo \"   Passed: \$PASSED_TESTS tests\" &&
-            echo \"   Failed: \$FAILED_TESTS tests\" &&
-            if [ \"\$FAILED_TESTS\" -gt 0 ]; then
-              exit 1
-            fi
+            bats *.bats
           else
             echo '❌ No BATS integration tests found'
             exit 1

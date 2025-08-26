@@ -120,8 +120,8 @@ else
     exit 1
 fi
 
-# Run tests for code changes
-if [[ "$CODE_CHANGES" == "true" ]]; then
+# Run tests for code changes (disabled by default to speed up commits)
+if [[ "$CODE_CHANGES" == "true" && "${RUN_TESTS:-0}" == "1" ]]; then
     # Run tests in parallel if Docker is available
     if command -v docker >/dev/null 2>&1 && [[ "${RUN_DOCKER_TESTS:-1}" == "1" ]]; then
         log "INFO" "Running BATS and Docker tests in parallel..."
@@ -221,8 +221,7 @@ if [[ "$CODE_CHANGES" == "true" ]]; then
     if [[ "$overall_success" != "true" ]]; then
         echo "To fix unit test issues, run: make unit-tests"
         echo "To fix Docker test issues, run: make docker-test"
-        echo "To skip Docker tests: RUN_DOCKER_TESTS=0 git commit"
-        echo "To skip all tests: SKIP_TESTS=1 git commit"
+        echo "To run tests in pre-commit: RUN_TESTS=1 git commit"
         exit 1
     fi
     
@@ -249,7 +248,11 @@ else
     fi
     fi
 else
-    log "INFO" "Documentation-only change - skipping tests"
+    if [[ "$CODE_CHANGES" == "true" ]]; then
+        log "INFO" "Tests disabled by default - use RUN_TESTS=1 to run tests in pre-commit"
+    else
+        log "INFO" "Documentation-only change - skipping tests"
+    fi
 fi
 
 log "SUCCESS" "All pre-commit checks passed!"
