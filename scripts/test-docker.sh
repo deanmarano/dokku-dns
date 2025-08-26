@@ -188,7 +188,7 @@ run_direct_tests() {
         # Check if it's a BATS test file
         if [[ "$test_file" == *.bats ]]; then
             log "INFO" "Running BATS integration test: $test_file"
-            if docker exec -i "$DOKKU_CONTAINER" bash -c "cat > /tmp/$test_file && cd /tmp/dokku-dns && bats /tmp/$test_file" < "$INTEGRATION_SCRIPT"; then
+            if docker exec "$DOKKU_CONTAINER" bash -c "cd /tmp/dokku-dns/tests/integration && bats $test_file"; then
                 log "SUCCESS" "BATS integration test completed successfully: $test_file"
                 return 0
             else

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 # Common helper functions for BATS integration tests
+# shellcheck disable=SC2154  # status and output are BATS built-in variables
 
 # Helper function to check if DNS plugin is available
 check_dns_plugin_available() {
