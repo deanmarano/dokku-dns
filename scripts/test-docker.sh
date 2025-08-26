@@ -225,16 +225,16 @@ run_direct_tests() {
         
         # Also run BATS integration tests if available
         local bats_tests_passed=true
-        if docker exec "$DOKKU_CONTAINER" bash -c "which bats && test -f /tmp/dokku-dns/tests/integration/help-integration.bats" >/dev/null 2>&1; then
+        if docker exec "$DOKKU_CONTAINER" bash -c "which bats && ls /tmp/dokku-dns/tests/integration/*.bats" >/dev/null 2>&1; then
             log "INFO" "Running BATS integration tests..."
-            if docker exec "$DOKKU_CONTAINER" bash -c "cd /tmp/dokku-dns && bats tests/integration/help-integration.bats"; then
+            if docker exec "$DOKKU_CONTAINER" bash -c "cd /tmp/dokku-dns/tests/integration && bats *.bats"; then
                 log "SUCCESS" "BATS integration tests completed successfully!"
             else
                 log "ERROR" "BATS integration tests failed"
                 bats_tests_passed=false
             fi
         else
-            log "INFO" "BATS integration tests not available (BATS not installed or test file not found)"
+            log "INFO" "BATS integration tests not available (BATS not installed or test files not found)"
         fi
         
         # Overall result
