@@ -42,8 +42,126 @@ teardown() {
     assert_success
 }
 
-@test "(triggers) post-create works with DNS provider configured" {
+# DNS Trigger Management Tests
+
+@test "(dns:triggers) shows trigger status when disabled by default" {
+    run dns_cmd triggers
+    assert_success
+    assert_output_contains "DNS app lifecycle triggers: disabled"
+    assert_output_contains "❌"
+    assert_output_contains "Available trigger files:"
+    assert_output_contains "DNS triggers are disabled by default for safety"
+    assert_output_contains "Use 'dokku dns:triggers:enable' to activate"
+}
+
+@test "(dns:triggers) shows available trigger files" {
+    run dns_cmd triggers
+    assert_success
+    assert_output_contains "post-create"
+    assert_output_contains "post-delete" 
+    assert_output_contains "post-domains-update"
+    assert_output_contains "post-app-rename"
+}
+
+@test "(dns:triggers:enable) enables triggers successfully" {
+    # Verify disabled first
+    run dns_cmd triggers
+    assert_success
+    assert_output_contains "disabled ❌"
+    
+    # Enable triggers
+    run dns_cmd triggers:enable
+    assert_success
+    assert_output_contains "DNS app lifecycle triggers enabled ✅"
+    assert_output_contains "App lifecycle events will now automatically sync DNS records"
+    assert_output_contains "Available triggers:"
+    
+    # Verify enabled state file exists
+    assert_file_exists "$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED"
+}
+
+@test "(dns:triggers:enable) reports already enabled" {
+    # Enable first
+    mkdir -p "$PLUGIN_DATA_ROOT"
+    touch "$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED"
+    
+    run dns_cmd triggers:enable
+    assert_success
+    assert_output_contains "DNS triggers are already enabled ✅"
+}
+
+@test "(dns:triggers:disable) disables triggers successfully" {
+    # Enable first
+    mkdir -p "$PLUGIN_DATA_ROOT"
+    touch "$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED"
+    
+    # Verify enabled
+    run dns_cmd triggers
+    assert_success  
+    assert_output_contains "enabled ✅"
+    
+    # Disable triggers
+    run dns_cmd triggers:disable
+    assert_success
+    assert_output_contains "DNS app lifecycle triggers disabled ❌"
+    assert_output_contains "App lifecycle events will no longer automatically sync DNS records"
+    assert_output_contains "Use 'dokku dns:triggers:enable' to reactivate"
+    
+    # Verify state file removed
+    assert_file_not_exists "$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED"
+}
+
+@test "(dns:triggers:disable) reports already disabled" {
+    # Ensure disabled (should be default)
+    rm -f "$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED"
+    
+    run dns_cmd triggers:disable
+    assert_success
+    assert_output_contains "DNS triggers are already disabled ❌"
+}
+
+@test "(dns:triggers) shows enabled status after enabling" {
+    # Enable triggers
+    mkdir -p "$PLUGIN_DATA_ROOT"
+    touch "$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED"
+    
+    run dns_cmd triggers
+    assert_success
+    assert_output_contains "DNS app lifecycle triggers: enabled ✅"
+    assert_output_contains "DNS triggers are active"
+    assert_output_contains "Use 'dokku dns:triggers:disable' to turn off"
+}
+
+@test "(triggers) state persists across command calls" {
+    # Start disabled
+    rm -f "$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED"
+    run dns_cmd triggers
+    assert_success
+    assert_output_contains "disabled ❌"
+    
+    # Enable
+    run dns_cmd triggers:enable
+    assert_success
+    
+    # Check still enabled
+    run dns_cmd triggers
+    assert_success
+    assert_output_contains "enabled ✅"
+    
+    # Disable  
+    run dns_cmd triggers:disable
+    assert_success
+    
+    # Check still disabled
+    run dns_cmd triggers
+    assert_success
+    assert_output_contains "disabled ❌"
+}
+
+@test "(triggers) post-create works with DNS provider configured when enabled" {
     setup_dns_provider "aws"
+    mkdir -p "$PLUGIN_DATA_ROOT"
+    touch "$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED"
     
     run "$PLUGIN_ROOT/post-create" "test-app"
     assert_success
@@ -56,8 +174,32 @@ teardown() {
     assert_success
 }
 
-@test "(triggers) post-delete cleans up DNS management" {
+@test "(triggers) post-create exits silently when triggers disabled" {
     setup_dns_provider "aws"
+    # Ensure triggers are disabled (default state)
+    rm -f "$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED"
+    
+    run "$PLUGIN_ROOT/post-create" "test-app"
+    assert_success
+    # Should have no output when disabled
+    [[ -z "$output" ]]
+}
+
+@test "(triggers) post-delete exits silently when triggers disabled" {
+    setup_dns_provider "aws"
+    # Ensure triggers are disabled (default state) 
+    rm -f "$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED"
+    
+    run "$PLUGIN_ROOT/post-delete" "test-app"
+    assert_success
+    # Should have no output when disabled
+    [[ -z "$output" ]]
+}
+
+@test "(triggers) post-delete cleans up DNS management when enabled" {
+    setup_dns_provider "aws"
+    mkdir -p "$PLUGIN_DATA_ROOT"
+    touch "$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED"
     
     # Simulate app being managed by DNS
     mkdir -p "$PLUGIN_DATA_ROOT"
@@ -77,14 +219,29 @@ teardown() {
     fi
 }
 
-@test "(triggers) post-domains-update works with no DNS provider configured" {
-    # Should not fail even if no provider is configured
+@test "(triggers) post-domains-update exits silently when triggers disabled" {
+    setup_dns_provider "aws"
+    # Ensure triggers are disabled (default state)
+    rm -f "$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED"
+    
     run "$PLUGIN_ROOT/post-domains-update" "test-app" "add" "example.com"
     assert_success
+    # Should have no output when disabled
+    [[ -z "$output" ]]
 }
 
-@test "(triggers) post-domains-update adds domain to DNS management" {
+@test "(triggers) post-domains-update works with no DNS provider configured when disabled" {
+    # Should not fail even if no provider is configured and triggers are disabled
+    rm -f "$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED"
+    run "$PLUGIN_ROOT/post-domains-update" "test-app" "add" "example.com"
+    assert_success
+    [[ -z "$output" ]]
+}
+
+@test "(triggers) post-domains-update adds domain to DNS management when enabled" {
     setup_dns_provider "aws"
+    mkdir -p "$PLUGIN_DATA_ROOT"
+    touch "$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED"
     
     run "$PLUGIN_ROOT/post-domains-update" "test-app" "add" "example.com"
     assert_success
@@ -93,14 +250,18 @@ teardown() {
     assert_output_contains "DNS: Syncing DNS records for 'test-app'"
 }
 
-@test "(triggers) post-domains-update works with remove action and no DNS provider" {
-    # Should not fail even if no provider is configured
+@test "(triggers) post-domains-update remove exits silently when triggers disabled" {
+    # Should not fail even if no provider is configured and triggers are disabled
+    rm -f "$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED"
     run "$PLUGIN_ROOT/post-domains-update" "test-app" "remove" "example.com"
     assert_success
+    [[ -z "$output" ]]
 }
 
-@test "(triggers) post-domains-update removes domain from DNS management" {
+@test "(triggers) post-domains-update removes domain from DNS management when enabled" {
     setup_dns_provider "aws"
+    mkdir -p "$PLUGIN_DATA_ROOT"
+    touch "$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED"
     
     # Setup app with domains
     mkdir -p "$PLUGIN_DATA_ROOT"
@@ -118,8 +279,10 @@ teardown() {
     assert_line_in_file "api.example.com" "$PLUGIN_DATA_ROOT/test-app/DOMAINS"
 }
 
-@test "(triggers) post-domains-update removes app when last domain is removed" {
+@test "(triggers) post-domains-update removes app when last domain is removed and enabled" {
     setup_dns_provider "aws"
+    mkdir -p "$PLUGIN_DATA_ROOT"
+    touch "$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED"
     
     # Setup app with single domain
     mkdir -p "$PLUGIN_DATA_ROOT"

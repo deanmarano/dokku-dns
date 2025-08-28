@@ -24,12 +24,84 @@ teardown() {
     fi
 }
 
-@test "(triggers) post-create trigger works on app creation" {
+# DNS Trigger Management Integration Tests
+
+@test "(triggers) dns:triggers shows disabled status by default" {
+    run dokku dns:triggers
+    assert_success
+    assert_output --partial "DNS app lifecycle triggers: disabled"
+    assert_output --partial "❌"
+    assert_output --partial "Available trigger files:"
+    assert_output --partial "DNS triggers are disabled by default"
+}
+
+@test "(triggers) dns:triggers:enable activates triggers" {
+    run dokku dns:triggers:enable
+    assert_success
+    assert_output --partial "DNS app lifecycle triggers enabled"
+    assert_output --partial "✅"
+    assert_output --partial "automatically sync DNS records"
+    
+    # Verify enabled status
+    run dokku dns:triggers
+    assert_success
+    assert_output --partial "enabled ✅"
+}
+
+@test "(triggers) dns:triggers:disable deactivates triggers" {
+    # Enable first
+    dokku dns:triggers:enable >/dev/null 2>&1
+    
+    run dokku dns:triggers:disable
+    assert_success
+    assert_output --partial "DNS app lifecycle triggers disabled"
+    assert_output --partial "❌"
+    assert_output --partial "no longer automatically sync"
+    
+    # Verify disabled status  
+    run dokku dns:triggers
+    assert_success
+    assert_output --partial "disabled ❌"
+}
+
+@test "(triggers) disabled triggers prevent automatic DNS management" {
+    # Ensure triggers are disabled (default)
+    dokku dns:triggers:disable >/dev/null 2>&1
+    
+    # Create app and add domain
+    dokku apps:create "$TEST_APP" >/dev/null 2>&1
+    
+    run dokku domains:add "$TEST_APP" "$TEST_DOMAIN"
+    assert_success
+    # Should NOT contain DNS syncing messages when disabled
+    ! [[ "$output" =~ "DNS: Syncing DNS records" ]]
+}
+
+@test "(triggers) enabled triggers allow automatic DNS management" {
+    # Enable triggers
+    dokku dns:triggers:enable >/dev/null 2>&1
+    
+    # Create app and add domain
+    dokku apps:create "$TEST_APP" >/dev/null 2>&1
+    
+    run dokku domains:add "$TEST_APP" "$TEST_DOMAIN"
+    assert_success
+    # Should contain DNS syncing messages when enabled
+    [[ "$output" =~ "DNS: Syncing DNS records" ]]
+}
+
+@test "(triggers) post-create trigger works on app creation when enabled" {
+    # Enable triggers first
+    dokku dns:triggers:enable >/dev/null 2>&1
+    
     run dokku apps:create "$TEST_APP"
     assert_success
 }
 
-@test "(triggers) domains-add trigger automatically syncs DNS records" {
+@test "(triggers) domains-add trigger automatically syncs DNS records when enabled" {
+    # Enable triggers first
+    dokku dns:triggers:enable >/dev/null 2>&1
+    
     # Create app first
     dokku apps:create "$TEST_APP" >/dev/null 2>&1
     
@@ -38,7 +110,10 @@ teardown() {
     assert_output --partial "DNS: Syncing DNS records"
 }
 
-@test "(triggers) domains-add trigger auto-adds app to DNS management" {
+@test "(triggers) domains-add trigger auto-adds app to DNS management when enabled" {
+    # Enable triggers first
+    dokku dns:triggers:enable >/dev/null 2>&1
+    
     # Create app and add domain
     dokku apps:create "$TEST_APP" >/dev/null 2>&1
     dokku domains:add "$TEST_APP" "$TEST_DOMAIN" >/dev/null 2>&1
@@ -48,7 +123,10 @@ teardown() {
     assert_output --partial "$TEST_APP"
 }
 
-@test "(triggers) domains-add trigger works with multiple domains" {
+@test "(triggers) domains-add trigger works with multiple domains when enabled" {
+    # Enable triggers first
+    dokku dns:triggers:enable >/dev/null 2>&1
+    
     # Create app and add first domain
     dokku apps:create "$TEST_APP" >/dev/null 2>&1
     dokku domains:add "$TEST_APP" "$TEST_DOMAIN" >/dev/null 2>&1
@@ -63,7 +141,10 @@ teardown() {
     assert_output --partial "$TEST_DOMAIN2"
 }
 
-@test "(triggers) domains-remove trigger removes domain from DNS tracking" {
+@test "(triggers) domains-remove trigger removes domain from DNS tracking when enabled" {
+    # Enable triggers first
+    dokku dns:triggers:enable >/dev/null 2>&1
+    
     # Create app and add both domains
     dokku apps:create "$TEST_APP" >/dev/null 2>&1
     dokku domains:add "$TEST_APP" "$TEST_DOMAIN" >/dev/null 2>&1
@@ -81,17 +162,23 @@ teardown() {
     # but presence of remaining domain indicates trigger functionality works
 }
 
-@test "(triggers) post-delete trigger executes during app destruction" {
+@test "(triggers) post-delete trigger executes during app destruction when enabled" {
+    # Enable triggers first
+    dokku dns:triggers:enable >/dev/null 2>&1
+    
     # Create app with domain
     dokku apps:create "$TEST_APP" >/dev/null 2>&1
     dokku domains:add "$TEST_APP" "$TEST_DOMAIN" >/dev/null 2>&1
     
     run dokku apps:destroy "$TEST_APP" --force
-    # May succeed or fail due to Docker environment, but should show trigger activity
+    # May succeed or fail due to Docker environment, but should show trigger activity when enabled
     [[ "$output" =~ (DNS:\ Cleaning\ up|DNS:\ App.*removed|sudo:.*terminal) ]]
 }
 
-@test "(triggers) post-delete trigger cleans up DNS management" {
+@test "(triggers) post-delete trigger cleans up DNS management when enabled" {
+    # Enable triggers first
+    dokku dns:triggers:enable >/dev/null 2>&1
+    
     # Create app with domain
     dokku apps:create "$TEST_APP" >/dev/null 2>&1
     dokku domains:add "$TEST_APP" "$TEST_DOMAIN" >/dev/null 2>&1
@@ -119,4 +206,54 @@ teardown() {
 @test "(triggers) post-domains-update trigger file exists and is executable" {
     run test -x /var/lib/dokku/plugins/available/dns/post-domains-update
     assert_success
+}
+
+@test "(triggers) trigger state persists across different operations" {
+    # Start with disabled state
+    run dokku dns:triggers
+    assert_success
+    assert_output --partial "disabled ❌"
+    
+    # Enable triggers
+    dokku dns:triggers:enable >/dev/null 2>&1
+    
+    # Verify still enabled after app operations
+    dokku apps:create "$TEST_APP" >/dev/null 2>&1
+    dokku domains:add "$TEST_APP" "$TEST_DOMAIN" >/dev/null 2>&1
+    
+    run dokku dns:triggers
+    assert_success
+    assert_output --partial "enabled ✅"
+    
+    # Disable and verify
+    dokku dns:triggers:disable >/dev/null 2>&1
+    
+    run dokku dns:triggers
+    assert_success
+    assert_output --partial "disabled ❌"
+}
+
+@test "(triggers) help system shows trigger commands" {
+    run dokku dns:help
+    assert_success
+    assert_output --partial "dns:triggers"
+    assert_output --partial "dns:triggers:enable" 
+    assert_output --partial "dns:triggers:disable"
+}
+
+@test "(triggers) trigger commands have proper descriptions in help" {
+    run dokku dns:help triggers
+    assert_success
+    assert_output --partial "show DNS trigger status"
+    assert_output --partial "available trigger files"
+    
+    run dokku dns:help triggers:enable
+    assert_success
+    assert_output --partial "enable DNS app lifecycle triggers"
+    assert_output --partial "automatic DNS management"
+    
+    run dokku dns:help triggers:disable  
+    assert_success
+    assert_output --partial "disable DNS app lifecycle triggers"
+    assert_output --partial "prevent automatic DNS management"
 }

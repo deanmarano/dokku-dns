@@ -35,6 +35,13 @@ source "$TRIGGER_BASE_PATH/functions"
 main() {
   local APP="$1"
   
+  # Check if triggers are enabled
+  local TRIGGERS_ENABLED_FILE="$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED"
+  if [[ ! -f "$TRIGGERS_ENABLED_FILE" ]]; then
+    # Triggers are disabled - exit silently
+    return 0
+  fi
+  
   # Skip if no app provided
   [[ -z "$APP" ]] && return 0
   
