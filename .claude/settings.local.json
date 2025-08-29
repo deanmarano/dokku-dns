@@ -67,12 +67,14 @@
       "Bash(dns_cmd cron:*)",
       "Bash(docker rm:*)",
       "Bash(./scripts/test-docker.sh:*)",
-      "Bash(DNS_TEST_MODE=1 bats tests/*.bats)",
-      "Bash(DNS_TEST_MODE=1 bash -c \"source tests/test_helper.bash && dns_cmd cron --enable\")",
-      "Bash(DNS_TEST_MODE=1 bash -c \"source tests/test_helper.bash && dns_cmd cron --enable && dns_cmd cron --enable\")",
-      "Bash(DNS_TEST_MODE=1 bash -c \"source tests/test_helper.bash && dns_cmd cron --enable >/dev/null && dns_cmd cron\")",
+      "Bash(bats tests/*.bats)",
+      "Bash(bash -c \"source tests/test_helper.bash && dns_cmd cron --enable\")",
+      "Bash(bash -c \"source tests/test_helper.bash && dns_cmd cron --enable && dns_cmd cron --enable\")",
+      "Bash(bash -c \"source tests/test_helper.bash && dns_cmd cron --enable >/dev/null && dns_cmd cron\")",
       "Bash(SKIP_TESTS=1 git commit -m \"fix: handle read-only Docker volume in CI workflow\n\nCopy integration test script to writable location before execution to avoid\n''chmod: Read-only file system'' error in CI. The Docker volume is mounted \nread-only but we need to make the script executable.\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
-      "Bash(DNS_TEST_MODE=1 bash -c \"source tests/test_helper.bash && cleanup_dns_data && setup_dns_provider ''aws'' && rm -f ''$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED'' && ./post-create test-app\")"
+      "Bash(bash -c \"source tests/test_helper.bash && cleanup_dns_data && setup_dns_provider ''aws'' && rm -f ''$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED'' && ./post-create test-app\")",
+      "Bash(bash -c \"source tests/test_helper.bash && cleanup_dns_data && ./subcommands/triggers\")",
+      "Bash(bash -c \"source tests/test_helper.bash && cleanup_dns_data && mkdir -p \"\"$PLUGIN_DATA_ROOT\"\" && touch \"\"$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED\"\" && ./subcommands/triggers\")"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

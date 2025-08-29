@@ -18,12 +18,12 @@ if ! declare -f dokku_log_info2 >/dev/null 2>&1; then
 fi
 
 dns-triggers-enable-cmd() {
-  declare desc="enable DNS app lifecycle triggers for automatic DNS management"
+  declare desc="enable automatic DNS management for app lifecycle events"
   
   local TRIGGERS_ENABLED_FILE="$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED"
   
   if [[ -f "$TRIGGERS_ENABLED_FILE" ]]; then
-    dokku_log_info2 "DNS triggers are already enabled ✅"
+    dokku_log_info2 "DNS automatic management is already enabled ✅"
     return 0
   fi
   
@@ -31,9 +31,8 @@ dns-triggers-enable-cmd() {
   [[ ! -d "$PLUGIN_DATA_ROOT" ]] && mkdir -p "$PLUGIN_DATA_ROOT"
   
   touch "$TRIGGERS_ENABLED_FILE"
-  dokku_log_info1 "DNS app lifecycle triggers enabled ✅"
-  dokku_log_info2 "App lifecycle events will now automatically sync DNS records"
-  dokku_log_info2 "Available triggers: post-create, post-delete, post-domains-update, post-app-rename"
+  dokku_log_info1 "DNS automatic management enabled ✅"
+  dokku_log_info2 "DNS records will now automatically sync when apps are created, deleted, or domains change"
 }
 
 dns-triggers-enable-cmd "$@"

@@ -29,23 +29,23 @@ teardown() {
 @test "(triggers) dns:triggers shows disabled status by default" {
     run dokku dns:triggers
     assert_success
-    assert_output --partial "DNS app lifecycle triggers: disabled"
+    assert_output --partial "DNS automatic management: disabled"
     assert_output --partial "❌"
-    assert_output --partial "Available trigger files:"
-    assert_output --partial "DNS triggers are disabled by default"
+    assert_output --partial "DNS records will not automatically sync when apps change"
+    assert_output --partial "Use 'dokku dns:triggers:enable' to activate automatic management"
 }
 
 @test "(triggers) dns:triggers:enable activates triggers" {
     run dokku dns:triggers:enable
     assert_success
-    assert_output --partial "DNS app lifecycle triggers enabled"
+    assert_output --partial "DNS automatic management enabled"
     assert_output --partial "✅"
-    assert_output --partial "automatically sync DNS records"
+    assert_output --partial "automatically sync when apps are created, deleted, or domains change"
     
     # Verify enabled status
     run dokku dns:triggers
     assert_success
-    assert_output --partial "enabled ✅"
+    assert_output --partial "DNS automatic management: enabled ✅"
 }
 
 @test "(triggers) dns:triggers:disable deactivates triggers" {
@@ -54,14 +54,14 @@ teardown() {
     
     run dokku dns:triggers:disable
     assert_success
-    assert_output --partial "DNS app lifecycle triggers disabled"
+    assert_output --partial "DNS automatic management disabled"
     assert_output --partial "❌"
-    assert_output --partial "no longer automatically sync"
+    assert_output --partial "no longer automatically sync when apps change"
     
     # Verify disabled status  
     run dokku dns:triggers
     assert_success
-    assert_output --partial "disabled ❌"
+    assert_output --partial "DNS automatic management: disabled ❌"
 }
 
 @test "(triggers) disabled triggers prevent automatic DNS management" {
@@ -209,10 +209,13 @@ teardown() {
 }
 
 @test "(triggers) trigger state persists across different operations" {
+    # Ensure we start with disabled state (clean up from previous tests)
+    dokku dns:triggers:disable >/dev/null 2>&1
+    
     # Start with disabled state
     run dokku dns:triggers
     assert_success
-    assert_output --partial "disabled ❌"
+    assert_output --partial "DNS automatic management: disabled ❌"
     
     # Enable triggers
     dokku dns:triggers:enable >/dev/null 2>&1
@@ -223,14 +226,14 @@ teardown() {
     
     run dokku dns:triggers
     assert_success
-    assert_output --partial "enabled ✅"
+    assert_output --partial "DNS automatic management: enabled ✅"
     
     # Disable and verify
     dokku dns:triggers:disable >/dev/null 2>&1
     
     run dokku dns:triggers
     assert_success
-    assert_output --partial "disabled ❌"
+    assert_output --partial "DNS automatic management: disabled ❌"
 }
 
 @test "(triggers) help system shows trigger commands" {
@@ -244,16 +247,13 @@ teardown() {
 @test "(triggers) trigger commands have proper descriptions in help" {
     run dokku dns:help triggers
     assert_success
-    assert_output --partial "show DNS trigger status"
-    assert_output --partial "available trigger files"
+    assert_output --partial "show DNS automatic management status"
     
     run dokku dns:help triggers:enable
     assert_success
-    assert_output --partial "enable DNS app lifecycle triggers"
-    assert_output --partial "automatic DNS management"
+    assert_output --partial "enable automatic DNS management for app lifecycle events"
     
     run dokku dns:help triggers:disable  
     assert_success
-    assert_output --partial "disable DNS app lifecycle triggers"
-    assert_output --partial "prevent automatic DNS management"
+    assert_output --partial "disable automatic DNS management for app lifecycle events"
 }

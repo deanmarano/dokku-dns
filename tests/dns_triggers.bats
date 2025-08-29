@@ -47,20 +47,17 @@ teardown() {
 @test "(dns:triggers) shows trigger status when disabled by default" {
     run dns_cmd triggers
     assert_success
-    assert_output_contains "DNS app lifecycle triggers: disabled"
+    assert_output_contains "DNS automatic management: disabled"
     assert_output_contains "❌"
-    assert_output_contains "Available trigger files:"
-    assert_output_contains "DNS triggers are disabled by default for safety"
-    assert_output_contains "Use 'dokku dns:triggers:enable' to activate"
+    assert_output_contains "DNS records will not automatically sync when apps change"
+    assert_output_contains "Use 'dokku dns:triggers:enable' to activate automatic management"
 }
 
-@test "(dns:triggers) shows available trigger files" {
+@test "(dns:triggers) shows disabled status cleanly" {
     run dns_cmd triggers
     assert_success
-    assert_output_contains "post-create"
-    assert_output_contains "post-delete" 
-    assert_output_contains "post-domains-update"
-    assert_output_contains "post-app-rename"
+    assert_output_contains "DNS automatic management: disabled"
+    assert_output_contains "DNS records will not automatically sync"
 }
 
 @test "(dns:triggers:enable) enables triggers successfully" {
@@ -72,9 +69,8 @@ teardown() {
     # Enable triggers
     run dns_cmd triggers:enable
     assert_success
-    assert_output_contains "DNS app lifecycle triggers enabled ✅"
-    assert_output_contains "App lifecycle events will now automatically sync DNS records"
-    assert_output_contains "Available triggers:"
+    assert_output_contains "DNS automatic management enabled ✅"
+    assert_output_contains "DNS records will now automatically sync when apps are created, deleted, or domains change"
     
     # Verify enabled state file exists
     assert_file_exists "$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED"
@@ -87,7 +83,7 @@ teardown() {
     
     run dns_cmd triggers:enable
     assert_success
-    assert_output_contains "DNS triggers are already enabled ✅"
+    assert_output_contains "DNS automatic management is already enabled ✅"
 }
 
 @test "(dns:triggers:disable) disables triggers successfully" {
@@ -103,9 +99,9 @@ teardown() {
     # Disable triggers
     run dns_cmd triggers:disable
     assert_success
-    assert_output_contains "DNS app lifecycle triggers disabled ❌"
-    assert_output_contains "App lifecycle events will no longer automatically sync DNS records"
-    assert_output_contains "Use 'dokku dns:triggers:enable' to reactivate"
+    assert_output_contains "DNS automatic management disabled ❌"
+    assert_output_contains "DNS records will no longer automatically sync when apps change"
+    assert_output_contains "Use 'dokku dns:triggers:enable' to reactivate automatic management"
     
     # Verify state file removed
     assert_file_not_exists "$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED"
@@ -117,7 +113,7 @@ teardown() {
     
     run dns_cmd triggers:disable
     assert_success
-    assert_output_contains "DNS triggers are already disabled ❌"
+    assert_output_contains "DNS automatic management is already disabled ❌"
 }
 
 @test "(dns:triggers) shows enabled status after enabling" {
@@ -127,9 +123,9 @@ teardown() {
     
     run dns_cmd triggers
     assert_success
-    assert_output_contains "DNS app lifecycle triggers: enabled ✅"
-    assert_output_contains "DNS triggers are active"
-    assert_output_contains "Use 'dokku dns:triggers:disable' to turn off"
+    assert_output_contains "DNS automatic management: enabled ✅"
+    assert_output_contains "App lifecycle events will automatically sync DNS records"
+    assert_output_contains "Use 'dokku dns:triggers:disable' to turn off automatic management"
 }
 
 @test "(triggers) state persists across command calls" {
