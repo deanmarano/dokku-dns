@@ -283,6 +283,11 @@ dns_global_report() {
   dokku_log_info1 "❌ No DNS record found"
   dokku_log_info1 "➖ No domains configured"
   
+  # Show orphaned DNS records if provider is ready
+  if [[ "$PROVIDER" != "None" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
+    show_orphaned_records_summary
+  fi
+  
   echo
   dokku_log_info2 "Actions available:"
   if [[ "$PROVIDER" == "None" ]]; then
@@ -296,6 +301,13 @@ dns_global_report() {
   elif [[ "$SYNC_STATUS" == "Ready" ]]; then
     dokku_log_info1 "Update all apps: for app in \$(dokku apps:list 2>/dev/null | grep -v ====); do dokku $PLUGIN_COMMAND_PREFIX:apps:sync \$app; done"
     dokku_log_info1 "View app details: dokku $PLUGIN_COMMAND_PREFIX:report <app>"
+    if command -v jq >/dev/null 2>&1; then
+      local orphan_count
+      orphan_count=$(count_orphaned_records 2>/dev/null || echo "0")
+      if [[ "$orphan_count" -gt 0 ]]; then
+        dokku_log_info1 "Clean up orphans: dokku $PLUGIN_COMMAND_PREFIX:sync:deletions"
+      fi
+    fi
   else
     dokku_log_info1 "Fix configuration issues, then update apps individually"
   fi
@@ -481,6 +493,11 @@ dns_report() {
   fi
   dokku_log_info1 "❌ No DNS record found"
   
+  # Show orphaned DNS records if provider is ready
+  if [[ "$PROVIDER" != "None" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
+    show_orphaned_records_summary
+  fi
+  
   echo
   dokku_log_info2 "Actions available:"
   if [[ "$PROVIDER" == "None" ]]; then
@@ -492,8 +509,122 @@ dns_report() {
     dokku_log_info1 "Then update DNS: dokku $PLUGIN_COMMAND_PREFIX:apps:sync $APP"
   elif [[ "$SYNC_STATUS" == "Ready" ]]; then
     dokku_log_info1 "Update DNS records: dokku $PLUGIN_COMMAND_PREFIX:apps:sync $APP"
+    local orphan_count
+    orphan_count=$(count_orphaned_records 2>/dev/null || echo "0")
+    if [[ "$orphan_count" -gt 0 ]]; then
+      dokku_log_info1 "Clean up orphans: dokku $PLUGIN_COMMAND_PREFIX:sync:deletions"
+    fi
   else
     dokku_log_info1 "Fix configuration issues, then update: dokku $PLUGIN_COMMAND_PREFIX:apps:sync $APP"
+  fi
+}
+
+# Helper functions for orphaned DNS records
+show_orphaned_records_summary() {
+  local orphaned_records
+  orphaned_records=$(get_orphaned_records)
+  
+  if [[ -z "$orphaned_records" ]]; then
+    return 0
+  fi
+  
+  local orphan_count
+  orphan_count=$(echo "$orphaned_records" | wc -l)
+  
+  echo
+  dokku_log_info2 "Orphaned DNS Records:"
+  dokku_log_info1 "Found $orphan_count orphaned DNS records that could be cleaned up:"
+  echo
+  
+  while IFS= read -r record; do
+    [[ -z "$record" ]] && continue
+    echo "  - $record (A record)"
+  done <<< "$orphaned_records"
+  
+  echo
+  dokku_log_info1 "To clean up: dokku $PLUGIN_COMMAND_PREFIX:sync:deletions"
+}
+
+get_orphaned_records() {
+  # Get list of all current Dokku app domains
+  local current_domains=()
+  local apps
+  apps=$(dokku apps:list 2>/dev/null | tail -n +2 | tr '\n' ' ')
+  
+  for app in $apps; do
+    local app_domains
+    app_domains=$(get_app_domains "$app" 2>/dev/null || echo "")
+    if [[ -n "$app_domains" ]]; then
+      while IFS= read -r domain; do
+        [[ -n "$domain" ]] && current_domains+=("$domain")
+      done <<< "$app_domains"
+    fi
+  done
+  
+  # Get enabled zones
+  local zones_to_scan=()
+  if [[ -f "$PLUGIN_DATA_ROOT/ZONES_ENABLED" ]]; then
+    while IFS= read -r enabled_zone; do
+      [[ -n "$enabled_zone" ]] && zones_to_scan+=("$enabled_zone")
+    done < "$PLUGIN_DATA_ROOT/ZONES_ENABLED"
+  fi
+  
+  if [[ ${#zones_to_scan[@]} -eq 0 ]]; then
+    return 0
+  fi
+  
+  # Scan each zone for orphaned records
+  local orphaned_records=()
+  for zone in "${zones_to_scan[@]}"; do
+    local zone_id
+    zone_id=$(dns_provider_aws_get_hosted_zone_id "$zone" 2>/dev/null || echo "")
+    
+    if [[ -z "$zone_id" ]]; then
+      continue
+    fi
+    
+    # Get all A records in this zone
+    local zone_records
+    zone_records=$(aws route53 list-resource-record-sets \
+      --hosted-zone-id "$zone_id" \
+      --query "ResourceRecordSets[?Type=='A' && !contains(Name, 'www.')].Name" \
+      --output text 2>/dev/null | tr '\t' '\n' || echo "")
+    
+    if [[ -z "$zone_records" ]]; then
+      continue
+    fi
+    
+    # Check each DNS record against current domains
+    while IFS= read -r dns_record; do
+      [[ -z "$dns_record" ]] && continue
+      
+      # Remove trailing dot from Route53 record name
+      dns_record="${dns_record%.}"
+      
+      # Check if this DNS record corresponds to any current domain
+      local is_orphaned=true
+      for current_domain in "${current_domains[@]}"; do
+        if [[ "$dns_record" == "$current_domain" ]]; then
+          is_orphaned=false
+          break
+        fi
+      done
+      
+      if [[ "$is_orphaned" == "true" ]]; then
+        echo "$dns_record"
+      fi
+    done <<< "$zone_records"
+  done
+}
+
+count_orphaned_records() {
+  local orphaned_records
+  orphaned_records=$(get_orphaned_records)
+  
+  if [[ -z "$orphaned_records" ]]; then
+    echo "0"
+  else
+    echo "$orphaned_records" | wc -l
   fi
 }
 

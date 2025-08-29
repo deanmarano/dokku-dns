@@ -87,10 +87,22 @@ main() {
     
     dokku_log_info1 "DNS: Successfully updated DNS management from '$OLD_APP' to '$NEW_APP'"
     
+    # Queue old app domains for potential deletion (they might be orphaned now)
+    local DOMAINS_FILE="$NEW_APP_DIR/DOMAINS"
+    if [[ -f "$DOMAINS_FILE" ]]; then
+      local DELETIONS_QUEUE="$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
+      while IFS= read -r domain; do
+        [[ -n "$domain" ]] && echo "$(date '+%Y-%m-%d %H:%M:%S') post-app-rename $OLD_APP $domain" >> "$DELETIONS_QUEUE"
+      done < "$DOMAINS_FILE"
+      
+      dokku_log_info1 "DNS: Old domains queued for orphan check after rename"
+      dokku_log_info1 "DNS: Run 'dokku $PLUGIN_COMMAND_PREFIX:sync:deletions' if old DNS records need cleanup"
+    fi
+    
     # Sync the new app's DNS records
     if [[ -x "$PLUGIN_BASE_PATH/commands" ]]; then
       dokku_log_info2 "DNS: Syncing DNS records for renamed app '$NEW_APP'"
-      "$PLUGIN_BASE_PATH/commands" dns:sync "$NEW_APP"
+      "$PLUGIN_BASE_PATH/commands" dns:apps:sync "$NEW_APP"
     fi
   fi
 }
