@@ -36,6 +36,13 @@ main() {
   local OLD_APP="$1"
   local NEW_APP="$2"
   
+  # Check if triggers are enabled
+  local TRIGGERS_ENABLED_FILE="$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED"
+  if [[ ! -f "$TRIGGERS_ENABLED_FILE" ]]; then
+    # Triggers are disabled - exit silently
+    return 0
+  fi
+  
   # Skip if either app name is missing
   [[ -z "$OLD_APP" || -z "$NEW_APP" ]] && return 0
   

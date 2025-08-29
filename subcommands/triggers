@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+# Load dokku functions
+if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
+  source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
+fi
+
+# Define missing functions if needed (for testing)
+if ! declare -f dokku_log_info1 >/dev/null 2>&1; then
+  dokku_log_info1() { echo "-----> $*"; }
+fi
+
+if ! declare -f dokku_log_info2 >/dev/null 2>&1; then
+  dokku_log_info2() { echo "=====> $*"; }
+fi
+
+dns-triggers-cmd() {
+  declare desc="show DNS automatic management status"
+  
+  local TRIGGERS_ENABLED_FILE="$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED"
+  
+  if [[ -f "$TRIGGERS_ENABLED_FILE" ]]; then
+    dokku_log_info1 "DNS automatic management: enabled ✅"
+    dokku_log_info2 "App lifecycle events will automatically sync DNS records."
+    dokku_log_info2 "Use 'dokku dns:triggers:disable' to turn off automatic management."
+  else
+    dokku_log_info1 "DNS automatic management: disabled ❌"
+    dokku_log_info2 "DNS records will not automatically sync when apps change."
+    dokku_log_info2 "Use 'dokku dns:triggers:enable' to activate automatic management."
+  fi
+}
+
+dns-triggers-cmd "$@"
