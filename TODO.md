@@ -2,62 +2,45 @@
 
 The DNS plugin is in progress! Many core features have been implemented and tested. See [DONE.md](./DONE.md) for completed work.
 
-## Phase 7: Remove Global Provider Concept (High Priority)
+## Phase 10: DNS Orphan Record Management (High Priority)
 
-- [ ] **Remove concept of a global provider**
-  - [ ] Analyze current global provider usage in codebase
-  - [ ] Determine if `dns:providers:configure` command is still needed
-  - [ ] Update `functions` file to remove global provider logic
-  - [ ] Remove global `PROVIDER` file from `/var/lib/dokku/services/dns/`
-  - [ ] Update all commands to work without global provider configuration
-  - [ ] Update tests to work without global provider concept
-  - [ ] Update documentation
+- [ ] **Create dns:sync:deletions command for orphaned DNS record management**
+  - [ ] Add `dns:sync:deletions` to globally remove orphaned records
+  - [ ] Update `dns:report` to show what would be deleted by a sync:deletions
+  - [ ] Show Terraform-style plan output: "- old-app.example.com (A record)" 
+  - [ ] Create comprehensive BATS unit tests for delete functionality
+  - [ ] Create BATS integration test
+  - [ ] Update existing triggers to add deletions to file rather than delete directly
+    - [ ] post-delete
+    - [ ] post-app-rename
+    - [ ] post-domains-update
 
-## Phase 8: Test Infrastructure Modularization (Medium Priority)
+## Phase 11: Terraform-Style Plan/Apply Workflow (High Priority)
 
-- [ ] **Break up scripts/test-integration.sh**
-  - [ ] Analyze current test-integration.sh structure (695+ lines)
-  - [ ] Identify logical test suites that can be separated
-  - [ ] Create modular test structure:
-    - [ ] `tests/integration/core-commands.sh` - Basic command testing
-    - [ ] `tests/integration/cron-functionality.sh` - Cron-specific tests  
-    - [ ] `tests/integration/zones-management.sh` - Zones testing
-    - [ ] `tests/integration/trigger-lifecycle.sh` - App lifecycle triggers
-    - [ ] `tests/integration/error-handling.sh` - Edge cases and errors
-  - [ ] Create shared test utilities in `tests/integration/common.sh`
-  - [ ] Update Docker orchestrator to run modular test suites
-  - [ ] Maintain single-command execution for CI (`make docker-test`)
-  - [ ] Add individual test suite execution for debugging
+- [ ] **Implement Terraform-style "plan" functionality in dns:report commands**
+  - [ ] Add "Planned Changes" section to `dns:report` and `dns:apps:report` output
+  - [ ] Show what `dns:apps:sync` would create: "+ example.com → 192.168.1.1 (A record)"
+  - [ ] Show what `dns:apps:sync` would update: "~ api.example.com → 192.168.1.1 (A record) [was: 192.168.1.2]"
+  - [ ] Add change summary: "Plan: 2 to add, 1 to change, 0 to destroy"
+  - [ ] Use Terraform-style symbols and colors: + (green), ~ (yellow)
+  - [ ] Show "No changes" when DNS records are already correct
 
-## Phase 9: Enhanced Reporting with Sync Necessity Detection (High Priority)
+- [ ] **Enhance dns:apps:sync to show "apply" style output**
+  - [ ] Show real-time progress: "Creating A record for example.com... ✅"
+  - [ ] Show what was actually changed: "Created: example.com → 192.168.1.1 (A record)"
+  - [ ] Show updates: "Updated: api.example.com → 192.168.1.1 (A record) [was: 192.168.1.2]"
+  - [ ] Add operation summary: "Sync complete! Resources: 2 added, 1 changed, 0 destroyed"
+  - [ ] Implement `--dry-run` flag that shows plan without making changes
+  - [ ] Show "No changes needed" when all DNS records are already correct
 
-- [ ] **Update report command with sync necessity detection**
-  - [ ] Implement `dns_check_sync_needed()` function in `functions` file
-  - [ ] Add DNS record comparison logic (current vs expected values)
-  - [ ] Detect missing DNS records that need creation
-  - [ ] Detect incorrect DNS records that need updating
-  - [ ] Detect orphaned DNS records that need deletion
-  - [ ] Add "Sync Status" section to `dns:report` output
-  - [ ] Show clean, minimal preview of what `dns:apps:sync` would change
-  - [ ] Include same sync necessity check in `dns:apps:report`
-  - [ ] Create new `dns:zones:report <zone>` command with sync status
-  - [ ] Add appropriate emojis and status indicators (✅ ⚠️ ❌)
-  - [ ] Update help text and documentation for enhanced reporting
+- [ ] **Create dns_plan_changes() function in functions file**
+  - [ ] Compare current DNS records with expected app domains (from `dokku domains:report`)
+  - [ ] Return structured data about planned additions and updates only
+  - [ ] Support both single-app and multi-app planning (for dns:sync-all)
+  - [ ] Include change detection logic to avoid unnecessary API calls
+  - [ ] Handle cases where DNS records are already correct (no changes needed)
 
-## Phase 10: DNS Cleanup Management (High Priority)
-
-- [ ] **Track DNS records to delete**
-  - [ ] Create `PENDING_DELETIONS` file structure in app directories
-  - [ ] Update `post-domains-update` trigger to log domains for deletion
-  - [ ] Update `post-delete` trigger to log all app domains for cleanup
-  - [ ] Update `post-app-rename` trigger to log old domain cleanup
-  - [ ] Create `dns_log_pending_deletion()` utility function
-  - [ ] Modify report commands to show "Records to Delete" section
-  - [ ] Update sync commands to process and remove pending deletions
-  - [ ] Add `--cleanup-only` flag to sync commands for deletion-only runs
-  - [ ] Include deletion operations in batch sync for efficiency
-
-## Phase 11: AWS Provider Architecture Foundation (Medium Priority)
+## Phase 12: AWS Provider Architecture Foundation (Medium Priority)
 
 - [ ] **Restructure AWS Provider Architecture**
   - [ ] Convert `providers/aws` file into `providers/aws/` directory structure
@@ -72,7 +55,7 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - [ ] Implement graceful fallbacks for missing provider functions
   - [ ] Update core commands to use standardized provider interface
 
-## Phase 12: AWS Core Operations Modularization (Medium Priority)
+## Phase 13: AWS Core Operations Modularization (Medium Priority)
 
 - [ ] **Extract AWS Logic from Core DNS Commands**
   - [ ] **add command**: Extract AWS hosted zone checking to `providers/aws/add.sh`
@@ -86,7 +69,7 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - [ ] `providers/aws/sync-all.sh` - AWS batch operations and optimization
   - [ ] `providers/aws/report.sh` - AWS DNS record checking and IP resolution
 
-## Phase 13: AWS Management Operations Modularization (Medium Priority)
+## Phase 14: AWS Management Operations Modularization (Medium Priority)
 
 - [ ] **Extract AWS Logic from Management Commands**
   - [ ] **verify command**: Move AWS verification logic to `providers/aws/verify.sh`
@@ -111,7 +94,7 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - [ ] `providers/aws/zones-add.sh` - AWS zone addition logic
   - [ ] `providers/aws/zones-remove.sh` - AWS zone removal logic
 
-## Phase 14: AWS Provider Testing Infrastructure (Medium Priority)
+## Phase 15: AWS Provider Testing Infrastructure (Medium Priority)
 
 - [ ] **Provider Testing Infrastructure**
   - [ ] Create `tests/providers/aws/` directory structure
@@ -129,7 +112,7 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - [ ] Ensure backward compatibility during transition
   - [ ] Update integration tests to work with new provider structure
 
-## Phase 15: Cloudflare Provider Implementation
+## Phase 16: Cloudflare Provider Implementation
 
 - [ ] **Credential Validation**
   - [ ] Document using `dokku config:set` for Cloudflare credentials:
@@ -159,7 +142,7 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - [ ] Optimize for Cloudflare's API rate limits
   - [ ] Implement `dns_provider_cloudflare_sync_app()`
 
-## Phase 16: 1.0 Release Preparation
+## Phase 17: 1.0 Release Preparation
 
 - [ ] **Documentation Overhaul**
   - [ ] Create comprehensive README with:
@@ -194,7 +177,7 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - [ ] Ensure consistent formatting across all commands
   - [ ] Add helpful hints and tips in command outputs
 
-## Phase 17: TTL Support (Post-1.0 Feature)
+## Phase 18: TTL Support (Post-1.0 Feature)
 
 - [ ] **Add TTL support for DNS records**
   - [ ] Add `--ttl <seconds>` parameter to `dns:apps:enable` command
@@ -208,21 +191,21 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - [ ] Update help text with TTL examples and best practices
   - [ ] Add BATS tests for TTL configuration and application
 
-## Phase 18: Selective Domain Sync (Post-1.0 Feature)
+## Phase 19: Selective Domain Sync (Post-1.0 Feature)
 
 - [ ] **Add selective domain sync (dns:apps:sync filtering)**
   - [ ] Modify `dns:apps:sync` command signature: `dns:apps:sync <app> [domain...]`
   - [ ] Update argument parsing in `subcommands/apps:sync` 
   - [ ] Implement domain filtering logic in sync operations
   - [ ] Support multiple domain parameters: `dns:apps:sync myapp domain1.com domain2.com`
-  - [ ] Add domain validation against app's configured domains
+  - [ ] Support zone-specific cleanup: `dns:sync:deletions example.com`
   - [ ] Optimize AWS batch operations for filtered domains
   - [ ] Update error handling for non-existent or unmanaged domains
   - [ ] Add help examples: `dns:apps:sync myapp api.example.com www.example.com`
   - [ ] Create comprehensive BATS tests for domain filtering
   - [ ] Add integration tests for selective sync scenarios
 
-## Phase 19: DigitalOcean Provider Implementation
+## Phase 20: DigitalOcean Provider Implementation
 
 - [ ] **Credential Validation**
   - [ ] Document using `dokku config:set` for DigitalOcean credentials:
@@ -252,7 +235,7 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - [ ] Handle DigitalOcean's API rate limits
   - [ ] Implement `dns_provider_digitalocean_sync_app()`
 
-## Phase 20: Additional Features (Lower Priority)
+## Phase 21: Additional Features (Lower Priority)
 
 - [ ] **Additional Triggers** (Future Enhancement)
   - [ ] `post-app-clone-setup` - Handle domain updates when apps are cloned
