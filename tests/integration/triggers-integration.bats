@@ -27,61 +27,44 @@ teardown() {
 # DNS Trigger Management Integration Tests
 
 @test "(triggers) dns:triggers shows disabled status by default" {
-    # Check if trigger commands are available first
-    if ! dokku dns:help 2>/dev/null | grep -q "dns:triggers"; then
-        skip "DNS trigger commands not available in test environment"
-    fi
-    
     run dokku dns:triggers
     assert_success
     assert_output --partial "DNS app lifecycle triggers: disabled"
+    assert_output --partial "❌"
     assert_output --partial "Available trigger files:"
     assert_output --partial "DNS triggers are disabled by default"
 }
 
 @test "(triggers) dns:triggers:enable activates triggers" {
-    # Check if trigger commands are available first
-    if ! dokku dns:help 2>/dev/null | grep -q "dns:triggers"; then
-        skip "DNS trigger commands not available in test environment"
-    fi
-    
     run dokku dns:triggers:enable
     assert_success
     assert_output --partial "DNS app lifecycle triggers enabled"
+    assert_output --partial "✅"
     assert_output --partial "automatically sync DNS records"
     
     # Verify enabled status
     run dokku dns:triggers
     assert_success
-    assert_output --partial "enabled"
+    assert_output --partial "enabled ✅"
 }
 
 @test "(triggers) dns:triggers:disable deactivates triggers" {
-    # Check if trigger commands are available first
-    if ! dokku dns:help 2>/dev/null | grep -q "dns:triggers"; then
-        skip "DNS trigger commands not available in test environment"
-    fi
-    
     # Enable first
     dokku dns:triggers:enable >/dev/null 2>&1
     
     run dokku dns:triggers:disable
     assert_success
     assert_output --partial "DNS app lifecycle triggers disabled"
+    assert_output --partial "❌"
     assert_output --partial "no longer automatically sync"
     
     # Verify disabled status  
     run dokku dns:triggers
     assert_success
-    assert_output --partial "disabled"
+    assert_output --partial "disabled ❌"
 }
 
 @test "(triggers) disabled triggers prevent automatic DNS management" {
-    # Check if trigger commands are available first
-    if ! dokku dns:help 2>/dev/null | grep -q "dns:triggers"; then
-        skip "DNS trigger commands not available in test environment"
-    fi
-    
     # Ensure triggers are disabled (default)
     dokku dns:triggers:disable >/dev/null 2>&1
     
@@ -95,11 +78,6 @@ teardown() {
 }
 
 @test "(triggers) enabled triggers allow automatic DNS management" {
-    # Check if trigger commands are available first
-    if ! dokku dns:help 2>/dev/null | grep -q "dns:triggers"; then
-        skip "DNS trigger commands not available in test environment"
-    fi
-    
     # Enable triggers
     dokku dns:triggers:enable >/dev/null 2>&1
     
@@ -231,21 +209,10 @@ teardown() {
 }
 
 @test "(triggers) trigger state persists across different operations" {
-    # Check if trigger commands are available first
-    if ! dokku dns:help 2>/dev/null | grep -q "dns:triggers"; then
-        skip "DNS trigger commands not available in test environment"
-    fi
-    
     # Start with disabled state
     run dokku dns:triggers
     assert_success
-    # Check for either format of disabled message
-    if [[ ! "$output" =~ "disabled" ]]; then
-        # Print actual output for debugging
-        echo "Expected 'disabled' in output. Actual output:"
-        echo "$output"
-        return 1
-    fi
+    assert_output --partial "disabled ❌"
     
     # Enable triggers
     dokku dns:triggers:enable >/dev/null 2>&1
@@ -256,46 +223,25 @@ teardown() {
     
     run dokku dns:triggers
     assert_success
-    # Check for enabled status
-    if [[ ! "$output" =~ "enabled" ]]; then
-        echo "Expected 'enabled' in output. Actual output:"
-        echo "$output"
-        return 1
-    fi
+    assert_output --partial "enabled ✅"
     
     # Disable and verify
     dokku dns:triggers:disable >/dev/null 2>&1
     
     run dokku dns:triggers
     assert_success
-    # Check for disabled status again
-    if [[ ! "$output" =~ "disabled" ]]; then
-        echo "Expected 'disabled' in output after disable. Actual output:"
-        echo "$output"
-        return 1
-    fi
+    assert_output --partial "disabled ❌"
 }
 
 @test "(triggers) help system shows trigger commands" {
     run dokku dns:help
     assert_success
-    # Only check for trigger commands if they're available
-    if dokku dns:help 2>/dev/null | grep -q "dns:triggers"; then
-        assert_output --partial "dns:triggers"
-        assert_output --partial "dns:triggers:enable" 
-        assert_output --partial "dns:triggers:disable"
-    else
-        # If trigger commands aren't available, just verify base help works
-        assert_output --partial "dns:help"
-    fi
+    assert_output --partial "dns:triggers"
+    assert_output --partial "dns:triggers:enable" 
+    assert_output --partial "dns:triggers:disable"
 }
 
 @test "(triggers) trigger commands have proper descriptions in help" {
-    # Check if trigger commands are available first
-    if ! dokku dns:help 2>/dev/null | grep -q "dns:triggers"; then
-        skip "DNS trigger commands not available in test environment"
-    fi
-    
     run dokku dns:help triggers
     assert_success
     assert_output --partial "show DNS trigger status"
