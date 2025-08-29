@@ -37,7 +37,7 @@ source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
 #E Examples:
 #E   dokku $PLUGIN_COMMAND_PREFIX:sync:deletions
 #E   dokku $PLUGIN_COMMAND_PREFIX:sync:deletions example.com
-#A sync:deletions
+#A zone, zone name to scan for orphaned records (optional - scans all enabled zones if omitted)
 
 service-sync-deletions-cmd() {
   declare desc="remove orphaned DNS records from enabled zones"
