@@ -10,6 +10,13 @@ check_dns_plugin_available() {
     fi
 }
 
+# Helper function to skip tests if AWS credentials are not available
+skip_if_no_aws_credentials() {
+    if ! aws sts get-caller-identity >/dev/null 2>&1; then
+        skip "AWS CLI not available or not configured"
+    fi
+}
+
 # Helper function to create test app with domains
 setup_test_app() {
     local app_name="$1"
@@ -77,6 +84,16 @@ assert_output() {
             fi
             ;;
     esac
+}
+
+# Helper to check if output contains a specific pattern
+assert_output_contains() {
+    local pattern="$1"
+    if [[ ! "$output" =~ $pattern ]]; then
+        echo "Expected output to contain: '$pattern'"
+        echo "Actual output: '$output'"
+        return 1
+    fi
 }
 
 # Helper to check if output contains any of multiple patterns

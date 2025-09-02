@@ -1,13 +1,14 @@
 #!/usr/bin/env bats
-load ../test_helper
 load bats-common
 
 setup() {
-  create_integration_app
+  check_dns_plugin_available
+  TEST_APP="sync-deletions-test"
+  setup_test_app "$TEST_APP"
 }
 
 teardown() {
-  cleanup_integration_app
+  cleanup_test_app "$TEST_APP"
 }
 
 @test "(dns:sync:deletions integration) error with no enabled zones" {
@@ -162,7 +163,7 @@ teardown() {
       
       # Create a test app but don't add any domains to it
       # This way, any existing DNS records will appear orphaned
-      create_test_app "orphan-test-app"
+      setup_test_app "orphan-test-app"
       
       run dokku "$PLUGIN_COMMAND_PREFIX:sync:deletions"
       assert_success
