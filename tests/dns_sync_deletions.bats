@@ -31,8 +31,8 @@ teardown() {
   assert_output_contains "Use 'dokku dns:zones:enable <zone>' to enable zones first"
 }
 
-@test "(dns:sync:deletions) shows message when no orphaned records found" {
-  # Create enabled zones but no orphaned records
+@test "(dns:sync:deletions) shows message when no records to be deleted found" {
+  # Create enabled zones but no records to be deleted
   echo "example.com" > "$PLUGIN_DATA_ROOT/ZONES_ENABLED"
   
   # Mock AWS CLI to return no A records
@@ -55,11 +55,11 @@ EOF
   
   run dokku "$PLUGIN_COMMAND_PREFIX:sync:deletions"
   assert_success
-  assert_output_contains "No orphaned DNS records found"
+  assert_output_contains "No DNS records to be deleted"
   assert_output_contains "All DNS records correspond to active Dokku domains"
 }
 
-@test "(dns:sync:deletions) displays Terraform-style plan output for orphaned records" {
+@test "(dns:sync:deletions) displays Terraform-style plan output for records to be deleted" {
   # Create enabled zones
   echo "example.com" > "$PLUGIN_DATA_ROOT/ZONES_ENABLED"
   
@@ -81,7 +81,7 @@ esac
 EOF
   chmod +x "${TEST_BIN_DIR}/aws"
   
-  # Mock get_app_domains to return no domains (making all DNS records orphaned)
+  # Mock get_app_domains to return no domains (making all DNS records eligible for deletion)
   cat >> "$PLUGIN_ROOT/functions" << 'EOF'
 
 get_app_domains() {
@@ -95,7 +95,7 @@ EOF
   assert_output_contains "- old-app.example.com (A record)"
   assert_output_contains "- orphaned.example.com (A record)"
   assert_output_contains "Plan: 0 to add, 0 to change, 2 to destroy"
-  assert_output_contains "Do you want to delete these 2 orphaned DNS records? [y/N]"
+  assert_output_contains "Do you want to delete these 2 DNS records? [y/N]"
 }
 
 @test "(dns:sync:deletions) handles zone-specific cleanup" {
@@ -144,12 +144,12 @@ EOF
   # Create enabled zones
   echo "example.com" > "$PLUGIN_DATA_ROOT/ZONES_ENABLED"
   
-  # Mock AWS CLI to return both current and orphaned records
+  # Mock AWS CLI to return both current and records to be deleted
   cat > "${TEST_BIN_DIR}/aws" << 'EOF'
 #!/bin/bash
 case "$*" in
   *"list-resource-record-sets"*"--query"*"ResourceRecordSets"*)
-    echo -e "current.example.com.\norphaned.example.com."
+    echo -e "current.example.com.\nrecord-to-delete.example.com."
     ;;
   *"get-caller-identity"*)
     echo '{"Account":"123456789012","UserId":"AIDACKCEVSQ6C2EXAMPLE","Arn":"arn:aws:iam::123456789012:user/test"}'
@@ -165,8 +165,8 @@ EOF
   run dokku "$PLUGIN_COMMAND_PREFIX:sync:deletions"
   assert_success
   
-  # Should show orphaned record but not current app domain
-  assert_output_contains "- orphaned.example.com (A record)"
+  # Should show record to be deleted but not current app domain
+  assert_output_contains "- record-to-delete.example.com (A record)"
   refute_output_contains "- current.example.com (A record)"
   assert_output_contains "Plan: 0 to add, 0 to change, 1 to destroy"
   
@@ -174,15 +174,15 @@ EOF
 }
 
 @test "(dns:sync:deletions) handles user cancellation gracefully" {
-  # Create enabled zones with orphaned records
+  # Create enabled zones with records to be deleted
   echo "example.com" > "$PLUGIN_DATA_ROOT/ZONES_ENABLED"
   
-  # Mock AWS CLI to return orphaned records
+  # Mock AWS CLI to return records to be deleted
   cat > "${TEST_BIN_DIR}/aws" << 'EOF'
 #!/bin/bash
 case "$*" in
   *"list-resource-record-sets"*"--query"*"ResourceRecordSets"*)
-    echo "orphaned.example.com."
+    echo "record-to-delete.example.com."
     ;;
   *"get-caller-identity"*)
     echo '{"Account":"123456789012","UserId":"AIDACKCEVSQ6C2EXAMPLE","Arn":"arn:aws:iam::123456789012:user/test"}'
@@ -202,7 +202,7 @@ EOF
 }
 
 @test "(dns:sync:deletions) attempts deletion when user confirms" {
-  # Create enabled zones with orphaned records
+  # Create enabled zones with records to be deleted
   echo "example.com" > "$PLUGIN_DATA_ROOT/ZONES_ENABLED"
   
   # Track AWS CLI calls
@@ -210,12 +210,12 @@ EOF
 #!/bin/bash
 case "$*" in
   *"list-resource-record-sets"*"--query"*"ResourceRecordSets"*)
-    if [[ "$*" == *"Name=='orphaned.example.com.'"* ]]; then
+    if [[ "$*" == *"Name=='record-to-delete.example.com.'"* ]]; then
       # Return record value for deletion
       echo "192.168.1.100"
     else
       # Return record names for scanning
-      echo "orphaned.example.com."
+      echo "record-to-delete.example.com."
     fi
     ;;
   *"change-resource-record-sets"*)
@@ -236,10 +236,10 @@ EOF
   # Mock user input to simulate 'y' (yes) response
   run bash -c 'echo "y" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
   assert_success
-  assert_output_contains "Deleting orphaned DNS records..."
-  assert_output_contains "Deleting: orphaned.example.com"
-  assert_output_contains "✅ Deleted: orphaned.example.com (A record)"
-  assert_output_contains "Successfully deleted 1 of 1 orphaned DNS records"
+  assert_output_contains "Deleting DNS records..."
+  assert_output_contains "Deleting: record-to-delete.example.com"
+  assert_output_contains "✅ Deleted: record-to-delete.example.com (A record)"
+  assert_output_contains "Successfully deleted 1 of 1 DNS records"
 }
 
 @test "(dns:sync:deletions) handles AWS API failures gracefully" {
@@ -251,12 +251,12 @@ EOF
 #!/bin/bash
 case "$*" in
   *"list-resource-record-sets"*"--query"*"ResourceRecordSets"*)
-    if [[ "$*" == *"Name=='orphaned.example.com.'"* ]]; then
+    if [[ "$*" == *"Name=='record-to-delete.example.com.'"* ]]; then
       # Return record value for deletion
       echo "192.168.1.100"
     else
       # Return record names for scanning
-      echo "orphaned.example.com."
+      echo "record-to-delete.example.com."
     fi
     ;;
   *"change-resource-record-sets"*)
@@ -278,8 +278,8 @@ EOF
   # Mock user input to simulate 'y' (yes) response
   run bash -c 'echo "y" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
   assert_success
-  assert_output_contains "❌ Failed to delete: orphaned.example.com"
-  assert_output_contains "Successfully deleted 0 of 1 orphaned DNS records"
+  assert_output_contains "❌ Failed to delete: record-to-delete.example.com"
+  assert_output_contains "Successfully deleted 0 of 1 DNS records"
 }
 
 @test "(dns:sync:deletions) handles missing AWS credentials" {

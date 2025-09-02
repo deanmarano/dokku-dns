@@ -18,7 +18,7 @@ teardown() {
   assert_output_contains "Use 'dokku dns:zones:enable <zone>' to enable zones first"
 }
 
-@test "(dns:sync:deletions integration) shows helpful message when no orphaned records" {
+@test "(dns:sync:deletions integration) shows helpful message when no records to be deleted" {
   skip_if_no_aws_credentials
   
   # Enable a zone if available (this will depend on what zones are configured)
@@ -33,8 +33,8 @@ teardown() {
       run dokku "$PLUGIN_COMMAND_PREFIX:sync:deletions"
       assert_success
       
-      # Should either find orphaned records or show "no orphaned records found"
-      if [[ "$output" == *"No orphaned DNS records found"* ]]; then
+      # Should either find records to be deleted or show "no records to be deleted found"
+      if [[ "$output" == *"No DNS records to be deleted"* ]]; then
         assert_output_contains "All DNS records correspond to active Dokku domains"
       else
         assert_output_contains "Planned Deletions:" || assert_output_contains "Found" 
@@ -58,13 +58,13 @@ teardown() {
       run dokku "$PLUGIN_COMMAND_PREFIX:sync:deletions"
       assert_success
       
-      # Check for plan-style output regardless of whether there are orphaned records
+      # Check for plan-style output regardless of whether there are records to be deleted
       if [[ "$output" == *"Planned Deletions:"* ]]; then
         assert_output_contains "Plan: 0 to add, 0 to change,"
         assert_output_contains "to destroy"
         assert_output_contains "Do you want to delete these"
       else
-        assert_output_contains "No orphaned DNS records found"
+        assert_output_contains "No DNS records to be deleted"
       fi
     fi
   fi
@@ -86,9 +86,9 @@ teardown() {
       # Should mention the specific zone being scanned
       assert_output_contains "Scanning zone: $zone"
       
-      # Should either find orphaned records or show clean result
+      # Should either find records to be deleted or show clean result
       if [[ "$output" != *"Planned Deletions:"* ]]; then
-        assert_output_contains "No orphaned DNS records found"
+        assert_output_contains "No DNS records to be deleted"
       fi
     fi
   fi
@@ -111,11 +111,11 @@ teardown() {
       run bash -c 'echo "n" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
       assert_success
       
-      # Should either show cancellation message or no orphaned records
+      # Should either show cancellation message or no records to be deleted
       if [[ "$output" == *"Do you want to delete"* ]]; then
         assert_output_contains "Deletion cancelled by user"
       else
-        assert_output_contains "No orphaned DNS records found"
+        assert_output_contains "No DNS records to be deleted"
       fi
     fi
   fi
@@ -148,10 +148,10 @@ teardown() {
   assert_output_contains "Could not find AWS hosted zone for: example.com"
 }
 
-@test "(dns:sync:deletions integration) identifies actual orphaned records in test environment" {
+@test "(dns:sync:deletions integration) identifies actual records to be deleted in test environment" {
   skip_if_no_aws_credentials
   
-  # This test creates a realistic scenario where we have orphaned DNS records
+  # This test creates a realistic scenario where we have DNS records to be deleted
   # and verifies that the command correctly identifies them
   
   local zone
@@ -162,23 +162,23 @@ teardown() {
       dokku "$PLUGIN_COMMAND_PREFIX:zones:enable" "$zone" >/dev/null 2>&1 || true
       
       # Create a test app but don't add any domains to it
-      # This way, any existing DNS records will appear orphaned
-      setup_test_app "orphan-test-app"
+      # This way, any existing DNS records will appear as records to be deleted
+      setup_test_app "test-deletion-app"
       
       run dokku "$PLUGIN_COMMAND_PREFIX:sync:deletions"
       assert_success
       
-      # The command should run successfully and show either orphaned records or none
+      # The command should run successfully and show either records to be deleted or none
       if [[ "$output" == *"Planned Deletions:"* ]]; then
-        # Found orphaned records - verify plan format
+        # Found records to be deleted - verify plan format
         assert_output_contains "Plan: 0 to add, 0 to change,"
         assert_output_contains "to destroy"
       else
-        # No orphaned records found
-        assert_output_contains "No orphaned DNS records found"
+        # No records to be deleted found
+        assert_output_contains "No DNS records to be deleted"
       fi
       
-      cleanup_test_app "orphan-test-app"
+      cleanup_test_app "test-deletion-app"
     fi
   fi
 }

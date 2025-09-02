@@ -27,26 +27,26 @@ fi
 
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
 
-#E Remove orphaned DNS records from enabled zones
+#E Remove DNS records that no longer correspond to active Dokku apps
 #E dokku $PLUGIN_COMMAND_PREFIX:sync:deletions [zone]
 #E 
 #E Removes DNS records that no longer correspond to active Dokku apps or domains.
-#E Without arguments, scans all enabled zones for orphaned records.
+#E Without arguments, scans all enabled zones for records to be deleted.
 #E With zone argument, scans only that specific zone.
 #E
 #E Examples:
 #E   dokku $PLUGIN_COMMAND_PREFIX:sync:deletions
 #E   dokku $PLUGIN_COMMAND_PREFIX:sync:deletions example.com
-#A zone, zone name to scan for orphaned records (optional - scans all enabled zones if omitted)
+#A zone, zone name to scan for records to be deleted (optional - scans all enabled zones if omitted)
 
 service-sync-deletions-cmd() {
-  declare desc="remove orphaned DNS records from enabled zones"
+  declare desc="remove DNS records that no longer correspond to active Dokku apps"
   local cmd="$PLUGIN_COMMAND_PREFIX:sync:deletions"
   [[ "$1" == "$cmd" ]] && shift 1
   
   local ZONE="$1"
   
-  dokku_log_info1 "DNS Orphan Record Cleanup"
+  dokku_log_info1 "DNS Record Cleanup"
   
   # Get list of all current Dokku apps and their domains
   local current_domains=()
@@ -65,8 +65,8 @@ service-sync-deletions-cmd() {
   
   dokku_log_info2 "Found ${#current_domains[@]} domains across $apps apps"
   
-  # Get orphaned DNS records
-  local orphaned_records=()
+  # Get DNS records to be deleted
+  local records_to_be_deleted=()
   local zones_to_scan=()
   
   if [[ -n "$ZONE" ]]; then
@@ -88,7 +88,7 @@ service-sync-deletions-cmd() {
     dokku_log_info2 "Scanning ${#zones_to_scan[@]} enabled zones: ${zones_to_scan[*]}"
   fi
   
-  # Scan each zone for orphaned records
+  # Scan each zone for records to be deleted
   for zone in "${zones_to_scan[@]}"; do
     dokku_log_info2 "Scanning zone: $zone"
     
@@ -121,23 +121,23 @@ service-sync-deletions-cmd() {
       dns_record="${dns_record%.}"
       
       # Check if this DNS record corresponds to any current domain
-      local is_orphaned=true
+      local should_be_deleted=true
       for current_domain in "${current_domains[@]}"; do
         if [[ "$dns_record" == "$current_domain" ]]; then
-          is_orphaned=false
+          should_be_deleted=false
           break
         fi
       done
       
-      if [[ "$is_orphaned" == "true" ]]; then
-        orphaned_records+=("$dns_record")
+      if [[ "$should_be_deleted" == "true" ]]; then
+        records_to_be_deleted+=("$dns_record")
       fi
     done <<< "$zone_records"
   done
   
   # Display results in Terraform-style format
-  if [[ ${#orphaned_records[@]} -eq 0 ]]; then
-    dokku_log_info1 "No orphaned DNS records found"
+  if [[ ${#records_to_be_deleted[@]} -eq 0 ]]; then
+    dokku_log_info1 "No DNS records to be deleted"
     dokku_log_info2 "All DNS records correspond to active Dokku domains"
     return 0
   fi
@@ -146,23 +146,23 @@ service-sync-deletions-cmd() {
   dokku_log_info1 "Planned Deletions:"
   echo ""
   
-  for record in "${orphaned_records[@]}"; do
+  for record in "${records_to_be_deleted[@]}"; do
     echo "  - $record (A record)"
   done
   
   echo ""
-  dokku_log_info2 "Plan: 0 to add, 0 to change, ${#orphaned_records[@]} to destroy"
+  dokku_log_info2 "Plan: 0 to add, 0 to change, ${#records_to_be_deleted[@]} to destroy"
   echo ""
   
   # Confirmation prompt before deletion
   echo ""
-  read -rp "Do you want to delete these ${#orphaned_records[@]} orphaned DNS records? [y/N] " confirm
+  read -rp "Do you want to delete these ${#records_to_be_deleted[@]} DNS records? [y/N] " confirm
   
   if [[ "$confirm" =~ ^[Yy]$ ]]; then
-    dokku_log_info1 "Deleting orphaned DNS records..."
+    dokku_log_info1 "Deleting DNS records..."
     
     local deleted_count=0
-    for record in "${orphaned_records[@]}"; do
+    for record in "${records_to_be_deleted[@]}"; do
       dokku_log_info2 "Deleting: $record"
       
       # Find the zone this record belongs to
@@ -235,7 +235,7 @@ EOF
     
     echo ""
     dokku_log_info1 "Deletion complete!"
-    dokku_log_info2 "Successfully deleted $deleted_count of ${#orphaned_records[@]} orphaned DNS records"
+    dokku_log_info2 "Successfully deleted $deleted_count of ${#records_to_be_deleted[@]} DNS records"
   else
     dokku_log_info2 "Deletion cancelled by user"
   fi

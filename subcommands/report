@@ -283,9 +283,9 @@ dns_global_report() {
   dokku_log_info1 "❌ No DNS record found"
   dokku_log_info1 "➖ No domains configured"
   
-  # Show orphaned DNS records if provider is ready
+  # Show DNS records to be deleted if provider is ready
   if [[ "$PROVIDER" != "None" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
-    show_orphaned_records_summary
+    show_records_to_be_deleted_summary
   fi
   
   echo
@@ -302,10 +302,10 @@ dns_global_report() {
     dokku_log_info1 "Update all apps: for app in \$(dokku apps:list 2>/dev/null | grep -v ====); do dokku $PLUGIN_COMMAND_PREFIX:apps:sync \$app; done"
     dokku_log_info1 "View app details: dokku $PLUGIN_COMMAND_PREFIX:report <app>"
     if command -v jq >/dev/null 2>&1; then
-      local orphan_count
-      orphan_count=$(count_orphaned_records 2>/dev/null || echo "0")
-      if [[ "$orphan_count" -gt 0 ]]; then
-        dokku_log_info1 "Clean up orphans: dokku $PLUGIN_COMMAND_PREFIX:sync:deletions"
+      local records_to_delete_count
+      records_to_delete_count=$(count_records_to_be_deleted 2>/dev/null || echo "0")
+      if [[ "$records_to_delete_count" -gt 0 ]]; then
+        dokku_log_info1 "Clean up records: dokku $PLUGIN_COMMAND_PREFIX:sync:deletions"
       fi
     fi
   else
@@ -493,9 +493,9 @@ dns_report() {
   fi
   dokku_log_info1 "❌ No DNS record found"
   
-  # Show orphaned DNS records if provider is ready
+  # Show DNS records to be deleted if provider is ready
   if [[ "$PROVIDER" != "None" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
-    show_orphaned_records_summary
+    show_records_to_be_deleted_summary
   fi
   
   echo
@@ -509,43 +509,43 @@ dns_report() {
     dokku_log_info1 "Then update DNS: dokku $PLUGIN_COMMAND_PREFIX:apps:sync $APP"
   elif [[ "$SYNC_STATUS" == "Ready" ]]; then
     dokku_log_info1 "Update DNS records: dokku $PLUGIN_COMMAND_PREFIX:apps:sync $APP"
-    local orphan_count
-    orphan_count=$(count_orphaned_records 2>/dev/null || echo "0")
-    if [[ "$orphan_count" -gt 0 ]]; then
-      dokku_log_info1 "Clean up orphans: dokku $PLUGIN_COMMAND_PREFIX:sync:deletions"
+    local records_to_delete_count
+    records_to_delete_count=$(count_records_to_be_deleted 2>/dev/null || echo "0")
+    if [[ "$records_to_delete_count" -gt 0 ]]; then
+      dokku_log_info1 "Clean up records: dokku $PLUGIN_COMMAND_PREFIX:sync:deletions"
     fi
   else
     dokku_log_info1 "Fix configuration issues, then update: dokku $PLUGIN_COMMAND_PREFIX:apps:sync $APP"
   fi
 }
 
-# Helper functions for orphaned DNS records
-show_orphaned_records_summary() {
-  local orphaned_records
-  orphaned_records=$(get_orphaned_records)
+# Helper functions for DNS records to be deleted
+show_records_to_be_deleted_summary() {
+  local records_to_be_deleted
+  records_to_be_deleted=$(get_records_to_be_deleted)
   
-  if [[ -z "$orphaned_records" ]]; then
+  if [[ -z "$records_to_be_deleted" ]]; then
     return 0
   fi
   
-  local orphan_count
-  orphan_count=$(echo "$orphaned_records" | wc -l)
+  local records_count
+  records_count=$(echo "$records_to_be_deleted" | wc -l)
   
   echo
-  dokku_log_info2 "Orphaned DNS Records:"
-  dokku_log_info1 "Found $orphan_count orphaned DNS records that could be cleaned up:"
+  dokku_log_info2 "DNS Records to be Deleted:"
+  dokku_log_info1 "Found $records_count DNS records that could be cleaned up:"
   echo
   
   while IFS= read -r record; do
     [[ -z "$record" ]] && continue
     echo "  - $record (A record)"
-  done <<< "$orphaned_records"
+  done <<< "$records_to_be_deleted"
   
   echo
   dokku_log_info1 "To clean up: dokku $PLUGIN_COMMAND_PREFIX:sync:deletions"
 }
 
-get_orphaned_records() {
+get_records_to_be_deleted() {
   # Get list of all current Dokku app domains
   local current_domains=()
   local apps
@@ -573,8 +573,8 @@ get_orphaned_records() {
     return 0
   fi
   
-  # Scan each zone for orphaned records
-  local orphaned_records=()
+  # Scan each zone for records to be deleted
+  local records_to_be_deleted=()
   for zone in "${zones_to_scan[@]}"; do
     local zone_id
     zone_id=$(dns_provider_aws_get_hosted_zone_id "$zone" 2>/dev/null || echo "")
@@ -602,29 +602,29 @@ get_orphaned_records() {
       dns_record="${dns_record%.}"
       
       # Check if this DNS record corresponds to any current domain
-      local is_orphaned=true
+      local should_be_deleted=true
       for current_domain in "${current_domains[@]}"; do
         if [[ "$dns_record" == "$current_domain" ]]; then
-          is_orphaned=false
+          should_be_deleted=false
           break
         fi
       done
       
-      if [[ "$is_orphaned" == "true" ]]; then
+      if [[ "$should_be_deleted" == "true" ]]; then
         echo "$dns_record"
       fi
     done <<< "$zone_records"
   done
 }
 
-count_orphaned_records() {
-  local orphaned_records
-  orphaned_records=$(get_orphaned_records)
+count_records_to_be_deleted() {
+  local records_to_be_deleted
+  records_to_be_deleted=$(get_records_to_be_deleted)
   
-  if [[ -z "$orphaned_records" ]]; then
+  if [[ -z "$records_to_be_deleted" ]]; then
     echo "0"
   else
-    echo "$orphaned_records" | wc -l
+    echo "$records_to_be_deleted" | wc -l
   fi
 }
 
