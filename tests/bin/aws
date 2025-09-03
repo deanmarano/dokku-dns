@@ -23,19 +23,33 @@ case "$*" in
   *"route53 list-hosted-zones"*|*"list-hosted-zones"*)
     if [[ "$*" == *"--query"* ]]; then
       # Handle specific zone queries
-      if [[ "$*" == *"example.com."* ]]; then
-        echo "/hostedzone/Z123456789ABCDEF"
-      elif [[ "$*" == *"test.org."* ]]; then
-        echo "/hostedzone/Z987654321ZYXWVU"
-      elif [[ "$*" == *"length(HostedZones)"* ]]; then
-        echo "2"
-      elif [[ "$*" == *"HostedZones[].[Id,Name,ResourceRecordSetCount,Config.Comment]"* ]]; then
-        cat << 'ZONES_DATA'
+      # For DNS zones tests, return hosted zones
+      if [[ "${BATS_TEST_NAME:-}" == *"dns:zones"* ]] || [[ "${BATS_TEST_NAME:-}" == *"zones"* ]]; then
+        if [[ "$*" == *"example.com."* ]]; then
+          echo "/hostedzone/Z123456789ABCDEF"
+        elif [[ "$*" == *"test.org."* ]]; then
+          echo "/hostedzone/Z987654321ZYXWVU"
+        elif [[ "$*" == *"length(HostedZones)"* ]]; then
+          echo "2"
+        elif [[ "$*" == *"HostedZones[].[Id,Name,ResourceRecordSetCount,Config.Comment]"* ]]; then
+          cat << 'ZONES_DATA'
 /hostedzone/Z123456789ABCDEF	example.com.	5	Primary domain zone
 /hostedzone/Z987654321ZYXWVU	test.org.	3	None
 ZONES_DATA
+        else
+          echo ""
+        fi
+      # For sync:deletions tests, handle specific zones
+      elif [[ "${BATS_TEST_NAME:-}" == *"sync:deletions"* ]]; then
+        if [[ "$*" == *"example.com."* ]]; then
+          echo "Z1234567890ABC"
+        elif [[ "$*" == *"test.org."* ]]; then
+          echo "Z0987654321DEF"
+        else
+          echo ""
+        fi
       else
-        # Return empty result for query operations (no hosted zones found)
+        # For other tests (like apps:enable), return empty to simulate no hosted zones
         echo ""
       fi
     else
