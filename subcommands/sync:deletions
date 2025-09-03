@@ -3,6 +3,13 @@ source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
 set -eo pipefail
 [[ $DOKKU_TRACE ]] && set -x
 
+# Debug: Ensure we can find required files
+SCRIPT_DIR="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")"
+if [[ ! -f "$SCRIPT_DIR/functions" ]]; then
+  echo " !     Functions file not found at: $SCRIPT_DIR/functions" >&2
+  exit 1
+fi
+
 # Load dokku functions if available
 if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
   source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
@@ -26,6 +33,18 @@ if ! declare -f dokku_log_fail >/dev/null 2>&1; then
 fi
 
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
+
+# Debug: Ensure critical functions are available
+if ! declare -f get_app_domains >/dev/null 2>&1; then
+  echo " !     get_app_domains function not available after sourcing functions" >&2
+  exit 1
+fi
+
+# Load AWS provider functions
+PROVIDER_SCRIPT="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/providers/aws"
+if [[ -f "$PROVIDER_SCRIPT" ]]; then
+  source "$PROVIDER_SCRIPT"
+fi
 
 #E Remove DNS records that no longer correspond to active Dokku apps
 #E dokku $PLUGIN_COMMAND_PREFIX:sync:deletions [zone]
@@ -71,7 +90,6 @@ service-sync-deletions-cmd() {
   
   if [[ -n "$ZONE" ]]; then
     zones_to_scan=("$ZONE")
-    dokku_log_info2 "Scanning zone: $ZONE"
   else
     # Get all enabled zones
     if [[ -f "$PLUGIN_DATA_ROOT/ZONES_ENABLED" ]]; then
