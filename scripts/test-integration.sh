@@ -167,10 +167,25 @@ main() {
         exit 1
     fi
     
-    # Check if DNS plugin is available
+    # Check if DNS plugin is available, install if not
     if ! dokku help | grep -q dns; then
-        log_error "DNS plugin not installed. Please install the plugin first."
-        exit 1
+        log_info "DNS plugin not found. Attempting to install from mounted source..."
+        
+        # Install the plugin from the mounted directory
+        if [[ -d "/tmp/dokku-dns" ]]; then
+            log_info "Installing DNS plugin from /tmp/dokku-dns..."
+            dokku plugin:install /tmp/dokku-dns dns || {
+                log_error "Failed to install DNS plugin from mounted directory"
+                exit 1
+            }
+            log_success "DNS plugin installed successfully"
+        else
+            log_error "DNS plugin source not found at /tmp/dokku-dns"
+            log_error "Please ensure the plugin source is mounted correctly"
+            exit 1
+        fi
+    else
+        log_success "DNS plugin is already available"
     fi
     
     # Setup
