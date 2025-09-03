@@ -118,6 +118,37 @@ fi
 
 # DNS plugin test helper functions
 
+# Ensure we have a writable directory for creating mock scripts
+setup_writable_test_bin() {
+  # Check if TEST_BIN_DIR is writable
+  if ! touch "$TEST_BIN_DIR/.write_test" 2>/dev/null; then
+    # Create a writable temporary directory
+    if [[ -z "$TEST_TMP_DIR" ]]; then
+      TEST_TMP_DIR=$(mktemp -d)
+      export TEST_TMP_DIR
+    fi
+    
+    WRITABLE_TEST_BIN="$TEST_TMP_DIR/bin"
+    mkdir -p "$WRITABLE_TEST_BIN"
+    
+    # Copy existing scripts to writable location
+    if [[ -d "$TEST_BIN_DIR" ]]; then
+      cp -r "$TEST_BIN_DIR"/* "$WRITABLE_TEST_BIN/" 2>/dev/null || true
+      chmod +x "$WRITABLE_TEST_BIN"/* 2>/dev/null || true
+    fi
+    
+    # Update PATH to use writable bin directory
+    export PATH="$WRITABLE_TEST_BIN:$PATH"
+    
+    # Return the writable directory path
+    echo "$WRITABLE_TEST_BIN"
+  else
+    # Clean up write test file
+    rm -f "$TEST_BIN_DIR/.write_test" 2>/dev/null || true
+    echo "$TEST_BIN_DIR"
+  fi
+}
+
 # Function to call DNS subcommands directly (for testing)
 dns_cmd() {
   local subcmd="$1"

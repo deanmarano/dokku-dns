@@ -29,6 +29,9 @@ teardown() {
   # Ensure no enabled zones
   rm -f "$PLUGIN_DATA_ROOT/ZONES_ENABLED"
   
+  # Use writable bin directory for CI compatibility
+  WRITABLE_BIN=$(setup_writable_test_bin)
+  
   run dokku "$PLUGIN_COMMAND_PREFIX:sync:deletions"
   assert_success
   assert_output_contains "No enabled zones found"
@@ -39,8 +42,11 @@ teardown() {
   # Create enabled zones but no records to be deleted
   echo "example.com" > "$PLUGIN_DATA_ROOT/ZONES_ENABLED"
   
+  # Use writable bin directory for CI compatibility  
+  WRITABLE_BIN=$(setup_writable_test_bin)
+  
   # Mock AWS CLI to return no A records
-  cat > "${TEST_BIN_DIR}/aws" << 'EOF'
+  cat > "${WRITABLE_BIN}/aws" << 'EOF'
 #!/bin/bash
 case "$*" in
   *"list-resource-record-sets"*"--query"*"ResourceRecordSets"*)
@@ -55,7 +61,7 @@ case "$*" in
     ;;
 esac
 EOF
-  chmod +x "${TEST_BIN_DIR}/aws"
+  chmod +x "${WRITABLE_BIN}/aws"
   
   run dokku "$PLUGIN_COMMAND_PREFIX:sync:deletions"
   assert_success
@@ -68,7 +74,10 @@ EOF
   echo "example.com" > "$PLUGIN_DATA_ROOT/ZONES_ENABLED"
   
   # Mock AWS CLI to return some A records
-  cat > "${TEST_BIN_DIR}/aws" << 'EOF'
+  # Use writable bin directory for CI compatibility
+  WRITABLE_BIN=$(setup_writable_test_bin)
+  
+  cat > "${WRITABLE_BIN}/aws" << 'EOF'
 #!/bin/bash
 case "$*" in
   "sts get-caller-identity")
@@ -89,7 +98,7 @@ case "$*" in
     ;;
 esac
 EOF
-  chmod +x "${TEST_BIN_DIR}/aws"
+  chmod +x "${WRITABLE_BIN}/aws"
   
   # Mock get_app_domains to return no domains (making all DNS records eligible for deletion)
   # Save original functions file and restore it after test
@@ -118,7 +127,10 @@ EOF
   echo -e "example.com\ntest.org" > "$PLUGIN_DATA_ROOT/ZONES_ENABLED"
   
   # Mock AWS CLI to return records for specific zone only
-  cat > "${TEST_BIN_DIR}/aws" << 'EOF'
+  # Use writable bin directory for CI compatibility
+  WRITABLE_BIN=$(setup_writable_test_bin)
+  
+  cat > "${WRITABLE_BIN}/aws" << 'EOF'
 #!/bin/bash
 case "$*" in
   "sts get-caller-identity")
@@ -142,7 +154,7 @@ case "$*" in
     ;;
 esac
 EOF
-  chmod +x "${TEST_BIN_DIR}/aws"
+  chmod +x "${WRITABLE_BIN}/aws"
   
   run bash -c 'echo "n" | dokku '\"$PLUGIN_COMMAND_PREFIX\"':sync:deletions example.com'
   assert_success
@@ -164,7 +176,10 @@ EOF
   echo "example.com" > "$PLUGIN_DATA_ROOT/ZONES_ENABLED"
   
   # Mock AWS CLI to return both current and records to be deleted
-  cat > "${TEST_BIN_DIR}/aws" << 'EOF'
+  # Use writable bin directory for CI compatibility
+  WRITABLE_BIN=$(setup_writable_test_bin)
+  
+  cat > "${WRITABLE_BIN}/aws" << 'EOF'
 #!/bin/bash
 case "$*" in
   "sts get-caller-identity")
@@ -185,7 +200,7 @@ case "$*" in
     ;;
 esac
 EOF
-  chmod +x "${TEST_BIN_DIR}/aws"
+  chmod +x "${WRITABLE_BIN}/aws"
   
   run bash -c 'echo "n" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
   assert_success
@@ -203,7 +218,10 @@ EOF
   echo "example.com" > "$PLUGIN_DATA_ROOT/ZONES_ENABLED"
   
   # Mock AWS CLI to return records to be deleted
-  cat > "${TEST_BIN_DIR}/aws" << 'EOF'
+  # Use writable bin directory for CI compatibility
+  WRITABLE_BIN=$(setup_writable_test_bin)
+  
+  cat > "${WRITABLE_BIN}/aws" << 'EOF'
 #!/bin/bash
 case "$*" in
   "sts get-caller-identity")
@@ -224,7 +242,7 @@ case "$*" in
     ;;
 esac
 EOF
-  chmod +x "${TEST_BIN_DIR}/aws"
+  chmod +x "${WRITABLE_BIN}/aws"
   
   # Mock user input to simulate 'n' (no) response
   run bash -c 'echo "n" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
@@ -237,7 +255,10 @@ EOF
   echo "example.com" > "$PLUGIN_DATA_ROOT/ZONES_ENABLED"
   
   # Track AWS CLI calls
-  cat > "${TEST_BIN_DIR}/aws" << 'EOF'
+  # Use writable bin directory for CI compatibility
+  WRITABLE_BIN=$(setup_writable_test_bin)
+  
+  cat > "${WRITABLE_BIN}/aws" << 'EOF'
 #!/bin/bash
 case "$*" in
   "sts get-caller-identity")
@@ -268,7 +289,7 @@ case "$*" in
     ;;
 esac
 EOF
-  chmod +x "${TEST_BIN_DIR}/aws"
+  chmod +x "${WRITABLE_BIN}/aws"
   
   # Mock user input to simulate 'y' (yes) response
   run bash -c 'echo "y" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
@@ -284,7 +305,10 @@ EOF
   echo "example.com" > "$PLUGIN_DATA_ROOT/ZONES_ENABLED"
   
   # Mock AWS CLI to fail on deletion
-  cat > "${TEST_BIN_DIR}/aws" << 'EOF'
+  # Use writable bin directory for CI compatibility
+  WRITABLE_BIN=$(setup_writable_test_bin)
+  
+  cat > "${WRITABLE_BIN}/aws" << 'EOF'
 #!/bin/bash
 case "$*" in
   "sts get-caller-identity")
@@ -316,7 +340,7 @@ case "$*" in
     ;;
 esac
 EOF
-  chmod +x "${TEST_BIN_DIR}/aws"
+  chmod +x "${WRITABLE_BIN}/aws"
   
   # Mock user input to simulate 'y' (yes) response
   run bash -c 'echo "y" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
@@ -330,7 +354,10 @@ EOF
   echo "example.com" > "$PLUGIN_DATA_ROOT/ZONES_ENABLED"
   
   # Mock AWS CLI to fail authentication
-  cat > "${TEST_BIN_DIR}/aws" << 'EOF'
+  # Use writable bin directory for CI compatibility
+  WRITABLE_BIN=$(setup_writable_test_bin)
+  
+  cat > "${WRITABLE_BIN}/aws" << 'EOF'
 #!/bin/bash
 case "$*" in
   *"get-caller-identity"*)
@@ -343,7 +370,7 @@ case "$*" in
     ;;
 esac
 EOF
-  chmod +x "${TEST_BIN_DIR}/aws"
+  chmod +x "${WRITABLE_BIN}/aws"
   
   run dokku "$PLUGIN_COMMAND_PREFIX:sync:deletions"
   assert_success
