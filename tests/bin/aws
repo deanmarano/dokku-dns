@@ -1,11 +1,99 @@
 #!/bin/bash
+# Comprehensive AWS CLI mock for DNS plugin tests
+# Handles all test scenarios dynamically based on context
+
+# Check if we should simulate credential failures
+if [[ "${AWS_MOCK_FAIL_CREDENTIALS:-}" == "true" ]]; then
+  echo "Unable to locate credentials" >&2
+  exit 1
+fi
+
 case "$*" in
-  *"get-caller-identity"*)
-    echo "Unable to locate credentials" >&2
-    exit 1
+  # Version check
+  "--version")
+    echo "aws-cli/2.0.0 Python/3.8.0 Linux/5.4.0 source/x86_64"
     ;;
+    
+  # Identity verification - return success for most cases
+  "sts get-caller-identity"|*"get-caller-identity"*)
+    echo '{"Account":"123456789012","UserId":"AIDACKCEVSQ6C2EXAMPLE","Arn":"arn:aws:iam::123456789012:user/test"}'
+    ;;
+    
+  # Hosted zones listing
+  *"route53 list-hosted-zones"*|*"list-hosted-zones"*)
+    if [[ "$*" == *"--query"* ]]; then
+      # Handle specific zone queries
+      if [[ "$*" == *"example.com."* ]]; then
+        echo "/hostedzone/Z123456789ABCDEF"
+      elif [[ "$*" == *"test.org."* ]]; then
+        echo "/hostedzone/Z987654321ZYXWVU"
+      elif [[ "$*" == *"length(HostedZones)"* ]]; then
+        echo "2"
+      elif [[ "$*" == *"HostedZones[].[Id,Name,ResourceRecordSetCount,Config.Comment]"* ]]; then
+        cat << 'ZONES_DATA'
+/hostedzone/Z123456789ABCDEF	example.com.	5	Primary domain zone
+/hostedzone/Z987654321ZYXWVU	test.org.	3	None
+ZONES_DATA
+      else
+        # Return empty result for query operations (no hosted zones found)
+        echo ""
+      fi
+    else
+      # Return empty zones list for general listing
+      echo '{"HostedZones":[]}'
+    fi
+    ;;
+    
+  # Resource record sets listing - context-aware responses
+  *"list-resource-record-sets"*)
+    if [[ "$*" == *"--query"* ]]; then
+      # Check if this is asking for A record names (for sync:deletions scanning)
+      if [[ "$*" == *"ResourceRecordSets[?Type=='A'"* && "$*" == *"].Name"* ]]; then
+        # Context-dependent responses based on test scenarios
+        if [[ "${BATS_TEST_NAME:-}" == *"no records to be deleted found"* ]]; then
+          echo ""
+        elif [[ "${BATS_TEST_NAME:-}" == *"Terraform-style plan output"* ]]; then
+          echo -e "old-app.example.com.\norphaned.example.com."
+        elif [[ "${BATS_TEST_NAME:-}" == *"zone-specific cleanup"* ]]; then
+          echo -e "old-app.example.com."
+        elif [[ "${BATS_TEST_NAME:-}" == *"filters out current app domains"* ]]; then
+          echo -e "current.example.com.\nrecord-to-delete.example.com."
+        elif [[ "${BATS_TEST_NAME:-}" == *"user cancellation"* ]] || [[ "${BATS_TEST_NAME:-}" == *"attempts deletion when user confirms"* ]] || [[ "${BATS_TEST_NAME:-}" == *"AWS API failures"* ]]; then
+          echo "record-to-delete.example.com."
+        else
+          # Default: no records
+          echo ""
+        fi
+      elif [[ "$*" == *"ResourceRecords[0].Value"* ]]; then
+        # Return IP for record value queries (for deletion operations)
+        echo "192.168.1.100"
+      else
+        echo ""
+      fi
+    else
+      echo '{"ResourceRecordSets":[]}'
+    fi
+    ;;
+    
+  # Change resource record sets (for deletions)
+  *"change-resource-record-sets"*)
+    # Check if we should simulate API failure
+    if [[ "${BATS_TEST_NAME:-}" == *"AWS API failures"* ]]; then
+      echo "Error: Access denied" >&2
+      exit 1
+    else
+      echo '{"ChangeInfo":{"Id":"/change/C123456789","Status":"PENDING"}}'
+    fi
+    ;;
+    
+  # Get hosted zone details
+  *"get-hosted-zone"*)
+    echo '{"HostedZone":{"Id":"/hostedzone/Z1234567890ABC","Name":"example.com.","CallerReference":"test","Config":{"PrivateZone":false}}}'
+    ;;
+    
+  # Handle other commands that might be called
   *)
-    echo "Unable to locate credentials" >&2
+    echo "Mock AWS CLI - unexpected call: $*" >&2
     exit 1
     ;;
 esac

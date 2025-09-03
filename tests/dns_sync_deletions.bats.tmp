@@ -76,6 +76,7 @@ teardown() {
   # Create enabled zones with records to be deleted
   echo "example.com" > "$PLUGIN_DATA_ROOT/ZONES_ENABLED"
   
+  # Track AWS CLI calls
   
   # Mock user input to simulate 'y' (yes) response
   run bash -c 'echo "y" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
