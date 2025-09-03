@@ -305,3 +305,41 @@ refute_line_in_file() {
   local file="$2"
   ! grep -q "^$line$" "$file" || flunk "Expected line '$line' to NOT be in file: $file"
 }
+
+# AWS mock backup and restore helpers
+backup_main_aws_mock() {
+  # Backup the main AWS mock if it exists
+  if [[ -f "$TEST_BIN_DIR/aws" ]]; then
+    cp "$TEST_BIN_DIR/aws" "$TEST_BIN_DIR/aws.backup" 2>/dev/null || true
+    export AWS_MOCK_BACKED_UP=true
+  fi
+}
+
+restore_main_aws_mock() {
+  # Restore the main AWS mock if we backed it up
+  if [[ "${AWS_MOCK_BACKED_UP:-}" == "true" ]] && [[ -f "$TEST_BIN_DIR/aws.backup" ]]; then
+    cp "$TEST_BIN_DIR/aws.backup" "$TEST_BIN_DIR/aws" 2>/dev/null || true
+    rm -f "$TEST_BIN_DIR/aws.backup" 2>/dev/null || true
+    unset AWS_MOCK_BACKED_UP
+  fi
+}
+
+# Create a temporary AWS mock and ensure it gets restored
+# Usage: create_temporary_aws_mock "mock content here"
+create_temporary_aws_mock() {
+  local mock_content="$1"
+  
+  # Backup the current main mock
+  backup_main_aws_mock
+  
+  # Create the temporary mock
+  local BIN_DIR="$PLUGIN_DATA_ROOT/bin"
+  mkdir -p "$BIN_DIR"
+  echo "$mock_content" > "$BIN_DIR/aws"
+  chmod +x "$BIN_DIR/aws"
+  
+  # Add to PATH if not already there
+  if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
+    export PATH="$BIN_DIR:$PATH"
+  fi
+}
