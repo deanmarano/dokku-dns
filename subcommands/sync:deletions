@@ -1,11 +1,21 @@
 #!/usr/bin/env bash
 
-# Debug: Output early so we know the script started
+# Debug: Output to both stdout and stderr, and to a log file
 echo "DEBUG: sync:deletions script starting..." >&2
+echo "DEBUG: sync:deletions script starting..." >&1
+echo "DEBUG: sync:deletions script starting - $(date)" >> /tmp/dns-debug.log
 
-source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
+# Try to source config with error handling
+if ! source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config" 2>&1; then
+  echo "DEBUG: FAILED to source config" >&2
+  echo "DEBUG: FAILED to source config" >&1
+  echo "DEBUG: FAILED to source config - $(date)" >> /tmp/dns-debug.log
+  exit 1
+fi
 
 echo "DEBUG: Config sourced successfully" >&2
+echo "DEBUG: Config sourced successfully" >&1
+echo "DEBUG: Config sourced successfully - $(date)" >> /tmp/dns-debug.log
 
 set -eo pipefail
 [[ $DOKKU_TRACE ]] && set -x

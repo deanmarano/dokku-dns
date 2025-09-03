@@ -49,6 +49,27 @@ elif [[ "$1" == "dns:zones:disable" ]]; then
     exec "$PLUGIN_ROOT/subcommands/zones:disable" "${@:2}"
 elif [[ "$1" == "dns:cron" ]]; then
     exec "$PLUGIN_ROOT/subcommands/cron" "${@:2}"
+elif [[ "$1" == "dns:sync:deletions" ]]; then
+    echo "DEBUG: Mock dokku calling sync:deletions with args: ${*:2}" >&2
+    echo "DEBUG: PLUGIN_ROOT: $PLUGIN_ROOT" >&2
+    echo "DEBUG: sync:deletions path: $PLUGIN_ROOT/subcommands/sync:deletions" >&2
+    if [[ -f "$PLUGIN_ROOT/subcommands/sync:deletions" ]]; then
+        echo "DEBUG: sync:deletions file exists" >&2
+        if [[ -x "$PLUGIN_ROOT/subcommands/sync:deletions" ]]; then
+            echo "DEBUG: sync:deletions is executable" >&2
+        else
+            echo "DEBUG: sync:deletions is NOT executable" >&2
+        fi
+    else
+        echo "DEBUG: sync:deletions file does NOT exist" >&2
+    fi
+    exec "$PLUGIN_ROOT/subcommands/sync:deletions" "${@:2}"
+elif [[ "$1" == "dns:triggers" ]]; then
+    exec "$PLUGIN_ROOT/subcommands/triggers" "${@:2}"
+elif [[ "$1" == "dns:triggers:enable" ]]; then
+    exec "$PLUGIN_ROOT/subcommands/triggers:enable" "${@:2}"
+elif [[ "$1" == "dns:triggers:disable" ]]; then
+    exec "$PLUGIN_ROOT/subcommands/triggers:disable" "${@:2}"
 elif [[ "$1" == "dns:help" ]] || [[ "$1" == "dns" ]]; then
     exec "$PLUGIN_ROOT/commands" "$@"
 elif [[ "$1" =~ ^dns:[^:]+:help$ ]]; then

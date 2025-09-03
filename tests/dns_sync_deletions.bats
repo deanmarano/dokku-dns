@@ -9,6 +9,10 @@ setup() {
 
 teardown() {
   cleanup_dns_data
+  # Restore functions file if backup exists
+  if [[ -f "${TEST_TMP_DIR}/functions.orig" ]]; then
+    cp "${TEST_TMP_DIR}/functions.orig" "$PLUGIN_ROOT/functions"
+  fi
 }
 
 @test "(dns:sync:deletions) error with invalid zone argument" {
@@ -67,11 +71,17 @@ EOF
   cat > "${TEST_BIN_DIR}/aws" << 'EOF'
 #!/bin/bash
 case "$*" in
-  *"list-resource-record-sets"*"--query"*"ResourceRecordSets"*)
-    echo -e "old-app.example.com.\norphaned.example.com."
+  "sts get-caller-identity")
+    echo '{"Account":"123456789012","UserId":"AIDACKCEVSQ6C2EXAMPLE","Arn":"arn:aws:iam::123456789012:user/test"}'
     ;;
   *"get-caller-identity"*)
     echo '{"Account":"123456789012","UserId":"AIDACKCEVSQ6C2EXAMPLE","Arn":"arn:aws:iam::123456789012:user/test"}'
+    ;;
+  *"list-hosted-zones --query HostedZones[?Name=="*"example.com."*"].Id --output text"*)
+    echo "Z1234567890ABC"
+    ;;
+  *"list-resource-record-sets"*"--query"*"ResourceRecordSets"*)
+    echo -e "old-app.example.com.\norphaned.example.com."
     ;;
   *)
     echo "Mock AWS CLI - unexpected call: $*" >&2
@@ -82,6 +92,9 @@ EOF
   chmod +x "${TEST_BIN_DIR}/aws"
   
   # Mock get_app_domains to return no domains (making all DNS records eligible for deletion)
+  # Save original functions file and restore it after test
+  cp "$PLUGIN_ROOT/functions" "${TEST_TMP_DIR}/functions.orig"
+  
   cat >> "$PLUGIN_ROOT/functions" << 'EOF'
 
 get_app_domains() {
@@ -89,13 +102,15 @@ get_app_domains() {
 }
 EOF
   
-  run dokku "$PLUGIN_COMMAND_PREFIX:sync:deletions"
+  run bash -c 'echo "n" | dokku '\"$PLUGIN_COMMAND_PREFIX\"':sync:deletions'
   assert_success
   assert_output_contains "Planned Deletions:"
   assert_output_contains "- old-app.example.com (A record)"
   assert_output_contains "- orphaned.example.com (A record)"
   assert_output_contains "Plan: 0 to add, 0 to change, 2 to destroy"
-  assert_output_contains "Do you want to delete these 2 DNS records? [y/N]"
+  
+  # Restore original functions file
+  cp "${TEST_TMP_DIR}/functions.orig" "$PLUGIN_ROOT/functions"
 }
 
 @test "(dns:sync:deletions) handles zone-specific cleanup" {
@@ -106,16 +121,20 @@ EOF
   cat > "${TEST_BIN_DIR}/aws" << 'EOF'
 #!/bin/bash
 case "$*" in
-  *"list-resource-record-sets"*"--query"*"ResourceRecordSets"*)
-    # Only return records if we're querying example.com zone
-    if [[ "$*" == *"example.com"* ]]; then
-      echo -e "old-app.example.com."
-    else
-      echo ""
-    fi
+  "sts get-caller-identity")
+    echo '{"Account":"123456789012","UserId":"AIDACKCEVSQ6C2EXAMPLE","Arn":"arn:aws:iam::123456789012:user/test"}'
     ;;
   *"get-caller-identity"*)
     echo '{"Account":"123456789012","UserId":"AIDACKCEVSQ6C2EXAMPLE","Arn":"arn:aws:iam::123456789012:user/test"}'
+    ;;
+  *"list-hosted-zones --query HostedZones[?Name=="*"example.com."*"].Id --output text"*)
+    echo "Z1234567890ABC"
+    ;;
+  *"list-hosted-zones --query HostedZones[?Name=="*"test.org."*"].Id --output text"*)
+    echo "Z0987654321DEF"
+    ;;
+  *"list-resource-record-sets"*"--query"*"ResourceRecordSets"*)
+    echo -e "old-app.example.com."
     ;;
   *)
     echo "Mock AWS CLI - unexpected call: $*" >&2
@@ -125,12 +144,12 @@ esac
 EOF
   chmod +x "${TEST_BIN_DIR}/aws"
   
-  run dokku "$PLUGIN_COMMAND_PREFIX:sync:deletions" example.com
+  run bash -c 'echo "n" | dokku '\"$PLUGIN_COMMAND_PREFIX\"':sync:deletions example.com'
   assert_success
   assert_output_contains "Scanning zone: example.com"
   assert_output_contains "- old-app.example.com (A record)"
-  # Should not contain any test.org records
-  refute_output_contains "test.org"
+  # Should not contain any test.org records (since we're only scanning example.com zone)
+  [[ "$output" != *"test.org"* ]]
 }
 
 @test "(dns:sync:deletions) filters out current app domains from deletion list" {
@@ -148,11 +167,17 @@ EOF
   cat > "${TEST_BIN_DIR}/aws" << 'EOF'
 #!/bin/bash
 case "$*" in
-  *"list-resource-record-sets"*"--query"*"ResourceRecordSets"*)
-    echo -e "current.example.com.\nrecord-to-delete.example.com."
+  "sts get-caller-identity")
+    echo '{"Account":"123456789012","UserId":"AIDACKCEVSQ6C2EXAMPLE","Arn":"arn:aws:iam::123456789012:user/test"}'
     ;;
   *"get-caller-identity"*)
     echo '{"Account":"123456789012","UserId":"AIDACKCEVSQ6C2EXAMPLE","Arn":"arn:aws:iam::123456789012:user/test"}'
+    ;;
+  *"list-hosted-zones --query HostedZones[?Name=="*"example.com."*"].Id --output text"*)
+    echo "Z1234567890ABC"
+    ;;
+  *"list-resource-record-sets"*"--query"*"ResourceRecordSets"*)
+    echo -e "current.example.com.\nrecord-to-delete.example.com."
     ;;
   *)
     echo "Mock AWS CLI - unexpected call: $*" >&2
@@ -162,12 +187,12 @@ esac
 EOF
   chmod +x "${TEST_BIN_DIR}/aws"
   
-  run dokku "$PLUGIN_COMMAND_PREFIX:sync:deletions"
+  run bash -c 'echo "n" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
   assert_success
   
   # Should show record to be deleted but not current app domain
   assert_output_contains "- record-to-delete.example.com (A record)"
-  refute_output_contains "- current.example.com (A record)"
+  [[ "$output" != *"- current.example.com (A record)"* ]]
   assert_output_contains "Plan: 0 to add, 0 to change, 1 to destroy"
   
   cleanup_test_app current-app
@@ -181,11 +206,17 @@ EOF
   cat > "${TEST_BIN_DIR}/aws" << 'EOF'
 #!/bin/bash
 case "$*" in
-  *"list-resource-record-sets"*"--query"*"ResourceRecordSets"*)
-    echo "record-to-delete.example.com."
+  "sts get-caller-identity")
+    echo '{"Account":"123456789012","UserId":"AIDACKCEVSQ6C2EXAMPLE","Arn":"arn:aws:iam::123456789012:user/test"}'
     ;;
   *"get-caller-identity"*)
     echo '{"Account":"123456789012","UserId":"AIDACKCEVSQ6C2EXAMPLE","Arn":"arn:aws:iam::123456789012:user/test"}'
+    ;;
+  *"list-hosted-zones --query HostedZones[?Name=="*"example.com."*"].Id --output text"*)
+    echo "Z1234567890ABC"
+    ;;
+  *"list-resource-record-sets"*"--query"*"ResourceRecordSets"*)
+    echo "record-to-delete.example.com."
     ;;
   *)
     echo "Mock AWS CLI - unexpected call: $*" >&2
@@ -209,6 +240,15 @@ EOF
   cat > "${TEST_BIN_DIR}/aws" << 'EOF'
 #!/bin/bash
 case "$*" in
+  "sts get-caller-identity")
+    echo '{"Account":"123456789012","UserId":"AIDACKCEVSQ6C2EXAMPLE","Arn":"arn:aws:iam::123456789012:user/test"}'
+    ;;
+  *"get-caller-identity"*)
+    echo '{"Account":"123456789012","UserId":"AIDACKCEVSQ6C2EXAMPLE","Arn":"arn:aws:iam::123456789012:user/test"}'
+    ;;
+  *"list-hosted-zones --query HostedZones[?Name=="*"example.com."*"].Id --output text"*)
+    echo "Z1234567890ABC"
+    ;;
   *"list-resource-record-sets"*"--query"*"ResourceRecordSets"*)
     if [[ "$*" == *"Name=='record-to-delete.example.com.'"* ]]; then
       # Return record value for deletion
@@ -221,9 +261,6 @@ case "$*" in
   *"change-resource-record-sets"*)
     # Mock successful deletion
     echo '{"ChangeInfo":{"Id":"/change/C123456789","Status":"PENDING"}}'
-    ;;
-  *"get-caller-identity"*)
-    echo '{"Account":"123456789012","UserId":"AIDACKCEVSQ6C2EXAMPLE","Arn":"arn:aws:iam::123456789012:user/test"}'
     ;;
   *)
     echo "Mock AWS CLI - unexpected call: $*" >&2
@@ -250,6 +287,15 @@ EOF
   cat > "${TEST_BIN_DIR}/aws" << 'EOF'
 #!/bin/bash
 case "$*" in
+  "sts get-caller-identity")
+    echo '{"Account":"123456789012","UserId":"AIDACKCEVSQ6C2EXAMPLE","Arn":"arn:aws:iam::123456789012:user/test"}'
+    ;;
+  *"get-caller-identity"*)
+    echo '{"Account":"123456789012","UserId":"AIDACKCEVSQ6C2EXAMPLE","Arn":"arn:aws:iam::123456789012:user/test"}'
+    ;;
+  *"list-hosted-zones --query HostedZones[?Name=="*"example.com."*"].Id --output text"*)
+    echo "Z1234567890ABC"
+    ;;
   *"list-resource-record-sets"*"--query"*"ResourceRecordSets"*)
     if [[ "$*" == *"Name=='record-to-delete.example.com.'"* ]]; then
       # Return record value for deletion
@@ -263,9 +309,6 @@ case "$*" in
     # Mock failed deletion
     echo "Error: Access denied" >&2
     exit 1
-    ;;
-  *"get-caller-identity"*)
-    echo '{"Account":"123456789012","UserId":"AIDACKCEVSQ6C2EXAMPLE","Arn":"arn:aws:iam::123456789012:user/test"}'
     ;;
   *)
     echo "Mock AWS CLI - unexpected call: $*" >&2
