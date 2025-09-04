@@ -493,6 +493,11 @@ dns_report() {
   fi
   dokku_log_info1 "❌ No DNS record found"
   
+  # Show planned changes if provider is ready and app has DNS management enabled
+  if [[ "$PROVIDER" != "None" ]] && [[ "$SYNC_STATUS" == "Ready" ]] && [[ "$APP_IS_ADDED" == "true" ]]; then
+    show_dns_plan "$APP" "$PROVIDER"
+  fi
+  
   # Show DNS records to be deleted if provider is ready
   if [[ "$PROVIDER" != "None" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
     show_records_to_be_deleted_summary
@@ -625,6 +630,121 @@ count_records_to_be_deleted() {
     echo "0"
   else
     echo "$records_to_be_deleted" | wc -l
+  fi
+}
+
+show_dns_plan() {
+  local APP="$1"
+  local PROVIDER="$2"
+  
+  # Get planned changes for the app
+  local plan_output
+  plan_output=$(dns_plan_changes "$APP" "$PROVIDER" 2>/dev/null)
+  
+  if [[ -z "$plan_output" ]]; then
+    return 0
+  fi
+  
+  # Parse plan output
+  local add_count=0
+  local change_count=0
+  local no_change_count=0
+  local total_count=0
+  local has_changes=false
+  local has_errors=false
+  
+  local additions=()
+  local changes=()
+  local no_changes=()
+  local errors=()
+  
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    
+    case "$line" in
+      ADD_COUNT:*)
+        add_count="${line#ADD_COUNT:}"
+        ;;
+      CHANGE_COUNT:*)
+        change_count="${line#CHANGE_COUNT:}"
+        ;;
+      NO_CHANGE_COUNT:*)
+        no_change_count="${line#NO_CHANGE_COUNT:}"
+        ;;
+      TOTAL_COUNT:*)
+        total_count="${line#TOTAL_COUNT:}"
+        ;;
+      ADD:*)
+        # Format: ADD:domain:new_ip
+        local domain="${line#ADD:}"
+        domain="${domain%%:*}"
+        local new_ip="${line##*:}"
+        additions+=("+ $domain → $new_ip (A record)")
+        has_changes=true
+        ;;
+      CHANGE:*)
+        # Format: CHANGE:domain:new_ip:old_ip
+        local parts="${line#CHANGE:}"
+        local domain="${parts%%:*}"
+        parts="${parts#*:}"
+        local new_ip="${parts%%:*}"
+        local old_ip="${parts##*:}"
+        changes+=("~ $domain → $new_ip (A record) [was: $old_ip]")
+        has_changes=true
+        ;;
+      NO_CHANGE:*)
+        # Format: NO_CHANGE:domain:current_ip
+        local domain="${line#NO_CHANGE:}"
+        domain="${domain%%:*}"
+        local current_ip="${line##*:}"
+        no_changes+=("= $domain → $current_ip (A record)")
+        ;;
+      ERROR:*|ERROR_DOMAIN:*)
+        errors+=("${line#*:}")
+        has_errors=true
+        ;;
+    esac
+  done <<< "$plan_output"
+  
+  # Only show planned changes if there are actual changes or errors
+  if [[ "$has_changes" == true ]] || [[ "$has_errors" == true ]]; then
+    echo
+    dokku_log_info2 "Planned Changes:"
+    
+    # Show additions
+    if [[ ${#additions[@]} -gt 0 ]]; then
+      for addition in "${additions[@]}"; do
+        echo "  $addition"
+      done
+    fi
+    
+    # Show changes  
+    if [[ ${#changes[@]} -gt 0 ]]; then
+      for change in "${changes[@]}"; do
+        echo "  $change"
+      done
+    fi
+    
+    # Show errors
+    if [[ ${#errors[@]} -gt 0 ]]; then
+      for error in "${errors[@]}"; do
+        echo "  ! $error"
+      done
+    fi
+    
+    # Show plan summary
+    if [[ "$total_count" -gt 0 ]]; then
+      echo
+      dokku_log_info1 "Plan: $add_count to add, $change_count to change, 0 to destroy"
+      
+      if [[ "$has_changes" == true ]]; then
+        dokku_log_info1 "Run 'dokku $PLUGIN_COMMAND_PREFIX:apps:sync $APP' to apply changes"
+      fi
+    fi
+  elif [[ "$no_change_count" -gt 0 ]]; then
+    echo
+    dokku_log_info2 "Planned Changes:"
+    dokku_log_info1 "No changes needed - all DNS records are already correct"
   fi
 }
 

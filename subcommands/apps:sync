@@ -46,6 +46,7 @@ service-apps-sync-cmd() {
   #E dokku $PLUGIN_COMMAND_PREFIX:apps:sync nextcloud
   #E this will discover all domains from the app and update DNS records
   #E to point to the current server's IP address using the configured provider
+  #E use $PLUGIN_COMMAND_PREFIX:apps:report <app> to see what would be changed first
   #A app, app to sync DNS records for
   declare desc="synchronize DNS records for an application"
   local cmd="$PLUGIN_COMMAND_PREFIX:apps:sync" argv=("$@")

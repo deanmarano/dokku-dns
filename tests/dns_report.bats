@@ -46,6 +46,79 @@ teardown() {
   assert_output_contains "Update DNS records: dokku dns:apps:sync my-app"
 }
 
+@test "(dns:report) includes plan functionality output structure" {
+  create_test_app plan-app
+  add_test_domains plan-app example.com
+  
+  # Add app to DNS management (will fail due to no hosted zones, which is expected in test)
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" plan-app >/dev/null 2>&1 || true
+  
+  run dokku "$PLUGIN_COMMAND_PREFIX:report" plan-app
+  assert_success
+  assert_output_contains "DNS Report for app: plan-app"
+  assert_output_contains "Server Public IP:"
+  assert_output_contains "DNS Provider: AWS"
+  assert_output_contains "Domain Analysis:"
+  assert_output_contains "Domain                         Status   Enabled         Provider        Zone (Enabled)"
+  assert_output_contains "------                         ------   -------         --------        ---------------"
+  [[ "$output" =~ example\.com ]]  # Domain should appear in output
+  assert_output_contains "DNS Status Legend:"
+  assert_output_contains "Actions available:"
+  
+  cleanup_test_app plan-app
+}
+
+@test "(dns:report) handles plan functionality gracefully without provider" {
+  create_test_app graceful-app
+  add_test_domains graceful-app example.com
+  
+  # Don't fully configure provider to test graceful handling
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" graceful-app >/dev/null 2>&1 || true
+  
+  run dokku "$PLUGIN_COMMAND_PREFIX:report" graceful-app
+  assert_success
+  assert_output_contains "DNS Report for app: graceful-app"
+  assert_output_contains "Configuration Status: Configured"
+  # Should handle gracefully when provider not fully ready
+  
+  cleanup_test_app graceful-app
+}
+
+@test "(dns:report) doesn't show planned changes when provider not ready" {
+  create_test_app no-provider-app
+  add_test_domains no-provider-app example.com
+  
+  # Clear provider configuration to simulate provider not ready
+  rm -f "$PLUGIN_DATA_ROOT/PROVIDER" || true
+  
+  # Add app to DNS management
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" no-provider-app >/dev/null 2>&1 || true
+  
+  run dokku "$PLUGIN_COMMAND_PREFIX:report" no-provider-app
+  assert_success
+  assert_output_contains "DNS Report for app: no-provider-app"
+  # Should not contain planned changes section when provider not ready
+  [[ "$output" != *"Planned Changes:"* ]]
+  
+  cleanup_test_app no-provider-app
+}
+
+@test "(dns:report) doesn't show planned changes when app not added to DNS" {
+  create_test_app not-added-app
+  add_test_domains not-added-app example.com
+  
+  # Don't add app to DNS management
+  
+  run dokku "$PLUGIN_COMMAND_PREFIX:report" not-added-app
+  assert_success
+  assert_output_contains "DNS Report for app: not-added-app"
+  assert_output_contains "DNS Status: Not added"
+  # Should not contain planned changes section when app not added to DNS
+  [[ "$output" != *"Planned Changes:"* ]]
+  
+  cleanup_test_app not-added-app
+}
+
 @test "(dns:report) app-specific report shows message for nonexistent app" {
   run dokku "$PLUGIN_COMMAND_PREFIX:report" nonexistent-app
   assert_success

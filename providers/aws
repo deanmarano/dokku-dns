@@ -102,21 +102,79 @@ dns_provider_aws_sync_app() {
         return 1
     fi
     
-    echo "Syncing domains for app '$APP' to server IP: $SERVER_IP"
+    echo "=====> DNS Sync for app: $APP"
+    echo "-----> Target IP: $SERVER_IP"
+    echo
+    
+    # First, show what will be changed (plan)
+    local plan_output
+    plan_output=$(dns_plan_changes "$APP" "aws" 2>/dev/null)
+    
+    local add_count=0
+    local change_count=0
+    local no_change_count=0
+    local total_count=0
+    
+    # Parse plan to get counts and show what will happen
+    while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
+        case "$line" in
+            ADD_COUNT:*) add_count="${line#ADD_COUNT:}" ;;
+            CHANGE_COUNT:*) change_count="${line#CHANGE_COUNT:}" ;;
+            NO_CHANGE_COUNT:*) no_change_count="${line#NO_CHANGE_COUNT:}" ;;
+            TOTAL_COUNT:*) total_count="${line#TOTAL_COUNT:}" ;;
+            ADD:*)
+                local domain="${line#ADD:}"
+                domain="${domain%%:*}"
+                echo "-----> Will create: $domain → $SERVER_IP (A record)"
+                ;;
+            CHANGE:*)
+                local parts="${line#CHANGE:}"
+                local domain="${parts%%:*}"
+                parts="${parts#*:}"
+                local new_ip="${parts%%:*}"
+                local old_ip="${parts##*:}"
+                echo "-----> Will update: $domain → $new_ip (A record) [was: $old_ip]"
+                ;;
+            NO_CHANGE:*)
+                local domain="${line#NO_CHANGE:}"
+                domain="${domain%%:*}"
+                echo "-----> Already correct: $domain → $SERVER_IP (A record)"
+                ;;
+        esac
+    done <<< "$plan_output"
+    
+    if [[ "$add_count" -eq 0 && "$change_count" -eq 0 ]]; then
+        echo
+        echo "=====> No changes needed - all DNS records are already correct"
+        return 0
+    fi
+    
+    echo
+    echo "=====> Applying changes..."
     
     # Sync each domain (no zone enablement checking for explicit sync operations)
     local domains_synced=0
+    local domains_failed=0
     
     for DOMAIN in $APP_DOMAINS; do
         [[ -z "$DOMAIN" ]] && continue
         
-        echo "Syncing domain: $DOMAIN"
+        # Get current record to determine if this is create or update
+        local current_ip
+        current_ip=$(dns_provider_aws_get_record_ip "$DOMAIN" 2>/dev/null || echo "")
         
         # Get hosted zone ID for this domain
         local zone_id
         zone_id=$(dns_provider_aws_get_hosted_zone_id "$DOMAIN")
         if [[ -z "$zone_id" ]]; then
-            echo "Error: No hosted zone found for $DOMAIN"
+            echo "❌ Error: No hosted zone found for $DOMAIN"
+            domains_failed=$((domains_failed + 1))
+            continue
+        fi
+        
+        # Skip if already correct
+        if [[ -n "$current_ip" && "$current_ip" == "$SERVER_IP" ]]; then
             continue
         fi
         
@@ -134,12 +192,25 @@ dns_provider_aws_sync_app() {
         }"
         
         if aws route53 change-resource-record-sets --hosted-zone-id "$zone_id" --change-batch "$change_batch" >/dev/null 2>&1; then
-            echo "DNS record created: $DOMAIN -> $SERVER_IP"
+            if [[ -z "$current_ip" ]]; then
+                echo "✅ Created: $DOMAIN → $SERVER_IP (A record)"
+            else
+                echo "✅ Updated: $DOMAIN → $SERVER_IP (A record) [was: $current_ip]"
+            fi
             domains_synced=$((domains_synced + 1))
         else
-            echo "Error: Failed to create DNS record for $DOMAIN"
+            echo "❌ Failed: $DOMAIN"
+            domains_failed=$((domains_failed + 1))
         fi
     done
+    
+    # Show summary
+    echo
+    if [[ "$domains_failed" -eq 0 ]]; then
+        echo "=====> Sync complete! Resources: $domains_synced changed, 0 failed"
+    else
+        echo "=====> Sync complete! Resources: $domains_synced changed, $domains_failed failed"
+    fi
     
     return 0
 }

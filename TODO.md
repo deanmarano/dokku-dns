@@ -3,17 +3,17 @@
 The DNS plugin is in progress! Many core features have been implemented and tested. See [DONE.md](./DONE.md) for completed work.
 
 
-## Phase 11: Terraform-Style Plan/Apply Workflow (High Priority)
+## Phase 11: Plan/Apply Workflow Enhancement (High Priority)
 
-- [ ] **Implement Terraform-style "plan" functionality in dns:report commands**
+- [ ] **Implement "plan" functionality in dns:report commands**
   - [ ] Add "Planned Changes" section to `dns:report` and `dns:apps:report` output
   - [ ] Show what `dns:apps:sync` would create: "+ example.com → 192.168.1.1 (A record)"
   - [ ] Show what `dns:apps:sync` would update: "~ api.example.com → 192.168.1.1 (A record) [was: 192.168.1.2]"
   - [ ] Add change summary: "Plan: 2 to add, 1 to change, 0 to destroy"
-  - [ ] Use Terraform-style symbols and colors: + (green), ~ (yellow)
+  - [ ] Use intuitive symbols and colors: + (green), ~ (yellow)
   - [ ] Show "No changes" when DNS records are already correct
 
-- [ ] **Enhance dns:apps:sync to show "apply" style output**
+- [ ] **Enhance dns:apps:sync to show detailed operation output**
   - [ ] Show real-time progress: "Creating A record for example.com... ✅"
   - [ ] Show what was actually changed: "Created: example.com → 192.168.1.1 (A record)"
   - [ ] Show updates: "Updated: api.example.com → 192.168.1.1 (A record) [was: 192.168.1.2]"

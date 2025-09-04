@@ -101,7 +101,7 @@ Synchronize `DNS` records for an application using the configured provider:
 dokku dns:apps:sync nextcloud
 ```
 
-This will discover all domains from the app and update `DNS` records to point to the current server's `IP` address using the configured provider:
+This will discover all domains from the app and update `DNS` records to point to the current server's `IP` address using the configured provider use dns:apps:report <app> to see what would be changed first:
 
 ### synchronize DNS records for all DNS-managed apps
 

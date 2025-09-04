@@ -78,3 +78,179 @@ teardown() {
   # The important thing is the command doesn't crash
   [[ "$status" -eq 0 ]] || [[ "$status" -eq 1 ]]
 }
+
+@test "(dns:apps:sync) shows enhanced output with plan and apply" {
+  create_test_app sync-app
+  add_test_domains sync-app example.com api.example.com
+  
+  # Mock AWS provider functions for controlled testing
+  dns_provider_aws_get_hosted_zone_id() {
+    local DOMAIN="$1"
+    case "$DOMAIN" in
+        "example.com"|*.example.com)
+            echo "Z1234567890ABC"
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+  }
+  export -f dns_provider_aws_get_hosted_zone_id
+  
+  dns_provider_aws_get_record_ip() {
+    local DOMAIN="$1"
+    case "$DOMAIN" in
+        "example.com")
+            return 1  # No existing record - will be created
+            ;;
+        "api.example.com")
+            echo "192.168.1.50"  # Wrong IP - will be updated
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+  }
+  export -f dns_provider_aws_get_record_ip
+  
+  # Add app to DNS management
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" sync-app >/dev/null 2>&1
+  
+  # Set up provider credentials mock to make provider "ready"
+  mkdir -p "$PLUGIN_DATA_ROOT/credentials"
+  echo "test" > "$PLUGIN_DATA_ROOT/credentials/AWS_ACCESS_KEY_ID"
+  
+  run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" sync-app
+  assert_success
+  
+  # Check for enhanced output format
+  assert_output_contains "=====> DNS Sync for app: sync-app"
+  assert_output_contains "-----> Target IP: 192.168.1.100"
+  assert_output_contains "-----> Will create: example.com → 192.168.1.100 (A record)"
+  assert_output_contains "-----> Will update: api.example.com → 192.168.1.100 (A record) [was: 192.168.1.50]"
+  assert_output_contains "=====> Applying changes..."
+  assert_output_contains "✅ Created: example.com → 192.168.1.100 (A record)"
+  assert_output_contains "✅ Updated: api.example.com → 192.168.1.100 (A record) [was: 192.168.1.50]"
+  assert_output_contains "=====> Sync complete! Resources: 2 changed, 0 failed"
+  
+  # Clean up
+  unset -f dns_provider_aws_get_hosted_zone_id
+  unset -f dns_provider_aws_get_record_ip
+  cleanup_test_app sync-app
+}
+
+@test "(dns:apps:sync) shows no changes needed when DNS is already correct" {
+  create_test_app correct-app
+  add_test_domains correct-app example.com
+  
+  # Mock AWS provider functions - record already correct
+  dns_provider_aws_get_hosted_zone_id() {
+    local DOMAIN="$1"
+    case "$DOMAIN" in
+        "example.com"|*.example.com)
+            echo "Z1234567890ABC"
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+  }
+  export -f dns_provider_aws_get_hosted_zone_id
+  
+  dns_provider_aws_get_record_ip() {
+    local DOMAIN="$1"
+    case "$DOMAIN" in
+        "example.com")
+            echo "192.168.1.100"  # Correct IP - no change needed
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+  }
+  export -f dns_provider_aws_get_record_ip
+  
+  # Add app to DNS management
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" correct-app >/dev/null 2>&1
+  
+  # Set up provider credentials mock to make provider "ready"
+  mkdir -p "$PLUGIN_DATA_ROOT/credentials"
+  echo "test" > "$PLUGIN_DATA_ROOT/credentials/AWS_ACCESS_KEY_ID"
+  
+  run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" correct-app
+  assert_success
+  
+  # Check for "no changes needed" output
+  assert_output_contains "=====> DNS Sync for app: correct-app"
+  assert_output_contains "-----> Target IP: 192.168.1.100"
+  assert_output_contains "-----> Already correct: example.com → 192.168.1.100 (A record)"
+  assert_output_contains "=====> No changes needed - all DNS records are already correct"
+  
+  # Should not contain "Applying changes" section
+  [[ "$output" != *"=====> Applying changes..."* ]]
+  
+  # Clean up
+  unset -f dns_provider_aws_get_hosted_zone_id
+  unset -f dns_provider_aws_get_record_ip
+  cleanup_test_app correct-app
+}
+
+@test "(dns:apps:sync) handles mixed success and failure scenarios" {
+  create_test_app mixed-app
+  add_test_domains mixed-app good.example.com bad.invalid
+  
+  # Mock AWS provider functions with mixed results
+  dns_provider_aws_get_hosted_zone_id() {
+    local DOMAIN="$1"
+    case "$DOMAIN" in
+        "good.example.com"|*.example.com)
+            echo "Z1234567890ABC"
+            return 0
+            ;;
+        *)
+            return 1  # No hosted zone for bad.invalid
+            ;;
+    esac
+  }
+  export -f dns_provider_aws_get_hosted_zone_id
+  
+  dns_provider_aws_get_record_ip() {
+    local DOMAIN="$1"
+    case "$DOMAIN" in
+        "good.example.com")
+            return 1  # No existing record - will be created
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+  }
+  export -f dns_provider_aws_get_record_ip
+  
+  # Add app to DNS management
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" mixed-app >/dev/null 2>&1
+  
+  # Set up provider credentials mock to make provider "ready"
+  mkdir -p "$PLUGIN_DATA_ROOT/credentials"
+  echo "test" > "$PLUGIN_DATA_ROOT/credentials/AWS_ACCESS_KEY_ID"
+  
+  run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" mixed-app
+  assert_success
+  
+  # Check for mixed success/failure output
+  assert_output_contains "=====> DNS Sync for app: mixed-app"
+  assert_output_contains "-----> Will create: good.example.com → 192.168.1.100 (A record)"
+  assert_output_contains "=====> Applying changes..."
+  assert_output_contains "✅ Created: good.example.com → 192.168.1.100 (A record)"
+  assert_output_contains "❌ Error: No hosted zone found for bad.invalid"
+  assert_output_contains "=====> Sync complete! Resources: 1 changed, 1 failed"
+  
+  # Clean up
+  unset -f dns_provider_aws_get_hosted_zone_id
+  unset -f dns_provider_aws_get_record_ip
+  cleanup_test_app mixed-app
+}

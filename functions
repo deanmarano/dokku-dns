@@ -746,3 +746,95 @@ extract_root_domain() {
   # This works for most cases: api.example.com -> example.com
   echo "$DOMAIN" | awk -F. '{print $(NF-1)"."$NF}'
 }
+
+# Plan DNS changes for an app
+# Usage: dns_plan_changes <app>
+# Returns: JSON-like structured data about planned changes
+dns_plan_changes() {
+  local APP="$1"
+  local PROVIDER="${2:-aws}"
+  
+  # Initialize counters
+  local ADD_COUNT=0
+  local CHANGE_COUNT=0
+  local NO_CHANGE_COUNT=0
+  
+  # Get server IP
+  local SERVER_IP
+  SERVER_IP=$(get_server_ip)
+  
+  if [[ -z "$SERVER_IP" ]] || [[ "$SERVER_IP" == "Unknown" ]]; then
+    echo "ERROR: Unable to determine server IP address"
+    return 1
+  fi
+  
+  # Get domains that are managed by DNS for this app
+  local APP_DOMAINS_FILE="$PLUGIN_DATA_ROOT/$APP/DOMAINS"
+  local APP_DOMAINS=""
+  
+  if [[ -f "$APP_DOMAINS_FILE" ]]; then
+    APP_DOMAINS=$(tr '\n' ' ' < "$APP_DOMAINS_FILE" 2>/dev/null)
+  fi
+  
+  if [[ -z "$APP_DOMAINS" ]]; then
+    echo "ADD_COUNT:0"
+    echo "CHANGE_COUNT:0"
+    echo "NO_CHANGE_COUNT:0"
+    echo "TOTAL_COUNT:0"
+    echo "ERROR:No DNS-managed domains found for app: $APP"
+    return 0
+  fi
+  
+  # Load provider functions
+  local PROVIDER_SCRIPT
+  PROVIDER_SCRIPT="$(dirname "${BASH_SOURCE[0]}")/providers/$PROVIDER"
+  if [[ -f "$PROVIDER_SCRIPT" ]]; then
+    source "$PROVIDER_SCRIPT"
+    if [[ "$PROVIDER" == "aws" ]]; then
+      dns_provider_aws_setup_env
+    fi
+  fi
+  
+  # Analyze each domain
+  for DOMAIN in $APP_DOMAINS; do
+    [[ -z "$DOMAIN" ]] && continue
+    
+    # Get current DNS record value
+    local CURRENT_IP=""
+    if declare -f "dns_provider_${PROVIDER}_get_record_ip" >/dev/null 2>&1; then
+      CURRENT_IP=$(dns_provider_"${PROVIDER}"_get_record_ip "$DOMAIN" 2>/dev/null || echo "")
+    fi
+    
+    # Check if hosted zone exists
+    local ZONE_ID=""
+    if declare -f "dns_provider_${PROVIDER}_get_hosted_zone_id" >/dev/null 2>&1; then
+      ZONE_ID=$(dns_provider_"${PROVIDER}"_get_hosted_zone_id "$DOMAIN" 2>/dev/null || echo "")
+    fi
+    
+    if [[ -z "$ZONE_ID" ]]; then
+      echo "ERROR_DOMAIN:$DOMAIN:No hosted zone found"
+      continue
+    fi
+    
+    if [[ -z "$CURRENT_IP" ]]; then
+      # No DNS record exists - will be added
+      echo "ADD:$DOMAIN:$SERVER_IP"
+      ADD_COUNT=$((ADD_COUNT + 1))
+    elif [[ "$CURRENT_IP" != "$SERVER_IP" ]]; then
+      # DNS record exists but points to wrong IP - will be changed
+      echo "CHANGE:$DOMAIN:$SERVER_IP:$CURRENT_IP"
+      CHANGE_COUNT=$((CHANGE_COUNT + 1))
+    else
+      # DNS record is already correct - no change needed
+      echo "NO_CHANGE:$DOMAIN:$SERVER_IP"
+      NO_CHANGE_COUNT=$((NO_CHANGE_COUNT + 1))
+    fi
+  done
+  
+  # Output summary counts
+  local TOTAL_COUNT=$((ADD_COUNT + CHANGE_COUNT + NO_CHANGE_COUNT))
+  echo "ADD_COUNT:$ADD_COUNT"
+  echo "CHANGE_COUNT:$CHANGE_COUNT"
+  echo "NO_CHANGE_COUNT:$NO_CHANGE_COUNT"
+  echo "TOTAL_COUNT:$TOTAL_COUNT"
+}
