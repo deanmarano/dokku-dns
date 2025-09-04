@@ -21,24 +21,24 @@ case "$*" in
   *"get-caller-identity"*)
     echo '{"Account":"123456789012","UserId":"AIDACKCEVSQ6C2EXAMPLE","Arn":"arn:aws:iam::123456789012:user/test"}'
     ;;
-  *"list-hosted-zones"*"--query"*"HostedZones[?Name=="*"example.com."*"].Id"*"--output text"*)
+  *"list-hosted-zones"*"--query"*"HostedZones[?Name=='"*"example.com."*"'].Id"*"--output text"*)
     echo "Z1234567890ABC"
     ;;
-  *"list-hosted-zones"*"--query"*"HostedZones[?Name=='"*"example.com."*"'].Id"*"--output text"*)
+  *"list-hosted-zones"*"--query"*"HostedZones[?Name=='"*"test.org."*"'].Id"*"--output text"*)
+    echo "Z0987654321DEF"
+    ;;
+  *"list-hosted-zones"*"--query"*"HostedZones[?Name=="*"example.com."*"].Id"*"--output text"*)
     echo "Z1234567890ABC"
     ;;
   *"list-hosted-zones"*"--query"*"HostedZones[?Name=="*"test.org."*"].Id"*"--output text"*)
     echo "Z0987654321DEF"
     ;;
-  *"list-hosted-zones"*"--query"*"HostedZones[?Name=='"*"test.org."*"'].Id"*"--output text"*)
-    echo "Z0987654321DEF"
+  *"list-hosted-zones"*"--query"*"HostedZones[?Name=='"*"'].Id"*"--output text"*)
+    # Fallback for unknown zones with single quotes - return empty (zone not found)
+    echo ""
     ;;
   *"list-hosted-zones"*"--query"*"HostedZones[?Name=="*"].Id"*"--output text"*)
     # Fallback for unknown zones - return empty (zone not found)
-    echo ""
-    ;;
-  *"list-hosted-zones"*"--query"*"HostedZones[?Name=='"*"'].Id"*"--output text"*)
-    # Fallback for unknown zones with single quotes - return empty (zone not found)
     echo ""
     ;;
   *"list-hosted-zones --query length(HostedZones) --output text"*)
