@@ -532,8 +532,8 @@ show_records_to_be_deleted_summary() {
   records_count=$(echo "$records_to_be_deleted" | wc -l)
   
   echo
-  dokku_log_info2 "DNS Records to be Deleted:"
-  dokku_log_info1 "Found $records_count DNS records that could be cleaned up:"
+  dokku_log_info2 "DNS Cleanup Candidates:"
+  dokku_log_info1 "Found $records_count DNS records that no longer correspond to active apps:"
   echo
   
   while IFS= read -r record; do
