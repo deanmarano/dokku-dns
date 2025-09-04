@@ -2,19 +2,44 @@
 
 The DNS plugin is in progress! Many core features have been implemented and tested. See [DONE.md](./DONE.md) for completed work.
 
-## Phase 10: DNS Orphan Record Management (High Priority)
+## Phase 10: DNS Orphan Record Management (High Priority) ✅ COMPLETED
 
-- [ ] **Create dns:sync:deletions command for orphaned DNS record management**
-  - [ ] Add `dns:sync:deletions` to globally remove orphaned records
-  - [ ] Update `dns:report` to show what would be deleted by a sync:deletions
-  - [ ] Show Terraform-style plan output: "- old-app.example.com (A record)" 
-  - [ ] Support zone-specific cleanup: `dns:sync:deletions example.com`
-  - [ ] Create comprehensive BATS unit tests for delete functionality
-  - [ ] Create BATS integration test
-  - [ ] Update existing triggers to add deletions to file rather than delete directly
-    - [ ] post-delete
-    - [ ] post-app-rename
-    - [ ] post-domains-update
+- [x] **Create dns:sync:deletions command for orphaned DNS record management**
+  - [x] Add `dns:sync:deletions` to globally remove orphaned records
+  - [x] Update `dns:report` to show what would be deleted by a sync:deletions
+  - [x] Show Terraform-style plan output: "- old-app.example.com (A record)" 
+  - [x] Support zone-specific cleanup: `dns:sync:deletions example.com`
+  - [x] Create comprehensive BATS unit tests for delete functionality (10 tests)
+  - [x] Create BATS integration test
+  - [x] Update existing triggers to add deletions to file rather than delete directly
+    - [x] post-delete
+    - [x] post-app-rename
+    - [x] post-domains-update
+
+**Additional tasks completed during Phase 10:**
+- [x] **Fix sync:deletions provider function loading bug**
+  - [x] Add AWS provider loading to `subcommands/sync:deletions`
+  - [x] Fix "dns_provider_aws_get_hosted_zone_id: command not found" error
+- [x] **Enhance AWS mock for comprehensive testing**
+  - [x] Add Route53 API patterns for providers:verify functionality
+  - [x] Add hosted zone lookup patterns with single/double quote variants
+  - [x] Add fallback patterns for unknown hosted zones
+  - [x] Fix pattern ordering conflicts causing shellcheck warnings
+- [x] **Fix all providers:verify unit tests** (11/11 tests now pass)
+  - [x] Add support for AWS CLI credential detection
+  - [x] Add support for hosted zone discovery 
+  - [x] Add support for Route53 permissions testing
+- [x] **Improve test reliability and CI compatibility**
+  - [x] Add `AWS_MOCK_FAIL_API` for reliable API failure testing
+  - [x] Fix test state contamination between unit tests
+  - [x] Update test expectations for enhanced AWS mock behavior
+- [x] **UX and messaging improvements**
+  - [x] Clean up redundant wording in DNS report output
+  - [x] Change "DNS Records to be Deleted" to "DNS Cleanup Candidates"
+  - [x] Improve clarity between report and sync:deletions output
+- [x] **Integration test fixes**
+  - [x] Fix missing `PLUGIN_COMMAND_PREFIX` in integration test environment
+  - [x] Add plugin configuration loading to integration test setup
 
 ## Phase 11: Terraform-Style Plan/Apply Workflow (High Priority)
 
