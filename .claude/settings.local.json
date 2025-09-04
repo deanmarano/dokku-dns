@@ -80,7 +80,11 @@
       "Read(//**)",
       "Bash(cleanup_dns_data)",
       "Bash(./subcommands/sync:deletions)",
-      "Bash(dokku dns:sync:deletions:*)"
+      "Bash(dokku dns:sync:deletions:*)",
+      "Bash(gh run list:*)",
+      "Bash(./debug_test.sh:*)",
+      "Bash(./debug_deletion.sh)",
+      "Bash(./debug_api_failures.sh:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

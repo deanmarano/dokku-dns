@@ -5,6 +5,32 @@ setup() {
   cleanup_dns_data
   setup_dns_provider aws
   mkdir -p "$PLUGIN_DATA_ROOT"
+  
+  # Mock the AWS provider function for sync:deletions tests
+  dns_provider_aws_get_hosted_zone_id() {
+    local DOMAIN="$1"
+    
+    # Check for credential failure simulation
+    if [[ "${AWS_MOCK_FAIL_CREDENTIALS:-}" == "true" ]]; then
+      return 1
+    fi
+    
+    # Mock implementation for testing
+    case "$DOMAIN" in
+        "example.com"|*.example.com)
+            echo "Z1234567890ABC"
+            return 0
+            ;;
+        "test.org"|*.test.org)
+            echo "Z0987654321DEF"
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+  }
+  export -f dns_provider_aws_get_hosted_zone_id
 }
 
 teardown() {
@@ -13,6 +39,10 @@ teardown() {
   if [[ -f "${TEST_TMP_DIR}/functions.orig" ]]; then
     cp "${TEST_TMP_DIR}/functions.orig" "$PLUGIN_ROOT/functions"
   fi
+  # Restore main AWS mock
+  restore_main_aws_mock
+  # Clean up AWS mock control
+  clear_aws_mock_record_count
 }
 
 @test "(dns:sync:deletions) error with invalid zone argument" {
@@ -29,6 +59,63 @@ teardown() {
   # Ensure no enabled zones
   rm -f "$PLUGIN_DATA_ROOT/ZONES_ENABLED"
   
+  # Use writable bin directory for CI compatibility
+  WRITABLE_BIN=$(setup_writable_test_bin)
+  
+  run dokku "$PLUGIN_COMMAND_PREFIX:sync:deletions"
+  assert_success
+  assert_output_contains "No enabled zones found"
+  assert_output_contains "Use 'dokku dns:zones:enable <zone>' to enable zones first"
+}
+
+@test "(dns:sync:deletions) shows message when no records to be deleted found" {
+  # Create enabled zones but no records to be deleted
+  echo "example.com" > "$PLUGIN_DATA_ROOT/ZONES_ENABLED"
+  
+  # Set AWS mock to return 0 records
+  set_aws_mock_record_count 0
+  
+  run dokku "$PLUGIN_COMMAND_PREFIX:sync:deletions"
+  assert_success
+  assert_output_contains "No DNS records to be deleted"
+  assert_output_contains "All DNS records correspond to active Dokku domains"
+}
+
+@test "(dns:sync:deletions) displays Terraform-style plan output for records to be deleted" {
+  # Create enabled zones
+  echo "example.com" > "$PLUGIN_DATA_ROOT/ZONES_ENABLED"
+  
+  # Set AWS mock to return 2 records that will be considered for deletion
+  set_aws_mock_record_count 2 "old-app"
+  
+  # Mock get_app_domains to return no domains (making all DNS records eligible for deletion)
+  # Save original functions file and restore it after test
+  cp "$PLUGIN_ROOT/functions" "${TEST_TMP_DIR}/functions.orig"
+  
+  cat >> "$PLUGIN_ROOT/functions" << 'EOF'
+
+get_app_domains() {
+  echo ""
+}
+EOF
+  
+  run bash -c 'echo "n" | dokku '\"$PLUGIN_COMMAND_PREFIX\"':sync:deletions'
+  assert_success
+  assert_output_contains "Planned Deletions:"
+  assert_output_contains "- old-app-1.example.com (A record)"
+  assert_output_contains "- old-app-2.example.com (A record)"
+  assert_output_contains "Plan: 0 to add, 0 to change, 2 to destroy"
+  
+  # Restore original functions file
+  cp "${TEST_TMP_DIR}/functions.orig" "$PLUGIN_ROOT/functions"
+}
+
+@test "(dns:sync:deletions) handles zone-specific cleanup" {
+  # Create multiple enabled zones
+  echo -e "example.com\ntest.org" > "$PLUGIN_DATA_ROOT/ZONES_ENABLED"
+  
+  # Set AWS mock to return 1 record for example.com zone only
+  set_aws_mock_record_count 1 "old-app"
   
   run bash -c 'echo "n" | dokku '\"$PLUGIN_COMMAND_PREFIX\"':sync:deletions example.com'
   assert_success
@@ -49,6 +136,9 @@ teardown() {
   # Create enabled zones
   echo "example.com" > "$PLUGIN_DATA_ROOT/ZONES_ENABLED"
   
+  # Set AWS mock to return both current and records to be deleted
+  # The mock will return record-to-delete.example.com as a DNS record that should be filtered
+  set_aws_mock_record_count 1 "record-to-delete"
   
   run bash -c 'echo "n" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
   assert_success
@@ -65,6 +155,8 @@ teardown() {
   # Create enabled zones with records to be deleted
   echo "example.com" > "$PLUGIN_DATA_ROOT/ZONES_ENABLED"
   
+  # Set AWS mock to return 1 record to be deleted
+  set_aws_mock_record_count 1 "record-to-delete"
   
   # Mock user input to simulate 'n' (no) response
   run bash -c 'echo "n" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
@@ -76,6 +168,8 @@ teardown() {
   # Create enabled zones with records to be deleted
   echo "example.com" > "$PLUGIN_DATA_ROOT/ZONES_ENABLED"
   
+  # Set AWS mock to return 1 record to be deleted
+  set_aws_mock_record_count 1 "record-to-delete"
   
   # Mock user input to simulate 'y' (yes) response
   run bash -c 'echo "y" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
@@ -90,6 +184,9 @@ teardown() {
   # Create enabled zones
   echo "example.com" > "$PLUGIN_DATA_ROOT/ZONES_ENABLED"
   
+  # Set AWS mock to return 1 record to be deleted
+  # The main AWS mock already handles deletion failures when the test name contains "failures"
+  set_aws_mock_record_count 1 "record-to-delete"
   
   # Mock user input to simulate 'y' (yes) response
   run bash -c 'echo "y" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'

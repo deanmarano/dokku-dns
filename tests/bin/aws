@@ -1,111 +1,83 @@
 #!/bin/bash
-# Comprehensive AWS CLI mock for DNS plugin tests
-# Handles all test scenarios dynamically based on context
 
-# Check if we should simulate credential failures
+# Check for credential failure simulation
 if [[ "${AWS_MOCK_FAIL_CREDENTIALS:-}" == "true" ]]; then
   echo "Unable to locate credentials" >&2
   exit 1
 fi
 
+# Determine control file location
+control_file=""
+if [[ -n "${AWS_MOCK_CONTROL_FILE:-}" ]]; then
+  control_file="$AWS_MOCK_CONTROL_FILE"
+elif [[ -n "${PLUGIN_DATA_ROOT:-}" ]]; then
+  control_file="$PLUGIN_DATA_ROOT/aws_mock_control"
+fi
+
 case "$*" in
-  # Version check
-  "--version")
-    echo "aws-cli/2.0.0 Python/3.8.0 Linux/5.4.0 source/x86_64"
-    ;;
-    
-  # Identity verification - return success for most cases
-  "sts get-caller-identity"|*"get-caller-identity"*)
+  "sts get-caller-identity")
     echo '{"Account":"123456789012","UserId":"AIDACKCEVSQ6C2EXAMPLE","Arn":"arn:aws:iam::123456789012:user/test"}'
     ;;
-    
-  # Hosted zones listing
-  *"route53 list-hosted-zones"*|*"list-hosted-zones"*)
-    if [[ "$*" == *"--query"* ]]; then
-      # Handle specific zone queries
-      # For DNS zones tests, return hosted zones
-      if [[ "${BATS_TEST_NAME:-}" == *"dns:zones"* ]] || [[ "${BATS_TEST_NAME:-}" == *"zones"* ]]; then
-        if [[ "$*" == *"example.com."* ]]; then
-          echo "/hostedzone/Z123456789ABCDEF"
-        elif [[ "$*" == *"test.org."* ]]; then
-          echo "/hostedzone/Z987654321ZYXWVU"
-        elif [[ "$*" == *"length(HostedZones)"* ]]; then
-          echo "2"
-        elif [[ "$*" == *"HostedZones[].[Id,Name,ResourceRecordSetCount,Config.Comment]"* ]]; then
-          cat << 'ZONES_DATA'
-/hostedzone/Z123456789ABCDEF	example.com.	5	Primary domain zone
-/hostedzone/Z987654321ZYXWVU	test.org.	3	None
-ZONES_DATA
-        else
-          echo ""
-        fi
-      # For sync:deletions tests, handle specific zones
-      elif [[ "${BATS_TEST_NAME:-}" == *"sync:deletions"* ]]; then
-        if [[ "$*" == *"example.com."* ]]; then
-          echo "Z1234567890ABC"
-        elif [[ "$*" == *"test.org."* ]]; then
-          echo "Z0987654321DEF"
-        else
-          echo ""
+  *"get-caller-identity"*)
+    echo '{"Account":"123456789012","UserId":"AIDACKCEVSQ6C2EXAMPLE","Arn":"arn:aws:iam::123456789012:user/test"}'
+    ;;
+  *"list-hosted-zones"*"--query"*"HostedZones[?Name=="*"example.com."*"].Id"*"--output text"*)
+    echo "Z1234567890ABC"
+    ;;
+  *"list-hosted-zones"*"--query"*"HostedZones[?Name=="*"test.org."*"].Id"*"--output text"*)
+    echo "Z0987654321DEF"
+    ;;
+  *"list-resource-record-sets"*"--query"*"ResourceRecordSets"*)
+    if [[ "$*" == *"Name=='"*"'"* ]]; then
+      # Specific record query - return record value for deletion
+      echo "192.168.1.100"
+    else
+      # General record scanning - return record names based on control file
+      if [[ -f "$control_file" ]]; then
+        record_count=$(grep "^RECORD_COUNT=" "$control_file" 2>/dev/null | cut -d= -f2)
+        record_prefix=$(grep "^RECORD_PREFIX=" "$control_file" 2>/dev/null | cut -d= -f2)
+        record_count=${record_count:-0}
+        record_prefix=${record_prefix:-test-record}
+        
+        if [[ "$record_count" -gt 0 ]]; then
+          # Special case: for filtering test, return both current and to-be-deleted records
+          # Only return both if current-app exists (filtering test scenario)
+          if [[ "$record_prefix" == "record-to-delete" ]]; then
+            # Check if current-app exists to distinguish between filtering test and deletion test
+            # Try multiple ways to detect if we're in the filtering test scenario
+            if [[ -d "$PLUGIN_DATA_ROOT/../current-app" ]] || \
+               [[ -f "$PLUGIN_DATA_ROOT/../current-app/DOMAINS" ]] || \
+               dokku apps:list 2>/dev/null | grep -q "current-app"; then
+              echo "current.example.com."
+              echo "record-to-delete.example.com."
+            else
+              echo "record-to-delete.example.com."
+            fi
+          elif [[ "$record_prefix" == "old-app" && "$record_count" == "1" ]]; then
+            # Special case for old-app test - return single record without number
+            echo "old-app.example.com."
+          else
+            for ((i=1; i<=record_count; i++)); do
+              echo "${record_prefix}-${i}.example.com."
+            done
+          fi
         fi
       else
-        # For other tests (like apps:enable), return empty to simulate no hosted zones
-        echo ""
+        # Default behavior for backward compatibility
+        echo "record-to-delete.example.com."
       fi
-    else
-      # Return empty zones list for general listing
-      echo '{"HostedZones":[]}'
     fi
     ;;
-    
-  # Resource record sets listing - context-aware responses
-  *"list-resource-record-sets"*)
-    if [[ "$*" == *"--query"* ]]; then
-      # Check if this is asking for A record names (for sync:deletions scanning)
-      if [[ "$*" == *"ResourceRecordSets[?Type=='A'"* && "$*" == *"].Name"* ]]; then
-        # Context-dependent responses based on test scenarios
-        if [[ "${BATS_TEST_NAME:-}" == *"no records to be deleted found"* ]]; then
-          echo ""
-        elif [[ "${BATS_TEST_NAME:-}" == *"Terraform-style plan output"* ]]; then
-          echo -e "old-app.example.com.\norphaned.example.com."
-        elif [[ "${BATS_TEST_NAME:-}" == *"zone-specific cleanup"* ]]; then
-          echo -e "old-app.example.com."
-        elif [[ "${BATS_TEST_NAME:-}" == *"filters out current app domains"* ]]; then
-          echo -e "current.example.com.\nrecord-to-delete.example.com."
-        elif [[ "${BATS_TEST_NAME:-}" == *"user cancellation"* ]] || [[ "${BATS_TEST_NAME:-}" == *"attempts deletion when user confirms"* ]] || [[ "${BATS_TEST_NAME:-}" == *"AWS API failures"* ]]; then
-          echo "record-to-delete.example.com."
-        else
-          # Default: no records
-          echo ""
-        fi
-      elif [[ "$*" == *"ResourceRecords[0].Value"* ]]; then
-        # Return IP for record value queries (for deletion operations)
-        echo "192.168.1.100"
-      else
-        echo ""
-      fi
-    else
-      echo '{"ResourceRecordSets":[]}'
-    fi
-    ;;
-    
-  # Change resource record sets (for deletions)
   *"change-resource-record-sets"*)
-    # Check if we should simulate API failure
-    if [[ "${BATS_TEST_NAME:-}" == *"AWS API failures"* ]]; then
+    # Check if this is a test that expects failure
+    if [[ "${BATS_TEST_NAME:-}" == *"API failures"* ]] || [[ "${BATS_TEST_DESCRIPTION:-}" == *"API failures"* ]]; then
       echo "Error: Access denied" >&2
       exit 1
     else
+      # Mock successful deletion
       echo '{"ChangeInfo":{"Id":"/change/C123456789","Status":"PENDING"}}'
     fi
     ;;
-    
-  # Get hosted zone details
-  *"get-hosted-zone"*)
-    echo '{"HostedZone":{"Id":"/hostedzone/Z1234567890ABC","Name":"example.com.","CallerReference":"test","Config":{"PrivateZone":false}}}'
-    ;;
-    
-  # Handle other commands that might be called
   *)
     echo "Mock AWS CLI - unexpected call: $*" >&2
     exit 1

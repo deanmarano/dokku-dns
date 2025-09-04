@@ -71,7 +71,6 @@ service-sync-deletions-cmd() {
   
   if [[ -n "$ZONE" ]]; then
     zones_to_scan=("$ZONE")
-    dokku_log_info2 "Scanning zone: $ZONE"
   else
     # Get all enabled zones
     if [[ -f "$PLUGIN_DATA_ROOT/ZONES_ENABLED" ]]; then

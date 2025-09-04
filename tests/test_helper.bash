@@ -343,3 +343,25 @@ create_temporary_aws_mock() {
     export PATH="$BIN_DIR:$PATH"
   fi
 }
+
+# Set the number of DNS records the AWS mock should return
+# Usage: set_aws_mock_record_count <count> [record_prefix]
+set_aws_mock_record_count() {
+  local count="${1:-0}"
+  local record_prefix="${2:-test-record}"
+  
+  # Create a control file that the AWS mock can read
+  local control_file="$PLUGIN_DATA_ROOT/aws_mock_control"
+  mkdir -p "$PLUGIN_DATA_ROOT"
+  
+  echo "RECORD_COUNT=$count" > "$control_file"
+  echo "RECORD_PREFIX=$record_prefix" >> "$control_file"
+  export AWS_MOCK_CONTROL_FILE="$control_file"
+}
+
+# Clear AWS mock record count (use default behavior)
+clear_aws_mock_record_count() {
+  local control_file="$PLUGIN_DATA_ROOT/aws_mock_control"
+  rm -f "$control_file"
+  unset AWS_MOCK_CONTROL_FILE
+}
