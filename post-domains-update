@@ -120,6 +120,13 @@ handle_domain_remove() {
     
     dokku_log_info1 "DNS: Domain '$DOMAIN' removed from DNS tracking"
     
+    # Queue domain for potential deletion
+    local DELETIONS_QUEUE="$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') post-domains-update $APP $DOMAIN" >> "$DELETIONS_QUEUE"
+    
+    dokku_log_info1 "DNS: Domain '$DOMAIN' queued for cleanup"
+    dokku_log_info1 "DNS: Run 'dokku $PLUGIN_COMMAND_PREFIX:sync:deletions' to clean up orphaned DNS records"
+    
     # Check if app still has any domains
     if [[ ! -s "$APP_DOMAINS_FILE" ]]; then
       dokku_log_info1 "DNS: App '$APP' has no domains left, removing from DNS management"

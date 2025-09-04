@@ -118,6 +118,37 @@ fi
 
 # DNS plugin test helper functions
 
+# Ensure we have a writable directory for creating mock scripts
+setup_writable_test_bin() {
+  # Check if TEST_BIN_DIR is writable
+  if ! touch "$TEST_BIN_DIR/.write_test" 2>/dev/null; then
+    # Create a writable temporary directory
+    if [[ -z "$TEST_TMP_DIR" ]]; then
+      TEST_TMP_DIR=$(mktemp -d)
+      export TEST_TMP_DIR
+    fi
+    
+    WRITABLE_TEST_BIN="$TEST_TMP_DIR/bin"
+    mkdir -p "$WRITABLE_TEST_BIN"
+    
+    # Copy existing scripts to writable location
+    if [[ -d "$TEST_BIN_DIR" ]]; then
+      cp -r "$TEST_BIN_DIR"/* "$WRITABLE_TEST_BIN/" 2>/dev/null || true
+      chmod +x "$WRITABLE_TEST_BIN"/* 2>/dev/null || true
+    fi
+    
+    # Update PATH to use writable bin directory
+    export PATH="$WRITABLE_TEST_BIN:$PATH"
+    
+    # Return the writable directory path
+    echo "$WRITABLE_TEST_BIN"
+  else
+    # Clean up write test file
+    rm -f "$TEST_BIN_DIR/.write_test" 2>/dev/null || true
+    echo "$TEST_BIN_DIR"
+  fi
+}
+
 # Function to call DNS subcommands directly (for testing)
 dns_cmd() {
   local subcmd="$1"
@@ -273,4 +304,64 @@ refute_line_in_file() {
   local line="$1"
   local file="$2"
   ! grep -q "^$line$" "$file" || flunk "Expected line '$line' to NOT be in file: $file"
+}
+
+# AWS mock backup and restore helpers
+backup_main_aws_mock() {
+  # Backup the main AWS mock if it exists
+  if [[ -f "$TEST_BIN_DIR/aws" ]]; then
+    cp "$TEST_BIN_DIR/aws" "$TEST_BIN_DIR/aws.backup" 2>/dev/null || true
+    export AWS_MOCK_BACKED_UP=true
+  fi
+}
+
+restore_main_aws_mock() {
+  # Restore the main AWS mock if we backed it up
+  if [[ "${AWS_MOCK_BACKED_UP:-}" == "true" ]] && [[ -f "$TEST_BIN_DIR/aws.backup" ]]; then
+    cp "$TEST_BIN_DIR/aws.backup" "$TEST_BIN_DIR/aws" 2>/dev/null || true
+    rm -f "$TEST_BIN_DIR/aws.backup" 2>/dev/null || true
+    unset AWS_MOCK_BACKED_UP
+  fi
+}
+
+# Create a temporary AWS mock and ensure it gets restored
+# Usage: create_temporary_aws_mock "mock content here"
+create_temporary_aws_mock() {
+  local mock_content="$1"
+  
+  # Backup the current main mock
+  backup_main_aws_mock
+  
+  # Create the temporary mock
+  local BIN_DIR="$PLUGIN_DATA_ROOT/bin"
+  mkdir -p "$BIN_DIR"
+  echo "$mock_content" > "$BIN_DIR/aws"
+  chmod +x "$BIN_DIR/aws"
+  
+  # Add to PATH if not already there
+  if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
+    export PATH="$BIN_DIR:$PATH"
+  fi
+}
+
+# Set the number of DNS records the AWS mock should return
+# Usage: set_aws_mock_record_count <count> [record_prefix]
+set_aws_mock_record_count() {
+  local count="${1:-0}"
+  local record_prefix="${2:-test-record}"
+  
+  # Create a control file that the AWS mock can read
+  local control_file="$PLUGIN_DATA_ROOT/aws_mock_control"
+  mkdir -p "$PLUGIN_DATA_ROOT"
+  
+  echo "RECORD_COUNT=$count" > "$control_file"
+  echo "RECORD_PREFIX=$record_prefix" >> "$control_file"
+  export AWS_MOCK_CONTROL_FILE="$control_file"
+}
+
+# Clear AWS mock record count (use default behavior)
+clear_aws_mock_record_count() {
+  local control_file="$PLUGIN_DATA_ROOT/aws_mock_control"
+  rm -f "$control_file"
+  unset AWS_MOCK_CONTROL_FILE
 }

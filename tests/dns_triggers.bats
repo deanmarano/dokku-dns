@@ -206,7 +206,7 @@ teardown() {
     run "$PLUGIN_ROOT/post-delete" "test-app"
     assert_success
     assert_output_contains "DNS: Cleaning up DNS management for app 'test-app'"
-    assert_output_contains "example.com"
+    assert_output_contains "example.com" 2  # Appears in removal list and cleanup queue
     
     # Check cleanup happened
     assert_file_not_exists "$PLUGIN_DATA_ROOT/test-app"

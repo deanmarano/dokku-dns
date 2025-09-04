@@ -2,19 +2,6 @@
 
 The DNS plugin is in progress! Many core features have been implemented and tested. See [DONE.md](./DONE.md) for completed work.
 
-## Phase 10: DNS Orphan Record Management (High Priority)
-
-- [ ] **Create dns:sync:deletions command for orphaned DNS record management**
-  - [ ] Add `dns:sync:deletions` to globally remove orphaned records
-  - [ ] Update `dns:report` to show what would be deleted by a sync:deletions
-  - [ ] Show Terraform-style plan output: "- old-app.example.com (A record)" 
-  - [ ] Support zone-specific cleanup: `dns:sync:deletions example.com`
-  - [ ] Create comprehensive BATS unit tests for delete functionality
-  - [ ] Create BATS integration test
-  - [ ] Update existing triggers to add deletions to file rather than delete directly
-    - [ ] post-delete
-    - [ ] post-app-rename
-    - [ ] post-domains-update
 
 ## Phase 11: Terraform-Style Plan/Apply Workflow (High Priority)
 

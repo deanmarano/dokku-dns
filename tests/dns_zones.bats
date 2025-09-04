@@ -13,6 +13,7 @@ setup() {
 
 teardown() {
     cleanup_mock_provider_scripts
+    restore_main_aws_mock
     rm -rf "$PLUGIN_DATA_ROOT"
 }
 
@@ -43,6 +44,9 @@ setup_mock_provider() {
 
 # Mock AWS CLI for testing
 create_mock_aws() {
+    # Backup the main AWS mock before creating our temporary one
+    backup_main_aws_mock
+    
     # Create a mock aws command that returns test data
     local BIN_DIR="$PLUGIN_DATA_ROOT/bin"
     mkdir -p "$BIN_DIR"

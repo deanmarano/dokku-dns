@@ -49,6 +49,14 @@ elif [[ "$1" == "dns:zones:disable" ]]; then
     exec "$PLUGIN_ROOT/subcommands/zones:disable" "${@:2}"
 elif [[ "$1" == "dns:cron" ]]; then
     exec "$PLUGIN_ROOT/subcommands/cron" "${@:2}"
+elif [[ "$1" == "dns:sync:deletions" ]]; then
+    exec "$PLUGIN_ROOT/subcommands/sync:deletions" "${@:2}"
+elif [[ "$1" == "dns:triggers" ]]; then
+    exec "$PLUGIN_ROOT/subcommands/triggers" "${@:2}"
+elif [[ "$1" == "dns:triggers:enable" ]]; then
+    exec "$PLUGIN_ROOT/subcommands/triggers:enable" "${@:2}"
+elif [[ "$1" == "dns:triggers:disable" ]]; then
+    exec "$PLUGIN_ROOT/subcommands/triggers:disable" "${@:2}"
 elif [[ "$1" == "dns:help" ]] || [[ "$1" == "dns" ]]; then
     exec "$PLUGIN_ROOT/commands" "$@"
 elif [[ "$1" =~ ^dns:[^:]+:help$ ]]; then

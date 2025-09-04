@@ -3,10 +3,24 @@
 # Common helper functions for BATS integration tests
 # shellcheck disable=SC2154  # status and output are BATS built-in variables
 
+# Load plugin configuration
+if [[ -f "/var/lib/dokku/plugins/available/dns/config" ]]; then
+    source "/var/lib/dokku/plugins/available/dns/config"
+elif [[ -f "$(dirname "$(dirname "${BASH_SOURCE[0]}")")/../config" ]]; then
+    source "$(dirname "$(dirname "${BASH_SOURCE[0]}")")/../config"
+fi
+
 # Helper function to check if DNS plugin is available
 check_dns_plugin_available() {
     if [[ ! -f "/var/lib/dokku/plugins/available/dns/plugin.toml" ]]; then
         skip "DNS plugin not available in test environment"
+    fi
+}
+
+# Helper function to skip tests if AWS credentials are not available
+skip_if_no_aws_credentials() {
+    if ! aws sts get-caller-identity >/dev/null 2>&1; then
+        skip "AWS CLI not available or not configured"
     fi
 }
 
@@ -77,6 +91,16 @@ assert_output() {
             fi
             ;;
     esac
+}
+
+# Helper to check if output contains a specific pattern
+assert_output_contains() {
+    local pattern="$1"
+    if [[ ! "$output" =~ $pattern ]]; then
+        echo "Expected output to contain: '$pattern'"
+        echo "Actual output: '$output'"
+        return 1
+    fi
 }
 
 # Helper to check if output contains any of multiple patterns
