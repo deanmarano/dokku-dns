@@ -39,7 +39,7 @@ teardown() {
   assert_output_contains "Domain Analysis:"
   assert_output_contains "Domain                         Status   Enabled         Provider        Zone (Enabled)"
   assert_output_contains "------                         ------   -------         --------        ---------------"
-  assert_output_contains "example.com"
+  [[ "$output" =~ example\.com ]]  # Domain should appear in output (flexible count)
   assert_output_contains "⚠️   Not added"
   assert_output_contains "DNS Status Legend:"
   assert_output_contains "Actions available:"

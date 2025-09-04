@@ -24,8 +24,22 @@ case "$*" in
   *"list-hosted-zones"*"--query"*"HostedZones[?Name=="*"example.com."*"].Id"*"--output text"*)
     echo "Z1234567890ABC"
     ;;
+  *"list-hosted-zones"*"--query"*"HostedZones[?Name=='"*"example.com."*"'].Id"*"--output text"*)
+    echo "Z1234567890ABC"
+    ;;
   *"list-hosted-zones"*"--query"*"HostedZones[?Name=="*"test.org."*"].Id"*"--output text"*)
     echo "Z0987654321DEF"
+    ;;
+  *"list-hosted-zones"*"--query"*"HostedZones[?Name=='"*"test.org."*"'].Id"*"--output text"*)
+    echo "Z0987654321DEF"
+    ;;
+  *"list-hosted-zones"*"--query"*"HostedZones[?Name=="*"].Id"*"--output text"*)
+    # Fallback for unknown zones - return empty (zone not found)
+    echo ""
+    ;;
+  *"list-hosted-zones"*"--query"*"HostedZones[?Name=='"*"'].Id"*"--output text"*)
+    # Fallback for unknown zones with single quotes - return empty (zone not found)
+    echo ""
     ;;
   *"list-hosted-zones --query length(HostedZones) --output text"*)
     echo "2"
@@ -49,16 +63,6 @@ case "$*" in
   *"list-hosted-zones"*)
     # Return basic hosted zones list for providers:verify
     echo '{"HostedZones":[{"Id":"/hostedzone/Z1234567890ABC","Name":"example.com.","CallerReference":"test-ref-1","Config":{"PrivateZone":false,"Comment":"Test zone"},"ResourceRecordSetCount":5},{"Id":"/hostedzone/Z0987654321DEF","Name":"test.org.","CallerReference":"test-ref-2","Config":{"PrivateZone":false,"Comment":"Test zone"},"ResourceRecordSetCount":3}]}'
-    ;;
-  *"route53 list-resource-record-sets --hosted-zone-id"*)
-    # Handle record sets listing for specific zones
-    if [[ "$*" == *"Z1234567890ABC"* ]]; then
-      echo '{"ResourceRecordSets":[{"Name":"example.com.","Type":"A","TTL":300,"ResourceRecords":[{"Value":"192.168.1.1"}]}]}'
-    elif [[ "$*" == *"Z0987654321DEF"* ]]; then
-      echo '{"ResourceRecordSets":[{"Name":"test.org.","Type":"A","TTL":300,"ResourceRecords":[{"Value":"192.168.1.2"}]}]}'
-    else
-      echo '{"ResourceRecordSets":[]}'
-    fi
     ;;
   *"configure get region"*)
     echo "us-east-1"
@@ -112,6 +116,16 @@ case "$*" in
     else
       # Mock successful deletion
       echo '{"ChangeInfo":{"Id":"/change/C123456789","Status":"PENDING"}}'
+    fi
+    ;;
+  *"route53 list-resource-record-sets --hosted-zone-id"*)
+    # Handle record sets listing for specific zones (for providers:verify)
+    if [[ "$*" == *"Z1234567890ABC"* ]]; then
+      echo '{"ResourceRecordSets":[{"Name":"example.com.","Type":"A","TTL":300,"ResourceRecords":[{"Value":"192.168.1.1"}]}]}'
+    elif [[ "$*" == *"Z0987654321DEF"* ]]; then
+      echo '{"ResourceRecordSets":[{"Name":"test.org.","Type":"A","TTL":300,"ResourceRecords":[{"Value":"192.168.1.2"}]}]}'
+    else
+      echo '{"ResourceRecordSets":[]}'
     fi
     ;;
   *)

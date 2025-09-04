@@ -27,6 +27,7 @@ dns:providers:verify <provider-arg>                # verify DNS provider setup a
 dns:report <app>                                   # display DNS status and domain information for app(s)
 dns:sync-all                                       # synchronize DNS records for all DNS-managed apps
 dns:sync:deletions <zone>                          # remove DNS records that no longer correspond to active Dokku apps
+dns:sync:deletions.bak <zone>                      # remove DNS records that no longer correspond to active Dokku apps
 dns:triggers                                       # show DNS automatic management status
 dns:triggers:disable                               # disable automatic DNS management for app lifecycle events
 dns:triggers:enable                                # enable automatic DNS management for app lifecycle events

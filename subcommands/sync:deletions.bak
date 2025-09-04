@@ -27,12 +27,6 @@ fi
 
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
 
-# Load AWS provider functions
-PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../providers/aws"
-if [[ -f "$PROVIDER_SCRIPT" ]]; then
-  source "$PROVIDER_SCRIPT"
-fi
-
 #E Remove DNS records that no longer correspond to active Dokku apps
 #E dokku $PLUGIN_COMMAND_PREFIX:sync:deletions [zone]
 #E 
