@@ -3,6 +3,13 @@
 # Common helper functions for BATS integration tests
 # shellcheck disable=SC2154  # status and output are BATS built-in variables
 
+# Load plugin configuration
+if [[ -f "/var/lib/dokku/plugins/available/dns/config" ]]; then
+    source "/var/lib/dokku/plugins/available/dns/config"
+elif [[ -f "$(dirname "$(dirname "${BASH_SOURCE[0]}")")/../config" ]]; then
+    source "$(dirname "$(dirname "${BASH_SOURCE[0]}")")/../config"
+fi
+
 # Helper function to check if DNS plugin is available
 check_dns_plugin_available() {
     if [[ ! -f "/var/lib/dokku/plugins/available/dns/plugin.toml" ]]; then
