@@ -185,14 +185,19 @@ EOF
   echo "example.com" > "$PLUGIN_DATA_ROOT/ZONES_ENABLED"
   
   # Set AWS mock to return 1 record to be deleted
-  # The main AWS mock already handles deletion failures when the test name contains "failures"
   set_aws_mock_record_count 1 "record-to-delete"
+  
+  # Force API failure mode for reliable testing across different CI environments
+  export AWS_MOCK_FAIL_API="true"
   
   # Mock user input to simulate 'y' (yes) response
   run bash -c 'echo "y" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
   assert_success
   assert_output_contains "❌ Failed to delete: record-to-delete.example.com"
   assert_output_contains "Successfully deleted 0 of 1 DNS records"
+  
+  # Clean up environment variable to not affect other tests
+  unset AWS_MOCK_FAIL_API
 }
 
 @test "(dns:sync:deletions) handles missing AWS credentials" {

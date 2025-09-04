@@ -109,8 +109,10 @@ case "$*" in
     fi
     ;;
   *"change-resource-record-sets"*)
-    # Check if this is a test that expects failure
-    if [[ "${BATS_TEST_NAME:-}" == *"API failures"* ]] || [[ "${BATS_TEST_DESCRIPTION:-}" == *"API failures"* ]]; then
+    # Check if this is a test that expects failure - multiple detection methods for CI compatibility
+    if [[ "${BATS_TEST_NAME:-}" == *"API failures"* ]] || \
+       [[ "${BATS_TEST_DESCRIPTION:-}" == *"API failures"* ]] || \
+       [[ "${AWS_MOCK_FAIL_API:-}" == "true" ]]; then
       echo "Error: Access denied" >&2
       exit 1
     else
