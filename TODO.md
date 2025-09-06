@@ -2,7 +2,6 @@
 
 The DNS plugin is in progress! Many core features have been implemented and tested. See [DONE.md](./DONE.md) for completed work.
 
-
 ## Phase 11: Plan/Apply Workflow Enhancement (High Priority)
 
 - [ ] **Implement "plan" functionality in dns:report commands**

@@ -502,7 +502,6 @@ dns_report() {
   if [[ "$PROVIDER" != "None" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
     show_records_to_be_deleted_summary
   fi
-  
   echo
   dokku_log_info2 "Actions available:"
   if [[ "$PROVIDER" == "None" ]]; then
