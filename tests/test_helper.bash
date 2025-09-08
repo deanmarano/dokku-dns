@@ -81,7 +81,6 @@ TEST_BIN_DIR="$(dirname "${BASH_SOURCE[0]}")/bin"
 export PATH="$TEST_BIN_DIR:$PLUGIN_ROOT/subcommands:$PATH"
 
 if [[ -f "$TEST_BIN_DIR/dokku" ]]; then
-  alias dokku="$TEST_BIN_DIR/dokku"
   dokku() {
     if [[ -n "$TEST_TMP_DIR" && -f "$TEST_TMP_DIR/bin/dokku" ]]; then
       "$TEST_TMP_DIR/bin/dokku" "$@"
@@ -179,6 +178,7 @@ assert_equal() {
 }
 
 assert_exit_status() {
+  # shellcheck disable=SC2154
   assert_equal "$1" "$status"
 }
 
@@ -217,10 +217,12 @@ assert_output() {
   else
     expected="$1"
   fi
+  # shellcheck disable=SC2154
   assert_equal "$expected" "$output"
 }
 
 assert_output_contains() {
+  # shellcheck disable=SC2154
   local input="$output"
   local expected="$1"
   local count="${2:-1}"

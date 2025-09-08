@@ -253,7 +253,7 @@ fn-help-subcommand-args() {
   fi
   
   args=$(echo "$args" | tr "\n" " ")
-  echo "$args" | sed -e 's/^[[:space:]]*//'
+  echo "${args#"${args%%[![:space:]]*}"}"
 }
 
 fn-help-subcommand-example() {
@@ -282,7 +282,7 @@ fn-help-subcommand-example() {
       [[ "$LAST_LINE" == "command" ]] && NEWLINE="\n"
       [[ "$LAST_LINE" == "sentence" ]] && NEWLINE=""
       [[ "$line" == \>* ]] && line="\n    ${BOLD}${line}${NORMAL}"
-      [[ "$line" == "    "* ]] && line="    ${OTHER_GRAY}$(echo "$line" | sed -e 's/^[[:space:]]*//')${NORMAL}"
+      [[ "$line" == "    "* ]] && line="    ${OTHER_GRAY}${line#"${line%%[![:space:]]*}"}${NORMAL}"
       echo -e "${NEWLINE}${line}"
       LAST_LINE="sentence"
       NEWLINE="\n"
