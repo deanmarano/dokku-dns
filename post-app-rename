@@ -2,19 +2,14 @@
 set -eo pipefail
 [[ $DOKKU_TRACE ]] && set -x
 
-# DNS Plugin - Post-App-Rename Trigger
-# Handles DNS updates when an app is renamed
 
-# Source plugin configuration
 PLUGIN_BASE_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$PLUGIN_BASE_PATH/config"
 
-# Load functions if available
 if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
   source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
 fi
 
-# Define missing functions if needed
 if ! declare -f dokku_log_info1 >/dev/null 2>&1; then
   dokku_log_info1() { echo "-----> $*"; }
 fi
@@ -27,26 +22,20 @@ if ! declare -f dokku_log_warn >/dev/null 2>&1; then
   dokku_log_warn() { echo " !     $*"; }
 fi
 
-# Load plugin functions
 TRIGGER_BASE_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$TRIGGER_BASE_PATH/functions"
 
-# Main trigger logic
 main() {
   local OLD_APP="$1"
   local NEW_APP="$2"
   
-  # Check if triggers are enabled
   local TRIGGERS_ENABLED_FILE="$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED"
   if [[ ! -f "$TRIGGERS_ENABLED_FILE" ]]; then
-    # Triggers are disabled - exit silently
     return 0
   fi
   
-  # Skip if either app name is missing
   [[ -z "$OLD_APP" || -z "$NEW_APP" ]] && return 0
   
-  # Skip if app is not managed by DNS
   if ! is_app_dns_managed "$OLD_APP"; then
     dokku_log_info2 "DNS: App '$OLD_APP' not managed by DNS, skipping rename handling"
     return 0
@@ -54,13 +43,11 @@ main() {
   
   dokku_log_info2 "DNS: Handling app rename from '$OLD_APP' to '$NEW_APP'"
   
-  # Check if new app already exists in DNS management
   if is_app_dns_managed "$NEW_APP"; then
     dokku_log_warn "DNS: App '$NEW_APP' already exists in DNS management. Manual cleanup may be needed."
     return 0
   fi
   
-  # Update app directory name
   local OLD_APP_DIR="$PLUGIN_DATA_ROOT/$OLD_APP"
   local NEW_APP_DIR="$PLUGIN_DATA_ROOT/$NEW_APP"
   
@@ -70,15 +57,12 @@ main() {
       return 1
     }
     
-    # Update the domains file if it exists
     local DOMAINS_FILE="$NEW_APP_DIR/DOMAINS"
     if [[ -f "$DOMAINS_FILE" ]]; then
-      # Update any self-references in the domains file
       sed -i.bak "s/\b$OLD_APP\b/$NEW_APP/g" "$DOMAINS_FILE"
       rm -f "${DOMAINS_FILE}.bak"
     fi
     
-    # Update the LINKS file
     local LINKS_FILE="$PLUGIN_DATA_ROOT/LINKS"
     if [[ -f "$LINKS_FILE" ]]; then
       sed -i.bak "s/^$OLD_APP$/$NEW_APP/g" "$LINKS_FILE"
@@ -87,7 +71,6 @@ main() {
     
     dokku_log_info1 "DNS: Successfully updated DNS management from '$OLD_APP' to '$NEW_APP'"
     
-    # Queue old app domains for potential deletion (they might be orphaned now)
     local DOMAINS_FILE="$NEW_APP_DIR/DOMAINS"
     if [[ -f "$DOMAINS_FILE" ]]; then
       local DELETIONS_QUEUE="$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
@@ -99,7 +82,6 @@ main() {
       dokku_log_info1 "DNS: Run 'dokku $PLUGIN_COMMAND_PREFIX:sync:deletions' if old DNS records need cleanup"
     fi
     
-    # Sync the new app's DNS records
     if [[ -x "$PLUGIN_BASE_PATH/commands" ]]; then
       dokku_log_info2 "DNS: Syncing DNS records for renamed app '$NEW_APP'"
       "$PLUGIN_BASE_PATH/commands" dns:apps:sync "$NEW_APP"
@@ -107,7 +89,6 @@ main() {
   fi
 }
 
-# Run if called directly (not sourced)
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   main "$@"
 fi

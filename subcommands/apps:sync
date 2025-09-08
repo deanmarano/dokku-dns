@@ -3,18 +3,15 @@ source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
 set -eo pipefail
 [[ $DOKKU_TRACE ]] && set -x
 
-# Load dokku functions if available
 if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
   source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
 fi
 
-# Define missing functions if needed
 if ! declare -f verify_app_name >/dev/null 2>&1; then
   verify_app_name() {
     local app="$1"
     [[ -n "$app" ]] || { echo " !     Please specify an app name" >&2; exit 1; }
     
-    # Check if app exists (only if dokku command is available)
     if command -v dokku >/dev/null 2>&1; then
       if ! dokku apps:list 2>/dev/null | grep -q "^$app$"; then
         dokku_log_fail "App $app does not exist"

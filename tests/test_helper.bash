@@ -1,27 +1,21 @@
 #!/usr/bin/env bash
 
-# Mock sudo for unit tests to avoid authentication prompts and force fallback to regular crontab
 sudo() {
   if [[ "$1" == "-u" && "$2" == "dokku" ]]; then
     shift 2  # Remove -u dokku
     if [[ "$1" == "true" ]]; then
-      # Fail permission test to force fallback to regular crontab
       return 1
     elif [[ "$1" == "crontab" ]]; then
-      # Fail crontab test to force fallback to regular crontab
       return 1
     else
-      # For other dokku user commands, execute directly
       "$@"
     fi
   else
-    # For other sudo commands, execute directly
     "$@"
   fi
 }
 export -f sudo
 
-# Mock id command to simulate dokku user existence
 id() {
   if [[ "$1" == "-u" && "$2" == "dokku" ]]; then
     echo "1001"  # Return fake dokku UID
@@ -33,33 +27,26 @@ id() {
 }
 export -f id
 
-# Mock crontab command to avoid sudo issues in tests
 crontab() {
   local mock_crontab_file="${TEST_TMP_DIR:-/tmp}/mock_crontab_state"
   
-  # Handle different crontab operations
   case "$1" in
     "-l")
-      # List crontab - return mock state
       cat "$mock_crontab_file" 2>/dev/null || echo ""
       ;;
     "-u")
-      # Handle -u user operations
       if [[ "$2" == "dokku" ]]; then
         case "$3" in
           "-l")
-            # List dokku user crontab
             cat "$mock_crontab_file" 2>/dev/null || echo ""
             ;;
           *)
-            # Install from stdin for dokku user
             cat > "$mock_crontab_file"
             ;;
         esac
       fi
       ;;
     *)
-      # Install from stdin
       cat > "$mock_crontab_file"
       ;;
   esac
@@ -67,16 +54,13 @@ crontab() {
 }
 export -f crontab
 
-# Load test environment overrides for CI/local testing
 if [[ ! -d "/var/lib/dokku" ]] || [[ ! -w "/var/lib/dokku" ]]; then
   source "$(dirname "${BASH_SOURCE[0]}")/mock_dokku_environment.bash"
 else
-  # Use real Dokku environment if available
   export DOKKU_LIB_ROOT="/var/lib/dokku"
   export PATH="$PATH:$DOKKU_LIB_ROOT/plugins/available/dns/subcommands"
 fi
 
-# Try to source config from parent directory first, then current directory (for Docker tests)
 CONFIG_PATH="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
 if [[ -f "$CONFIG_PATH" ]]; then
   source "$CONFIG_PATH"
@@ -87,26 +71,18 @@ else
   exit 1
 fi
 
-# Add subcommands and test bin to PATH for testing (prioritize test bin)
-# Set PLUGIN_ROOT for both normal and Docker test environments
 if [[ -d "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/subcommands" ]]; then
   PLUGIN_ROOT="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")"
 else
-  # Docker test environment - subcommands are in current directory
   PLUGIN_ROOT="$(dirname "${BASH_SOURCE[0]}")"
 fi
 export PLUGIN_ROOT
 TEST_BIN_DIR="$(dirname "${BASH_SOURCE[0]}")/bin"
 export PATH="$TEST_BIN_DIR:$PLUGIN_ROOT/subcommands:$PATH"
 
-# Ensure our test dokku takes precedence over system dokku
 if [[ -f "$TEST_BIN_DIR/dokku" ]]; then
-  # shellcheck disable=SC2139
   alias dokku="$TEST_BIN_DIR/dokku"
-  # Also create a function override that works in subshells (for BATS)
-  # This function will dynamically choose the correct mock dokku based on environment
   dokku() {
-    # If we're in a mock environment, use the temporary mock dokku
     if [[ -n "$TEST_TMP_DIR" && -f "$TEST_TMP_DIR/bin/dokku" ]]; then
       "$TEST_TMP_DIR/bin/dokku" "$@"
     else
@@ -116,13 +92,9 @@ if [[ -f "$TEST_BIN_DIR/dokku" ]]; then
   export -f dokku
 fi
 
-# DNS plugin test helper functions
 
-# Ensure we have a writable directory for creating mock scripts
 setup_writable_test_bin() {
-  # Check if TEST_BIN_DIR is writable
   if ! touch "$TEST_BIN_DIR/.write_test" 2>/dev/null; then
-    # Create a writable temporary directory
     if [[ -z "$TEST_TMP_DIR" ]]; then
       TEST_TMP_DIR=$(mktemp -d)
       export TEST_TMP_DIR
@@ -131,25 +103,20 @@ setup_writable_test_bin() {
     WRITABLE_TEST_BIN="$TEST_TMP_DIR/bin"
     mkdir -p "$WRITABLE_TEST_BIN"
     
-    # Copy existing scripts to writable location
     if [[ -d "$TEST_BIN_DIR" ]]; then
       cp -r "$TEST_BIN_DIR"/* "$WRITABLE_TEST_BIN/" 2>/dev/null || true
       chmod +x "$WRITABLE_TEST_BIN"/* 2>/dev/null || true
     fi
     
-    # Update PATH to use writable bin directory
     export PATH="$WRITABLE_TEST_BIN:$PATH"
     
-    # Return the writable directory path
     echo "$WRITABLE_TEST_BIN"
   else
-    # Clean up write test file
     rm -f "$TEST_BIN_DIR/.write_test" 2>/dev/null || true
     echo "$TEST_BIN_DIR"
   fi
 }
 
-# Function to call DNS subcommands directly (for testing)
 dns_cmd() {
   local subcmd="$1"
   shift
@@ -158,15 +125,11 @@ dns_cmd() {
 
 setup_dns_provider() {
   local provider="${1:-aws}"
-  # Since global provider concept is removed, this function is now a no-op
-  # AWS is always the provider - no setup needed
   return 0
 }
 
 cleanup_dns_data() {
-  # Clean up all DNS data including cron jobs
   if [[ -d "/var/lib/dokku" ]] && [[ -w "/var/lib/dokku" ]]; then
-    # Clean up app-specific data and cron data
     find "$PLUGIN_DATA_ROOT" -name "LINKS" -delete 2>/dev/null || true
     find "$PLUGIN_DATA_ROOT" -maxdepth 1 -type d -name "*-*" -exec rm -rf {} + 2>/dev/null || true
     rm -rf "$PLUGIN_DATA_ROOT/cron" 2>/dev/null || true
@@ -215,15 +178,10 @@ assert_equal() {
   fi
 }
 
-# ShellCheck doesn't know about $status from Bats
-# shellcheck disable=SC2154
 assert_exit_status() {
   assert_equal "$1" "$status"
 }
 
-# ShellCheck doesn't know about $status from Bats
-# shellcheck disable=SC2154
-# shellcheck disable=SC2120
 assert_success() {
   if [ "$status" -ne 0 ]; then
     flunk "command failed with exit status $status"
@@ -252,8 +210,6 @@ assert_contains() {
   fi
 }
 
-# ShellCheck doesn't know about $output from Bats
-# shellcheck disable=SC2154
 assert_output() {
   local expected
   if [ $# -eq 0 ]; then
@@ -264,8 +220,6 @@ assert_output() {
   assert_equal "$expected" "$output"
 }
 
-# ShellCheck doesn't know about $output from Bats
-# shellcheck disable=SC2154
 assert_output_contains() {
   local input="$output"
   local expected="$1"
@@ -278,7 +232,6 @@ assert_output_contains() {
   assert_equal "$count" "$found"
 }
 
-# File assertion helpers
 assert_file_exists() {
   local file="$1"
   [[ -f "$file" ]] || flunk "Expected file to exist: $file"
@@ -306,9 +259,7 @@ refute_line_in_file() {
   ! grep -q "^$line$" "$file" || flunk "Expected line '$line' to NOT be in file: $file"
 }
 
-# AWS mock backup and restore helpers
 backup_main_aws_mock() {
-  # Backup the main AWS mock if it exists
   if [[ -f "$TEST_BIN_DIR/aws" ]]; then
     cp "$TEST_BIN_DIR/aws" "$TEST_BIN_DIR/aws.backup" 2>/dev/null || true
     export AWS_MOCK_BACKED_UP=true
@@ -316,7 +267,6 @@ backup_main_aws_mock() {
 }
 
 restore_main_aws_mock() {
-  # Restore the main AWS mock if we backed it up
   if [[ "${AWS_MOCK_BACKED_UP:-}" == "true" ]] && [[ -f "$TEST_BIN_DIR/aws.backup" ]]; then
     cp "$TEST_BIN_DIR/aws.backup" "$TEST_BIN_DIR/aws" 2>/dev/null || true
     rm -f "$TEST_BIN_DIR/aws.backup" 2>/dev/null || true
@@ -324,33 +274,25 @@ restore_main_aws_mock() {
   fi
 }
 
-# Create a temporary AWS mock and ensure it gets restored
-# Usage: create_temporary_aws_mock "mock content here"
 create_temporary_aws_mock() {
   local mock_content="$1"
   
-  # Backup the current main mock
   backup_main_aws_mock
   
-  # Create the temporary mock
   local BIN_DIR="$PLUGIN_DATA_ROOT/bin"
   mkdir -p "$BIN_DIR"
   echo "$mock_content" > "$BIN_DIR/aws"
   chmod +x "$BIN_DIR/aws"
   
-  # Add to PATH if not already there
   if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
     export PATH="$BIN_DIR:$PATH"
   fi
 }
 
-# Set the number of DNS records the AWS mock should return
-# Usage: set_aws_mock_record_count <count> [record_prefix]
 set_aws_mock_record_count() {
   local count="${1:-0}"
   local record_prefix="${2:-test-record}"
   
-  # Create a control file that the AWS mock can read
   local control_file="$PLUGIN_DATA_ROOT/aws_mock_control"
   mkdir -p "$PLUGIN_DATA_ROOT"
   
@@ -359,7 +301,6 @@ set_aws_mock_record_count() {
   export AWS_MOCK_CONTROL_FILE="$control_file"
 }
 
-# Clear AWS mock record count (use default behavior)
 clear_aws_mock_record_count() {
   local control_file="$PLUGIN_DATA_ROOT/aws_mock_control"
   rm -f "$control_file"

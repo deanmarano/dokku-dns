@@ -3,12 +3,10 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/config"
 set -eo pipefail
 [[ $DOKKU_TRACE ]] && set -x
 
-# Load dokku functions if available
 if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
   source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
 fi
 
-# Define missing functions if needed
 if ! declare -f dokku_log_info1 >/dev/null 2>&1; then
   dokku_log_info1() { echo "-----> $*"; }
 fi
@@ -23,7 +21,6 @@ is_implemented_command() {
   declare desc="return true if the subcommand is implemented"
   local SUBCOMMAND="$1"
   
-  # All our subcommands are implemented
   case "$SUBCOMMAND" in
     cron|help|report|sync-all|sync:deletions|version|zones|zones:enable|zones:disable|providers:verify|apps|apps:enable|apps:disable|apps:sync|apps:report|triggers|triggers:enable|triggers:disable)
       return 0
@@ -91,7 +88,6 @@ help_desc
 }
 
 fn-help-contents() {
-  # Add special entry for help command
   local LIGHT_GRAY
   LIGHT_GRAY="$(fn-help-fancy-color "\033[2;37m")"
   local NORMAL
@@ -204,7 +200,6 @@ fn-help-subcommand-args() {
   args=""
   argpos=0
   
-  # Parse #A lines to get argument information
   while IFS= read -r line; do
     [[ -z "$line" ]] && continue
     argpos=$((argpos + 1))
@@ -213,11 +208,9 @@ fn-help-subcommand-args() {
       break
     fi
     
-    # Extract argument name (first word, remove comma) and description (rest)
     arg_name=$(echo "$line" | awk '{print $1}' | sed 's/,$//' | tr '[:upper:]' '[:lower:]')
     arg_desc=$(echo "$line" | cut -d' ' -f2-)
     
-    # Check if argument is optional based on description
     if [[ "$arg_desc" == *"optional"* ]] || [[ "$arg_desc" == *"omitted"* ]]; then
       args+=" [<${arg_name}>]"
     else
@@ -225,7 +218,6 @@ fn-help-subcommand-args() {
     fi
   done < <(grep "^[[:space:]]*#A " "$FUNC_FILE" | sed 's/^[[:space:]]*#A //')
   
-  # If no #A lines found, fall back to old method
   if [[ -z "$args" ]]; then
     argline=$(grep declare "$FUNC_FILE" | grep -v "declare desc" | head -1 || true)
     arglist=($(echo -e "${argline// /"\n"}" | awk -F= '/=/{print ""$1""}'))
@@ -261,7 +253,6 @@ fn-help-subcommand-args() {
   fi
   
   args=$(echo "$args" | tr "\n" " ")
-  # shellcheck disable=SC2001
   echo "$args" | sed -e 's/^[[:space:]]*//'
 }
 
@@ -291,7 +282,6 @@ fn-help-subcommand-example() {
       [[ "$LAST_LINE" == "command" ]] && NEWLINE="\n"
       [[ "$LAST_LINE" == "sentence" ]] && NEWLINE=""
       [[ "$line" == \>* ]] && line="\n    ${BOLD}${line}${NORMAL}"
-      # shellcheck disable=SC2001
       [[ "$line" == "    "* ]] && line="    ${OTHER_GRAY}$(echo "$line" | sed -e 's/^[[:space:]]*//')${NORMAL}"
       echo -e "${NEWLINE}${line}"
       LAST_LINE="sentence"

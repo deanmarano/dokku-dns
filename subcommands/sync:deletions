@@ -3,12 +3,10 @@ source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
 set -eo pipefail
 [[ $DOKKU_TRACE ]] && set -x
 
-# Load dokku functions if available
 if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
   source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
 fi
 
-# Define missing functions if needed
 if ! declare -f dokku_log_info1 >/dev/null 2>&1; then
   dokku_log_info1() { echo "-----> $*"; }
 fi
@@ -27,7 +25,6 @@ fi
 
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
 
-# Load AWS provider functions
 PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../providers/aws"
 if [[ -f "$PROVIDER_SCRIPT" ]]; then
   source "$PROVIDER_SCRIPT"
@@ -54,7 +51,6 @@ service-sync-deletions-cmd() {
   
   dokku_log_info1 "DNS Record Cleanup"
   
-  # Get list of all current Dokku apps and their domains
   local current_domains=()
   local apps
   apps=$(dokku apps:list 2>/dev/null | tail -n +2 | tr '\n' ' ')
@@ -71,14 +67,12 @@ service-sync-deletions-cmd() {
   
   dokku_log_info2 "Found ${#current_domains[@]} domains across $apps apps"
   
-  # Get DNS records to be deleted
   local records_to_be_deleted=()
   local zones_to_scan=()
   
   if [[ -n "$ZONE" ]]; then
     zones_to_scan=("$ZONE")
   else
-    # Get all enabled zones
     if [[ -f "$PLUGIN_DATA_ROOT/ZONES_ENABLED" ]]; then
       while IFS= read -r enabled_zone; do
         [[ -n "$enabled_zone" ]] && zones_to_scan+=("$enabled_zone")
@@ -93,11 +87,9 @@ service-sync-deletions-cmd() {
     dokku_log_info2 "Scanning ${#zones_to_scan[@]} enabled zones: ${zones_to_scan[*]}"
   fi
   
-  # Scan each zone for records to be deleted
   for zone in "${zones_to_scan[@]}"; do
     dokku_log_info2 "Scanning zone: $zone"
     
-    # Get hosted zone ID for this zone
     local zone_id
     zone_id=$(dns_provider_aws_get_hosted_zone_id "$zone" 2>/dev/null || echo "")
     
@@ -106,7 +98,6 @@ service-sync-deletions-cmd() {
       continue
     fi
     
-    # Get all A records in this zone
     local zone_records
     zone_records=$(aws route53 list-resource-record-sets \
       --hosted-zone-id "$zone_id" \
@@ -118,14 +109,11 @@ service-sync-deletions-cmd() {
       continue
     fi
     
-    # Check each DNS record against current domains
     while IFS= read -r dns_record; do
       [[ -z "$dns_record" ]] && continue
       
-      # Remove trailing dot from Route53 record name
       dns_record="${dns_record%.}"
       
-      # Check if this DNS record corresponds to any current domain
       local should_be_deleted=true
       for current_domain in "${current_domains[@]}"; do
         if [[ "$dns_record" == "$current_domain" ]]; then
@@ -140,7 +128,6 @@ service-sync-deletions-cmd() {
     done <<< "$zone_records"
   done
   
-  # Display results in Terraform-style format
   if [[ ${#records_to_be_deleted[@]} -eq 0 ]]; then
     dokku_log_info1 "No DNS records to be deleted"
     dokku_log_info2 "All DNS records correspond to active Dokku domains"
@@ -159,7 +146,6 @@ service-sync-deletions-cmd() {
   dokku_log_info2 "Plan: 0 to add, 0 to change, ${#records_to_be_deleted[@]} to destroy"
   echo ""
   
-  # Confirmation prompt before deletion
   echo ""
   read -rp "Do you want to delete these ${#records_to_be_deleted[@]} DNS records? [y/N] " confirm
   
@@ -170,7 +156,6 @@ service-sync-deletions-cmd() {
     for record in "${records_to_be_deleted[@]}"; do
       dokku_log_info2 "Deleting: $record"
       
-      # Find the zone this record belongs to
       local record_zone=""
       for zone in "${zones_to_scan[@]}"; do
         if [[ "$record" == *".$zone" ]] || [[ "$record" == "$zone" ]]; then
@@ -184,7 +169,6 @@ service-sync-deletions-cmd() {
         continue
       fi
       
-      # Get hosted zone ID
       local zone_id
       zone_id=$(dns_provider_aws_get_hosted_zone_id "$record_zone" 2>/dev/null || echo "")
       
@@ -193,7 +177,6 @@ service-sync-deletions-cmd() {
         continue
       fi
       
-      # Get current record value to build delete request
       local record_value
       record_value=$(aws route53 list-resource-record-sets \
         --hosted-zone-id "$zone_id" \
@@ -205,7 +188,6 @@ service-sync-deletions-cmd() {
         continue
       fi
       
-      # Create change batch JSON for deletion
       local change_batch
       change_batch=$(cat <<EOF
 {
@@ -227,7 +209,6 @@ service-sync-deletions-cmd() {
 EOF
 )
       
-      # Execute the deletion
       if aws route53 change-resource-record-sets \
         --hosted-zone-id "$zone_id" \
         --change-batch "$change_batch" >/dev/null 2>&1; then
