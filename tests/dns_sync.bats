@@ -174,12 +174,18 @@ teardown() {
   }
   export -f dns_provider_aws_get_record_ip
   
-  # Add app to DNS management
-  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" correct-app >/dev/null 2>&1
-  
   # Set up provider credentials mock to make provider "ready"
   mkdir -p "$PLUGIN_DATA_ROOT/credentials"
   echo "test" > "$PLUGIN_DATA_ROOT/credentials/AWS_ACCESS_KEY_ID"
+  
+  # Create provider file
+  echo "aws" > "$PLUGIN_DATA_ROOT/PROVIDER"
+  
+  # Enable zone first
+  dokku "$PLUGIN_COMMAND_PREFIX:zones:enable" example.com >/dev/null 2>&1
+  
+  # Add app to DNS management
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" correct-app >/dev/null 2>&1
   
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" correct-app
   assert_success
@@ -231,12 +237,18 @@ teardown() {
   }
   export -f dns_provider_aws_get_record_ip
   
-  # Add app to DNS management
-  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" mixed-app >/dev/null 2>&1
-  
   # Set up provider credentials mock to make provider "ready"
   mkdir -p "$PLUGIN_DATA_ROOT/credentials"
   echo "test" > "$PLUGIN_DATA_ROOT/credentials/AWS_ACCESS_KEY_ID"
+  
+  # Create provider file
+  echo "aws" > "$PLUGIN_DATA_ROOT/PROVIDER"
+  
+  # Enable zone first
+  dokku "$PLUGIN_COMMAND_PREFIX:zones:enable" example.com >/dev/null 2>&1
+  
+  # Add app to DNS management
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" mixed-app >/dev/null 2>&1
   
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" mixed-app
   assert_success

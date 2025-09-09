@@ -69,8 +69,21 @@ case "$*" in
     ;;
   *"list-resource-record-sets"*"--query"*"ResourceRecordSets"*)
     if [[ "$*" == *"Name=='"*"'"* ]]; then
-      # Specific record query - return record value for deletion
-      echo "192.168.1.100"
+      # Specific record query - return different values for test domains
+      if [[ "$*" == *"existing.example.com"* ]]; then
+        # Return current server IP for existing.example.com (already correct)
+        SERVER_IP=$(bash -c 'source "'"$PLUGIN_ROOT"'/functions" && get_server_ip' 2>/dev/null || echo "68.55.81.191")
+        echo "$SERVER_IP"
+      elif [[ "$*" == *"outdated.example.com"* ]]; then
+        # Return wrong IP for outdated.example.com (needs update)
+        echo "192.168.1.50"
+      elif [[ "$*" == *"new.example.com"* ]]; then
+        # Return "None" for new.example.com (no existing record)
+        echo "None"
+      else
+        # Default fallback for other records
+        echo "192.168.1.100"
+      fi
     else
       # General record scanning - return record names based on control file
       if [[ -f "$control_file" ]]; then

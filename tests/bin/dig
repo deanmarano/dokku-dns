@@ -1,0 +1,5 @@
+#!/bin/bash
+# Mock dig command to prevent real DNS lookups during testing
+
+# Return empty for all DNS queries to prevent interference with test expectations
+exit 1

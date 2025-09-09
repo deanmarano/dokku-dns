@@ -72,7 +72,14 @@ teardown() {
   create_test_app graceful-app
   add_test_domains graceful-app example.com
   
-  # Don't fully configure provider to test graceful handling
+  # Set up minimal provider configuration (but no credentials)
+  mkdir -p "$PLUGIN_DATA_ROOT"
+  echo "aws" > "$PLUGIN_DATA_ROOT/PROVIDER"
+  
+  # Enable zone first
+  dokku "$PLUGIN_COMMAND_PREFIX:zones:enable" example.com >/dev/null 2>&1
+  
+  # Don't fully configure credentials to test graceful handling
   dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" graceful-app >/dev/null 2>&1 || true
   
   run dokku "$PLUGIN_COMMAND_PREFIX:report" graceful-app
