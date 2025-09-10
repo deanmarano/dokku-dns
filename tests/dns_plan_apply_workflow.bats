@@ -283,7 +283,7 @@ teardown() {
   local sync_output="$output"
   
   # Both should show the same domain will be created
-  [[ "$report_output" =~ "+ test.example.com → " ]]
+  [[ "$report_output" =~ "+ test.example.com → 192.168.1.100 (A record)" ]]
   [[ "$sync_output" =~ "-----> Will create: test.example.com → " ]]
   
   # Both should show Plan: 1 to add

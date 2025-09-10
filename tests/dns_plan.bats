@@ -60,12 +60,19 @@ setup() {
     esac
   }
   export -f dns_provider_aws_get_record_ip
+  
+  # Mock get_server_ip to return consistent IP for testing
+  get_server_ip() {
+    echo "192.168.1.100"
+  }
+  export -f get_server_ip
 }
 
 teardown() {
   cleanup_dns_data
   unset -f dns_provider_aws_get_hosted_zone_id
   unset -f dns_provider_aws_get_record_ip
+  unset -f get_server_ip
 }
 
 @test "(dns_plan_changes) returns error when app has no DNS domains" {
@@ -94,7 +101,7 @@ teardown() {
   run bash -c "source \"$PLUGIN_ROOT/functions\" && dns_plan_changes test-app"
   assert_success
   
-  [[ "$output" =~ "ADD:new.example.com:" ]]
+  [[ "$output" =~ "ADD:new.example.com:192.168.1.100" ]]
   [[ "$output" =~ ADD_COUNT:1 ]]
   [[ "$output" =~ CHANGE_COUNT:0 ]]
   [[ "$output" =~ NO_CHANGE_COUNT:0 ]]
@@ -113,7 +120,7 @@ teardown() {
   run bash -c "source \"$PLUGIN_ROOT/functions\" && dns_plan_changes test-app"
   assert_success
   
-  [[ "$output" =~ "CHANGE:outdated.example.com:" ]]
+  [[ "$output" =~ "CHANGE:outdated.example.com:192.168.1.100:192.168.1.99" ]]
   [[ "$output" =~ ADD_COUNT:0 ]]
   [[ "$output" =~ CHANGE_COUNT:1 ]]
   [[ "$output" =~ NO_CHANGE_COUNT:0 ]]
@@ -132,7 +139,7 @@ teardown() {
   run bash -c "source \"$PLUGIN_ROOT/functions\" && dns_plan_changes test-app"
   assert_success
   
-  [[ "$output" =~ "NO_CHANGE:existing.example.com:" ]]
+  [[ "$output" =~ "NO_CHANGE:existing.example.com:192.168.1.100" ]]
   [[ "$output" =~ ADD_COUNT:0 ]]
   [[ "$output" =~ CHANGE_COUNT:0 ]]
   [[ "$output" =~ NO_CHANGE_COUNT:1 ]]
@@ -151,9 +158,9 @@ teardown() {
   run bash -c "source \"$PLUGIN_ROOT/functions\" && dns_plan_changes test-app"
   assert_success
   
-  [[ "$output" =~ "NO_CHANGE:existing.example.com:" ]]
-  [[ "$output" =~ "CHANGE:outdated.example.com:" ]]
-  [[ "$output" =~ "ADD:new.example.com:" ]]
+  [[ "$output" =~ "NO_CHANGE:existing.example.com:192.168.1.100" ]]
+  [[ "$output" =~ "CHANGE:outdated.example.com:192.168.1.100:192.168.1.99" ]]
+  [[ "$output" =~ "ADD:new.example.com:192.168.1.100" ]]
   [[ "$output" =~ ADD_COUNT:1 ]]
   [[ "$output" =~ CHANGE_COUNT:1 ]]
   [[ "$output" =~ NO_CHANGE_COUNT:1 ]]
@@ -212,7 +219,7 @@ teardown() {
   run bash -c "source \"$PLUGIN_ROOT/functions\" && dns_plan_changes test-app aws"
   assert_success
   
-  [[ "$output" =~ "ADD:new.example.com:" ]]
+  [[ "$output" =~ "ADD:new.example.com:192.168.1.100" ]]
   
   cleanup_test_app test-app
 }

@@ -6,11 +6,18 @@ setup() {
   setup_dns_provider aws
   create_test_app my-app
   add_test_domains my-app test1.com
+  
+  # Mock get_server_ip to return consistent IP for testing
+  get_server_ip() {
+    echo "192.168.1.100"
+  }
+  export -f get_server_ip
 }
 
 teardown() {
   cleanup_test_app my-app
   cleanup_dns_data
+  unset -f get_server_ip
 }
 
 @test "(dns:apps:sync) error when there are no arguments" {
