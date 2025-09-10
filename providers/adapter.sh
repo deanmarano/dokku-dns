@@ -1,0 +1,274 @@
+#!/bin/bash
+# Generic Provider Adapter
+# This layer converts minimal provider functions into plugin-specific functionality
+
+# Load the provider loader system
+PROVIDERS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$PROVIDERS_DIR/loader.sh"
+
+# Plugin configuration
+PLUGIN_DATA_ROOT="${DNS_ROOT:-${DOKKU_LIB_ROOT:-/var/lib/dokku}/services/dns}"
+
+# Initialize provider system
+init_provider_system() {
+    local provider_name="$1"
+    
+    if [[ -n "$provider_name" ]]; then
+        # Load specific provider
+        if ! load_specific_provider "$provider_name"; then
+            echo "Failed to load provider: $provider_name" >&2
+            return 1
+        fi
+    else
+        # Auto-detect and load best available provider
+        if ! auto_load_provider; then
+            echo "No working DNS provider found" >&2
+            return 1
+        fi
+    fi
+    
+    return 0
+}
+
+# Get server IP (plugin-specific logic)
+get_server_ip() {
+    # Try various methods to detect server IP
+    local server_ip
+    
+    # Method 1: Check if IP is set in environment
+    if [[ -n "${DOKKU_DNS_SERVER_IP:-}" ]]; then
+        echo "$DOKKU_DNS_SERVER_IP"
+        return 0
+    fi
+    
+    # Method 2: Try to get public IP from metadata service (AWS/GCP/etc)
+    if server_ip=$(curl -s --max-time 5 http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null) && [[ -n "$server_ip" ]]; then
+        echo "$server_ip"
+        return 0
+    fi
+    
+    # Method 3: Try external IP detection services
+    local ip_services=(
+        "http://ipv4.icanhazip.com"
+        "http://checkip.amazonaws.com"
+        "https://ipecho.net/plain"
+    )
+    
+    for service in "${ip_services[@]}"; do
+        if server_ip=$(curl -s --max-time 5 "$service" 2>/dev/null | tr -d '[:space:]') && [[ -n "$server_ip" ]]; then
+            echo "$server_ip"
+            return 0
+        fi
+    done
+    
+    # Method 4: Get IP from default route interface
+    if server_ip=$(ip route get 8.8.8.8 2>/dev/null | awk '{print $7; exit}') && [[ -n "$server_ip" ]]; then
+        echo "$server_ip"
+        return 0
+    fi
+    
+    echo "Unknown"
+    return 1
+}
+
+# Sync DNS records for an app (high-level plugin operation)
+dns_sync_app() {
+    local app_name="$1"
+    local domains_file="$PLUGIN_DATA_ROOT/$app_name/DOMAINS"
+    
+    if [[ ! -f "$domains_file" ]]; then
+        echo "No DNS-managed domains found for app: $app_name"
+        return 0
+    fi
+    
+    # Get server IP
+    local server_ip
+    server_ip=$(get_server_ip)
+    if [[ -z "$server_ip" ]] || [[ "$server_ip" == "Unknown" ]]; then
+        echo "Error: Unable to determine server IP address" >&2
+        return 1
+    fi
+    
+    echo "Syncing domains for app '$app_name' to server IP: $server_ip"
+    
+    # Read domains and sync each one
+    local domains_synced=0
+    local domain
+    
+    while IFS= read -r domain || [[ -n "$domain" ]]; do
+        [[ -z "$domain" ]] && continue
+        
+        echo "Syncing domain: $domain"
+        
+        # Get zone ID for this domain
+        local zone_id
+        if ! zone_id=$(provider_get_zone_id "$domain"); then
+            echo "Error: No hosted zone found for $domain" >&2
+            continue
+        fi
+        
+        # Create/update A record
+        if provider_create_record "$zone_id" "$domain" "A" "$server_ip" "300"; then
+            domains_synced=$((domains_synced + 1))
+        else
+            echo "Error: Failed to sync DNS record for $domain" >&2
+        fi
+    done < "$domains_file"
+    
+    echo "Synced $domains_synced domain(s)"
+    return 0
+}
+
+# Get DNS status for a domain (high-level plugin operation)
+dns_get_domain_status() {
+    local domain="$1"
+    local server_ip="$2"
+    
+    # Get current DNS record IP from provider
+    local zone_id current_ip
+    
+    if ! zone_id=$(provider_get_zone_id "$domain" 2>/dev/null); then
+        echo "❌"  # No zone
+        return 1
+    fi
+    
+    if ! current_ip=$(provider_get_record "$zone_id" "$domain" "A" 2>/dev/null); then
+        echo "❌"  # No record
+        return 1
+    fi
+    
+    if [[ "$current_ip" == "$server_ip" ]]; then
+        echo "✅"  # Correct IP
+        return 0
+    else
+        echo "⚠️"   # Wrong IP
+        return 1
+    fi
+}
+
+# Add domains to DNS management (high-level plugin operation)
+dns_add_domains() {
+    local app_name="$1"
+    shift
+    local domains=("$@")
+    
+    if [[ ${#domains[@]} -eq 0 ]]; then
+        echo "No domains specified" >&2
+        return 1
+    fi
+    
+    # Validate each domain has a hosted zone
+    local valid_domains=()
+    for domain in "${domains[@]}"; do
+        echo "Validating domain: $domain"
+        
+        if provider_get_zone_id "$domain" >/dev/null 2>&1; then
+            echo "  ✓ Hosted zone found for $domain"
+            valid_domains+=("$domain")
+        else
+            echo "  ✗ No hosted zone found for $domain"
+        fi
+    done
+    
+    if [[ ${#valid_domains[@]} -eq 0 ]]; then
+        echo "No domains have hosted zones" >&2
+        return 1
+    fi
+    
+    # Create app DNS directory
+    local app_dir="$PLUGIN_DATA_ROOT/$app_name"
+    mkdir -p "$app_dir"
+    
+    # Save domains to file
+    local domains_file="$app_dir/DOMAINS"
+    printf '%s\n' "${valid_domains[@]}" > "$domains_file"
+    
+    echo "Added ${#valid_domains[@]} domain(s) to DNS management for app: $app_name"
+    return 0
+}
+
+# Remove app from DNS management
+dns_remove_app() {
+    local app_name="$1"
+    local app_dir="$PLUGIN_DATA_ROOT/$app_name"
+    
+    if [[ -d "$app_dir" ]]; then
+        rm -rf "$app_dir"
+        echo "Removed app '$app_name' from DNS management"
+    else
+        echo "App '$app_name' not found in DNS management"
+    fi
+    
+    return 0
+}
+
+# List all apps under DNS management
+dns_list_apps() {
+    if [[ ! -d "$PLUGIN_DATA_ROOT" ]]; then
+        return 0
+    fi
+    
+    local app_dir
+    for app_dir in "$PLUGIN_DATA_ROOT"/*; do
+        if [[ -d "$app_dir" && -f "$app_dir/DOMAINS" ]]; then
+            basename "$app_dir"
+        fi
+    done
+}
+
+# Get domains for an app
+dns_get_app_domains() {
+    local app_name="$1"
+    local domains_file="$PLUGIN_DATA_ROOT/$app_name/DOMAINS"
+    
+    if [[ -f "$domains_file" ]]; then
+        cat "$domains_file"
+    fi
+}
+
+# Validate provider and show status
+dns_validate_provider() {
+    if ! validate_current_provider; then
+        return 1
+    fi
+    
+    local current_provider
+    current_provider=$(get_current_provider)
+    
+    echo "Current provider: $current_provider"
+    echo "Provider status: ✅ Valid"
+    
+    # Show available zones
+    echo "Available zones:"
+    if ! provider_list_zones | sed 's/^/  /'; then
+        echo "  (Failed to list zones)"
+        return 1
+    fi
+    
+    return 0
+}
+
+# Cleanup DNS records that no longer correspond to active apps
+dns_cleanup_orphaned_records() {
+    local zone_name="$1"
+    
+    if [[ -z "$zone_name" ]]; then
+        echo "Zone name is required" >&2
+        return 1
+    fi
+    
+    # Get zone ID
+    local zone_id
+    if ! zone_id=$(provider_get_zone_id "$zone_name"); then
+        echo "Zone not found: $zone_name" >&2
+        return 1
+    fi
+    
+    echo "Scanning zone '$zone_name' for orphaned records..."
+    
+    # This would need provider-specific logic to list all records
+    # and compare against current app domains
+    # For now, just show a message
+    echo "Orphaned record cleanup not yet implemented"
+    return 0
+}
