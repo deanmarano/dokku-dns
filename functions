@@ -169,7 +169,7 @@ dns_get_record_ip() {
   
   # Try AWS provider DNS checking first (bypasses DNS caching)
   local PROVIDER_SCRIPT
-  PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/aws"
+  PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/aws.sh"
   if [[ -f "$PROVIDER_SCRIPT" ]]; then
     source "$PROVIDER_SCRIPT"
     if declare -f "dns_provider_aws_get_record_ip" >/dev/null 2>&1; then
@@ -227,7 +227,7 @@ dns_app() {
   
   # Load AWS provider functions
   local PROVIDER_SCRIPT
-  PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/aws"
+  PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/aws.sh"
   if [[ ! -f "$PROVIDER_SCRIPT" ]]; then
     dokku_log_fail "AWS provider not found at $PROVIDER_SCRIPT"
   fi
@@ -346,7 +346,7 @@ dns_add_app_domains() {
   
   # Load AWS provider functions to check hosted zones
   local PROVIDER_SCRIPT
-  PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/aws"
+  PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/aws.sh"
   
   # Check if AWS CLI is available and configured before attempting zone validation
   local AWS_AVAILABLE=false
@@ -532,7 +532,7 @@ dns_display_domains_table() {
   # Load AWS provider functions if available
   if [[ "$SYNC_STATUS" == "Ready" ]]; then
     local PROVIDER_SCRIPT
-    PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/aws"
+    PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/aws.sh"
     if [[ -f "$PROVIDER_SCRIPT" ]]; then
       source "$PROVIDER_SCRIPT"
       dns_provider_aws_setup_env
