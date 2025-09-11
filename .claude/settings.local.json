@@ -105,7 +105,11 @@
       "Bash(AWS_MOCK_CONTROL_FILE=\"$PLUGIN_DATA_ROOT/aws_mock_control\" ./tests/bin/aws route53 list-hosted-zones --query \"HostedZones[?Name==''example.com.''].Id\" --output text)",
       "Bash(./debug_provider_function.sh:*)",
       "Bash(./debug_invalid_zone_test.sh:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(MOCK_API_KEY=\"test-key\" bash -c \"source providers/loader.sh && load_provider ''mock'' && echo ''Current provider:'' && get_current_provider && echo ''Available providers:'' && list_available_providers\")",
+      "Bash(MOCK_API_KEY=\"test-key\" bash -c \"source providers/adapter.sh && init_provider_system ''mock'' && echo ''Testing adapter functions:'' && dns_get_domain_status ''www.example.com'' ''192.168.1.100''\")"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

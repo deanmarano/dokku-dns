@@ -2,6 +2,24 @@
 
 This document defines the minimal interface that every DNS provider must implement to be compatible with the Dokku DNS plugin.
 
+## Multi-Provider Support
+
+The Dokku DNS plugin supports **multiple providers simultaneously** through automatic zone discovery. Each provider discovers and manages its own zones:
+
+```bash
+# Example multi-provider setup (automatic):
+AWS Provider: discovers dean.is, mydomain.com (from Route53 API)
+Cloudflare Provider: discovers example.net, test.org (from Cloudflare API)  
+DigitalOcean Provider: discovers demo.io (from DO API)
+
+# Plugin automatically routes operations to the correct provider:
+dean.is → aws (operations go to AWS Route53)
+example.net → cloudflare (operations go to Cloudflare)
+demo.io → digitalocean (operations go to DigitalOcean)
+
+# No manual configuration needed - just ensure providers have valid credentials
+```
+
 ## Required Functions
 
 Every provider must implement these exact function signatures:

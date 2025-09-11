@@ -14,16 +14,38 @@ init_provider_system() {
     local provider_name="$1"
     
     if [[ -n "$provider_name" ]]; then
-        # Load specific provider
+        # Load specific provider (single-provider mode)
         if ! load_specific_provider "$provider_name"; then
             echo "Failed to load provider: $provider_name" >&2
             return 1
         fi
     else
-        # Auto-detect and load best available provider
-        if ! auto_load_provider; then
-            echo "No working DNS provider found" >&2
-            return 1
+        # Check if multi-provider mode should be enabled
+        local PROVIDERS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        local available_providers
+        available_providers=$(get_available_providers | wc -l)
+        
+        if [[ $available_providers -gt 1 ]]; then
+            # Multi-provider mode: auto-discover zones from all providers
+            source "$PROVIDERS_DIR/multi-provider.sh"
+            if init_multi_provider_system; then
+                export MULTI_PROVIDER_MODE=true
+                echo "Multi-provider mode activated" >&2
+            else
+                echo "Multi-provider discovery failed, falling back to single provider" >&2
+                if ! auto_load_provider; then
+                    echo "No working DNS provider found" >&2
+                    return 1
+                fi
+                export MULTI_PROVIDER_MODE=false
+            fi
+        else
+            # Single-provider mode: auto-detect best provider
+            if ! auto_load_provider; then
+                echo "No working DNS provider found" >&2
+                return 1
+            fi
+            export MULTI_PROVIDER_MODE=false
         fi
     fi
     
@@ -102,16 +124,32 @@ dns_sync_app() {
         
         # Get zone ID for this domain
         local zone_id
-        if ! zone_id=$(provider_get_zone_id "$domain"); then
-            echo "Error: No hosted zone found for $domain" >&2
-            continue
-        fi
-        
-        # Create/update A record
-        if provider_create_record "$zone_id" "$domain" "A" "$server_ip" "300"; then
-            domains_synced=$((domains_synced + 1))
+        if [[ "${MULTI_PROVIDER_MODE:-false}" == "true" ]]; then
+            # Multi-provider mode: route to appropriate provider
+            if ! zone_id=$(multi_get_zone_id "$domain"); then
+                echo "Error: No hosted zone found for $domain" >&2
+                continue
+            fi
+            
+            # Create/update A record using appropriate provider
+            if multi_create_record "$zone_id" "$domain" "A" "$server_ip" "300"; then
+                domains_synced=$((domains_synced + 1))
+            else
+                echo "Error: Failed to sync DNS record for $domain" >&2
+            fi
         else
-            echo "Error: Failed to sync DNS record for $domain" >&2
+            # Single provider mode
+            if ! zone_id=$(provider_get_zone_id "$domain"); then
+                echo "Error: No hosted zone found for $domain" >&2
+                continue
+            fi
+            
+            # Create/update A record
+            if provider_create_record "$zone_id" "$domain" "A" "$server_ip" "300"; then
+                domains_synced=$((domains_synced + 1))
+            else
+                echo "Error: Failed to sync DNS record for $domain" >&2
+            fi
         fi
     done < "$domains_file"
     
@@ -127,14 +165,28 @@ dns_get_domain_status() {
     # Get current DNS record IP from provider
     local zone_id current_ip
     
-    if ! zone_id=$(provider_get_zone_id "$domain" 2>/dev/null); then
-        echo "❌"  # No zone
-        return 1
-    fi
-    
-    if ! current_ip=$(provider_get_record "$zone_id" "$domain" "A" 2>/dev/null); then
-        echo "❌"  # No record
-        return 1
+    # Use multi-provider functions if in multi-provider mode
+    if [[ "${MULTI_PROVIDER_MODE:-false}" == "true" ]]; then
+        if ! zone_id=$(multi_get_zone_id "$domain" 2>/dev/null); then
+            echo "❌"  # No zone
+            return 1
+        fi
+        
+        if ! current_ip=$(multi_get_record "$zone_id" "$domain" "A" 2>/dev/null); then
+            echo "❌"  # No record
+            return 1
+        fi
+    else
+        # Single provider mode
+        if ! zone_id=$(provider_get_zone_id "$domain" 2>/dev/null); then
+            echo "❌"  # No zone
+            return 1
+        fi
+        
+        if ! current_ip=$(provider_get_record "$zone_id" "$domain" "A" 2>/dev/null); then
+            echo "❌"  # No record
+            return 1
+        fi
     fi
     
     if [[ "$current_ip" == "$server_ip" ]]; then

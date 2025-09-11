@@ -68,9 +68,25 @@ This is a template for creating new DNS providers for the Dokku DNS plugin.
 - Test with various record types (A, CNAME, TXT)
 - Test rate limiting behavior
 
+## Multi-Provider Setup
+
+Your provider can work alongside other providers in a multi-provider setup:
+
+```bash
+# Assign your zones to your provider
+dokku dns:providers:assign yourzone.com YOUR_PROVIDER_NAME
+
+# Check multi-provider status  
+dokku dns:providers:status
+
+# Your provider will now handle all operations for yourzone.com
+# while other providers handle their assigned zones
+```
+
 ## Example Providers
 
 See these working implementations for reference:
 - `providers/aws/` - AWS Route53
+- `providers/mock/` - Mock provider for testing
 - `providers/cloudflare/` - Cloudflare (coming soon)
 - `providers/digitalocean/` - DigitalOcean (coming soon)
