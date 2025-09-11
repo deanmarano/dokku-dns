@@ -21,7 +21,8 @@ init_provider_system() {
         fi
     else
         # Check if multi-provider mode should be enabled
-        local PROVIDERS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        local PROVIDERS_DIR
+        PROVIDERS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
         local available_providers
         available_providers=$(get_available_providers | wc -l)
         

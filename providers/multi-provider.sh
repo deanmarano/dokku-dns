@@ -70,7 +70,11 @@ discover_all_providers() {
     done
     
     echo "Zone discovery complete: $working_providers working provider(s)" >&2
-    return $([[ $working_providers -gt 0 ]] && echo 0 || echo 1)
+    if [[ $working_providers -gt 0 ]]; then
+        return 0
+    else
+        return 1
+    fi
 }
 
 # Find which provider manages a specific zone
@@ -134,7 +138,7 @@ multi_get_record() {
     # Determine zone from record name (remove first subdomain)
     local zone_name
     if [[ "$record_name" == *.* ]]; then
-        zone_name=$(echo "$record_name" | sed 's/^[^.]*\.//')
+        zone_name="${record_name#*.}"
     else
         zone_name="$record_name"
     fi
@@ -165,7 +169,7 @@ multi_create_record() {
     # Determine zone from record name
     local zone_name
     if [[ "$record_name" == *.* ]]; then
-        zone_name=$(echo "$record_name" | sed 's/^[^.]*\.//')
+        zone_name="${record_name#*.}"
     else
         zone_name="$record_name"
     fi
@@ -194,7 +198,7 @@ multi_delete_record() {
     # Determine zone from record name
     local zone_name
     if [[ "$record_name" == *.* ]]; then
-        zone_name=$(echo "$record_name" | sed 's/^[^.]*\.//')
+        zone_name="${record_name#*.}"
     else
         zone_name="$record_name"
     fi
@@ -236,7 +240,9 @@ show_discovered_zones() {
             local zones
             zones=$(cat "$provider_file")
             if [[ -n "$zones" ]]; then
-                echo "$zones" | sed 's/^/  /'
+                while IFS= read -r zone; do
+                    echo "  $zone"
+                done <<< "$zones"
             else
                 echo "  (no zones)"
             fi
@@ -259,7 +265,7 @@ init_multi_provider_system() {
     fi
     
     local provider_count
-    provider_count=$(ls "$MULTI_PROVIDER_DATA/providers" 2>/dev/null | wc -l)
+    provider_count=$(find "$MULTI_PROVIDER_DATA/providers" -mindepth 1 -maxdepth 1 2>/dev/null | wc -l)
     
     if [[ $provider_count -eq 0 ]]; then
         echo "No working providers found" >&2
