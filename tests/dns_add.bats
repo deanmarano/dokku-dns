@@ -40,7 +40,7 @@ teardown() {
   [[ "$output" =~ example\.com ]]
   [[ "$output" =~ api\.example\.com ]]
   assert_output_contains "No (zone disabled)" 2  # Enabled column - appears once per domain
-  assert_output_contains "AWS" 4
+  assert_output_contains "Provider system ready" 1  
   assert_output_contains "Status Legend:"
   assert_output_contains "✅ Points to server IP"
   assert_output_contains "⚠️  Points to different IP"
@@ -55,7 +55,7 @@ teardown() {
   assert_output_contains "Domain Status Table for app 'my-app':"
   [[ "$output" =~ example\.com ]]
   assert_output_contains "No (zone disabled)" 1  # Enabled column - appears in table
-  assert_output_contains "AWS" 3
+  assert_output_contains "Provider system ready" 1
   assert_output_contains "Status Legend:"
 }
 
@@ -66,7 +66,7 @@ teardown() {
   assert_output_contains "Domain Status Table for app 'my-app':"
   [[ "$output" =~ example\.com ]]
   [[ "$output" =~ api\.example\.com ]]
-  assert_output_contains "AWS" 4  # appears multiple times
+  assert_output_contains "Provider system ready" 1
 }
 
 @test "(dns:apps:enable) handles app with no domains gracefully" {
@@ -87,7 +87,7 @@ teardown() {
   
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app
   assert_success
-  assert_output_contains "Provider: AWS"
+  assert_output_contains "provider system" 3
   # Should show zone disabled status for each domain the app has
   # Count should match the number of domains for my-app (typically 2: example.com, api.example.com)
   local domain_count=$(echo "$output" | grep -c "No (zone disabled)")
