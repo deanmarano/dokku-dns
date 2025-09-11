@@ -30,9 +30,27 @@ dns_provider_aws_get_record_ip() {
 }
 
 dns_provider_aws_sync_app() {
-    # This will be replaced by the adapter layer
-    echo "Legacy aws sync function - use dns_sync_app instead" >&2
-    return 1
+    local app_name="$1"
+    
+    # Load the adapter layer to use the new provider system
+    local ADAPTER_PATH
+    ADAPTER_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/adapter.sh"
+    
+    if [[ ! -f "$ADAPTER_PATH" ]]; then
+        echo "DNS adapter not found - using basic compatibility mode" >&2
+        return 1
+    fi
+    
+    source "$ADAPTER_PATH"
+    
+    # Initialize the provider system (single provider mode - AWS only)
+    if ! init_provider_system "aws"; then
+        echo "Failed to initialize AWS provider" >&2
+        return 1
+    fi
+    
+    # Use the new dns_sync_app function
+    dns_sync_app "$app_name"
 }
 
 # Provider function interface - standardized entry points
