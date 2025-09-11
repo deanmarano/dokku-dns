@@ -325,3 +325,127 @@ dns_cleanup_orphaned_records() {
     echo "Orphaned record cleanup not yet implemented"
     return 0
 }
+
+# Validate that a domain can be managed by any provider
+dns_validate_domain() {
+    local domain="$1"
+    
+    if [[ -z "$domain" ]]; then
+        echo "Domain is required" >&2
+        return 1
+    fi
+    
+    # Check if any provider can handle this domain
+    if [[ "$MULTI_PROVIDER_MODE" == "true" ]]; then
+        # Multi-provider mode: check which provider can handle this zone
+        source "$PROVIDERS_DIR/multi-provider.sh"
+        find_provider_for_zone "$domain" >/dev/null 2>&1
+    else
+        # Single provider mode: check if the current provider can handle it
+        provider_get_zone_id "$domain" >/dev/null 2>&1
+    fi
+}
+
+# Create or update a DNS record
+dns_create_record() {
+    local domain="$1"
+    local record_type="$2"
+    local record_value="$3"
+    local ttl="${4:-300}"
+    
+    if [[ -z "$domain" ]] || [[ -z "$record_type" ]] || [[ -z "$record_value" ]]; then
+        echo "Domain, record type, and record value are required" >&2
+        return 1
+    fi
+    
+    # Get zone ID for the domain
+    local zone_id
+    if [[ "$MULTI_PROVIDER_MODE" == "true" ]]; then
+        # Multi-provider mode: find the right provider and get zone ID
+        source "$PROVIDERS_DIR/multi-provider.sh"
+        zone_id=$(multi_get_zone_id "$domain")
+    else
+        # Single provider mode
+        zone_id=$(provider_get_zone_id "$domain")
+    fi
+    
+    if [[ -z "$zone_id" ]]; then
+        echo "No zone found for domain: $domain" >&2
+        return 1
+    fi
+    
+    # Create the record using the appropriate provider
+    if [[ "$MULTI_PROVIDER_MODE" == "true" ]]; then
+        multi_create_record "$zone_id" "$domain" "$record_type" "$record_value" "$ttl"
+    else
+        provider_create_record "$zone_id" "$domain" "$record_type" "$record_value" "$ttl"
+    fi
+}
+
+# Get current value of a DNS record
+dns_get_record() {
+    local domain="$1"
+    local record_type="$2"
+    
+    if [[ -z "$domain" ]] || [[ -z "$record_type" ]]; then
+        echo "Domain and record type are required" >&2
+        return 1
+    fi
+    
+    # Get zone ID for the domain
+    local zone_id
+    if [[ "$MULTI_PROVIDER_MODE" == "true" ]]; then
+        # Multi-provider mode: find the right provider and get zone ID
+        source "$PROVIDERS_DIR/multi-provider.sh"
+        zone_id=$(multi_get_zone_id "$domain")
+    else
+        # Single provider mode
+        zone_id=$(provider_get_zone_id "$domain")
+    fi
+    
+    if [[ -z "$zone_id" ]]; then
+        echo "No zone found for domain: $domain" >&2
+        return 1
+    fi
+    
+    # Get the record using the appropriate provider
+    if [[ "$MULTI_PROVIDER_MODE" == "true" ]]; then
+        multi_get_record "$zone_id" "$domain" "$record_type"
+    else
+        provider_get_record "$zone_id" "$domain" "$record_type"
+    fi
+}
+
+# Delete a DNS record
+dns_delete_record() {
+    local domain="$1"
+    local record_type="$2"
+    
+    if [[ -z "$domain" ]] || [[ -z "$record_type" ]]; then
+        echo "Domain and record type are required" >&2
+        return 1
+    fi
+    
+    # Get zone ID for the domain
+    local zone_id
+    if [[ "$MULTI_PROVIDER_MODE" == "true" ]]; then
+        # Multi-provider mode: find the right provider and get zone ID
+        source "$PROVIDERS_DIR/multi-provider.sh"
+        zone_id=$(multi_get_zone_id "$domain")
+    else
+        # Single provider mode
+        zone_id=$(provider_get_zone_id "$domain")
+    fi
+    
+    if [[ -z "$zone_id" ]]; then
+        echo "No zone found for domain: $domain" >&2
+        return 1
+    fi
+    
+    # Delete the record using the appropriate provider
+    if [[ "$MULTI_PROVIDER_MODE" == "true" ]]; then
+        multi_delete_record "$zone_id" "$domain" "$record_type"
+    else
+        provider_delete_record "$zone_id" "$domain" "$record_type"
+    fi
+}

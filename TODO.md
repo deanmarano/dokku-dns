@@ -29,19 +29,25 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - [ ] Handle cases where DNS records are already correct (no changes needed)
 
 
-## Phase 13: AWS Core Operations Modularization (Medium Priority)
+## Phase 13: Generic Provider Interface with Zone-Based Delegation (Medium Priority)
 
-- [ ] **Extract AWS Logic from Core DNS Commands**
-  - [ ] **add command**: Extract AWS hosted zone checking to `providers/aws/add.sh`
-  - [ ] **sync command**: Extract AWS-specific sync logic to `providers/aws/sync.sh`
-  - [ ] **sync-all command**: Extract AWS batch optimization to `providers/aws/sync-all.sh`
-  - [ ] **report command**: Extract AWS record IP checking to `providers/aws/report.sh`
+- [x] **Create Generic Provider Interface** ✅
+  - [x] Subcommands call generic provider functions (not AWS-specific) ✅
+  - [x] Provider system automatically delegates by zone to correct service ✅
+  - [x] Clean separation: subcommands → generic provider → zone delegation → service (AWS/Cloudflare/etc.) ✅
 
-- [ ] **Create Core Provider Scripts**
-  - [ ] `providers/aws/add.sh` - AWS hosted zone validation for domain addition
-  - [ ] `providers/aws/sync.sh` - AWS DNS record synchronization
-  - [ ] `providers/aws/sync-all.sh` - AWS batch operations and optimization
-  - [ ] `providers/aws/report.sh` - AWS DNS record checking and IP resolution
+- [x] **Core Generic Provider Methods (in providers/aws.sh)** ✅
+  - [x] `provider_create_domain_record(domain, ip, ttl)` - Create/update A record, auto-delegates by zone ✅
+  - [x] `provider_get_domain_record(domain)` - Get current IP, auto-delegates by zone ✅
+  - [x] `provider_delete_domain_record(domain)` - Delete A record, auto-delegates by zone ✅
+  - [x] `provider_batch_create_records(domains, ip, ttl)` - Bulk create/update, auto-delegates by zone ✅
+  - [x] `provider_validate_domain(domain)` - Check if any provider can manage domain ✅
+  - [x] `provider_get_domain_status(domain, server_ip)` - Get status, auto-delegates by zone ✅
+
+- [x] **Update Core Functions to Use Generic Interface** ✅
+  - [x] Update `dns_add_app_domains` to call `provider_validate_domain()` ✅
+  - [x] Remove AWS-specific references in favor of generic provider calls ✅
+  - [x] Provider system handles AWS/Cloudflare/etc. delegation automatically ✅
 
 ## Phase 14: AWS Management Operations Modularization (Medium Priority)
 

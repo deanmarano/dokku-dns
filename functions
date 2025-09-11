@@ -342,61 +342,54 @@ dns_add_app_domains() {
   local VALID_DOMAINS=()
   local SKIPPED_DOMAINS=()
   
-  dokku_log_info1 "Filtering domains - Provider: AWS, New domains: ${#NEW_DOMAINS[@]}"
+  dokku_log_info1 "Filtering domains - Using provider system, New domains: ${#NEW_DOMAINS[@]}"
   
-  # Load AWS provider functions to check hosted zones
+  # Load generic provider interface
   local PROVIDER_SCRIPT
   PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/aws.sh"
   
-  # Check if AWS CLI is available and configured before attempting zone validation
-  local AWS_AVAILABLE=false
-  if command -v aws >/dev/null 2>&1; then
-    if aws sts get-caller-identity >/dev/null 2>&1; then
-      AWS_AVAILABLE=true
+  # Check if any provider is available and configured
+  local PROVIDER_AVAILABLE=false
+  if [[ -f "$PROVIDER_SCRIPT" ]]; then
+    source "$PROVIDER_SCRIPT"
+    # Try to initialize provider system to check availability
+    if provider_validate_domain "test.example.com" >/dev/null 2>&1 || [[ $? -eq 1 ]]; then
+      PROVIDER_AVAILABLE=true
     fi
   fi
   
-  if [[ -f "$PROVIDER_SCRIPT" ]] && [[ "$AWS_AVAILABLE" == "true" ]]; then
-    source "$PROVIDER_SCRIPT"
-    dns_provider_aws_setup_env
-      
-    # AWS is properly configured - check hosted zones for domain validation
-    dokku_log_info1 "AWS credentials OK - checking hosted zones for new domains..."
+  if [[ -f "$PROVIDER_SCRIPT" ]] && [[ "$PROVIDER_AVAILABLE" == "true" ]]; then
+    # Provider system is available - check zones for domain validation
+    dokku_log_info1 "Provider system ready - checking zones for new domains..."
     
     for DOMAIN in "${NEW_DOMAINS[@]}"; do
       [[ -z "$DOMAIN" ]] && continue
       
       dokku_log_info1 "Checking domain: $DOMAIN"
-      # Check if domain has a hosted zone (disable exit on error for this call)
-      local ZONE_ID
-      set +e  # Temporarily disable exit on error
-      ZONE_ID=$(dns_provider_aws_get_hosted_zone_id "$DOMAIN" 2>/dev/null)
-      local ZONE_CHECK_EXIT_CODE=$?
-      set -e  # Re-enable exit on error
-      
-      if [[ $ZONE_CHECK_EXIT_CODE -eq 0 ]] && [[ -n "$ZONE_ID" ]]; then
+      # Check if domain can be managed by any provider
+      if provider_validate_domain "$DOMAIN"; then
         # Check if this domain is in an enabled zone
         if is_domain_in_enabled_zone "$DOMAIN"; then
           VALID_DOMAINS+=("$DOMAIN")
-          dokku_log_info1 "✓ $DOMAIN has hosted zone: $ZONE_ID (zone enabled)"
+          dokku_log_info1 "✓ $DOMAIN can be managed (zone enabled)"
         else
           SKIPPED_DOMAINS+=("$DOMAIN")
-          dokku_log_info1 "✗ $DOMAIN has hosted zone: $ZONE_ID but zone is not enabled for auto-discovery"
+          dokku_log_info1 "✗ $DOMAIN can be managed but zone is not enabled for auto-discovery"
         fi
       else
         SKIPPED_DOMAINS+=("$DOMAIN")
-        dokku_log_info1 "✗ $DOMAIN has no hosted zone"
+        dokku_log_info1 "✗ $DOMAIN cannot be managed (no provider zone found)"
       fi
       dokku_log_info1 "Finished checking domain: $DOMAIN"
     done
-    dokku_log_info1 "Completed hosted zone checks for all domains"
+    dokku_log_info1 "Completed zone checks for all domains"
   else
-    # AWS CLI not available/configured or provider script missing - skip validation
+    # Provider system not available/configured or provider script missing - skip validation
     if [[ ! -f "$PROVIDER_SCRIPT" ]]; then
-      dokku_log_warn "AWS provider script not found - adding all new domains without validation"
+      dokku_log_warn "Provider script not found - adding all new domains without validation"
     else
-      dokku_log_info1 "AWS CLI not available or not configured - adding all new domains without hosted zone validation"
-      dokku_log_info1 "Run 'dokku $PLUGIN_COMMAND_PREFIX:providers:verify' to configure AWS credentials for zone validation"
+      dokku_log_info1 "Provider system not available or not configured - adding all new domains without zone validation"
+      dokku_log_info1 "Run 'dokku $PLUGIN_COMMAND_PREFIX:providers:verify' to configure provider credentials for zone validation"
     fi
     VALID_DOMAINS=("${NEW_DOMAINS[@]}")
   fi
