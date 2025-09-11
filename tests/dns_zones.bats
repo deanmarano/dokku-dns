@@ -191,7 +191,7 @@ create_mock_provider_scripts() {
     export PLUGIN_ROOT="$TEST_PLUGIN_ROOT"
     
     # Create mock AWS provider script in test directory
-    cat > "$TEST_PLUGIN_ROOT/providers/aws" << 'EOF'
+    cat > "$TEST_PLUGIN_ROOT/providers/aws.sh" << 'EOF'
 #!/bin/bash
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
@@ -257,7 +257,7 @@ dns_provider_aws_sync_app() {
     return 0
 }
 EOF
-    chmod +x "$TEST_PLUGIN_ROOT/providers/aws"
+    chmod +x "$TEST_PLUGIN_ROOT/providers/aws.sh"
 }
 
 # Cleanup mock provider scripts

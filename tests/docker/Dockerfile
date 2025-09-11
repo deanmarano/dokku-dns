@@ -31,8 +31,12 @@ WORKDIR /plugin
 
 # Copy test scripts and make executable
 COPY tests/docker/run-tests.sh /tests/run-tests.sh
+COPY tests/docker/dokku-wrapper.sh /usr/local/bin/dokku-wrapper.sh
 COPY scripts/test-docker.sh /test-docker.sh
-RUN chmod +x /tests/run-tests.sh /test-docker.sh
+RUN chmod +x /tests/run-tests.sh /test-docker.sh /usr/local/bin/dokku-wrapper.sh
+
+# Create dokku command symlink
+RUN ln -sf /usr/local/bin/dokku-wrapper.sh /usr/local/bin/dokku
 
 # Default command
 CMD ["/tests/run-tests.sh"]

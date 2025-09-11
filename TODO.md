@@ -28,20 +28,6 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - [ ] Include change detection logic to avoid unnecessary API calls
   - [ ] Handle cases where DNS records are already correct (no changes needed)
 
-## Phase 12: AWS Provider Architecture Foundation (Medium Priority)
-
-- [ ] **Restructure AWS Provider Architecture**
-  - [ ] Convert `providers/aws` file into `providers/aws/` directory structure
-  - [ ] Create `providers/aws/common.sh` with shared AWS utility functions
-  - [ ] Move existing AWS provider functions to appropriate files
-  - [ ] Ensure all provider scripts import common utilities
-  - [ ] Update main provider loading to work with new structure
-
-- [ ] **Implement Provider Function Interface**
-  - [ ] Standardize provider function naming convention
-  - [ ] Create provider capability detection system
-  - [ ] Implement graceful fallbacks for missing provider functions
-  - [ ] Update core commands to use standardized provider interface
 
 ## Phase 13: AWS Core Operations Modularization (Medium Priority)
 

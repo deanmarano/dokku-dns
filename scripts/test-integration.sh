@@ -171,16 +171,41 @@ main() {
     if ! dokku help | grep -q dns; then
         log_info "DNS plugin not found. Attempting to install from mounted source..."
         
-        # Install the plugin from the mounted directory
+        # Install the plugin from the mounted directory (different paths in different environments)
+        local plugin_source=""
         if [[ -d "/tmp/dokku-dns" ]]; then
-            log_info "Installing DNS plugin from /tmp/dokku-dns..."
-            dokku plugin:install /tmp/dokku-dns dns || {
+            plugin_source="/tmp/dokku-dns"
+        elif [[ -d "/plugin" ]]; then
+            plugin_source="/plugin"
+        fi
+        
+        if [[ -n "$plugin_source" ]]; then
+            log_info "Installing DNS plugin from $plugin_source..."
+            
+            # Copy plugin to dokku plugins directory and install
+            dokku plugin:install "file://$plugin_source" dns || {
                 log_error "Failed to install DNS plugin from mounted directory"
-                exit 1
+                
+                # Try alternative installation method for Docker environment
+                log_info "Attempting manual plugin installation..."
+                if command -v docker >/dev/null 2>&1; then
+                    # We're in a Docker environment, try copying directly to dokku container
+                    docker exec dokku-local mkdir -p /var/lib/dokku/plugins/available/dns 2>/dev/null || true
+                    docker cp "$plugin_source/." dokku-local:/var/lib/dokku/plugins/available/dns/ 2>/dev/null || true
+                    docker exec dokku-local dokku plugin:enable dns 2>/dev/null || true
+                fi
+                
+                # Final check
+                if ! dokku help | grep -q dns; then
+                    log_error "All DNS plugin installation methods failed"
+                    exit 1
+                else
+                    log_success "DNS plugin successfully installed via manual method"
+                fi
             }
             log_success "DNS plugin installed successfully"
         else
-            log_error "DNS plugin source not found at /tmp/dokku-dns"
+            log_error "DNS plugin source not found at /tmp/dokku-dns or /plugin"
             log_error "Please ensure the plugin source is mounted correctly"
             exit 1
         fi
