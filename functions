@@ -225,7 +225,7 @@ dns_get_server_ip() {
 dns_app() {
   local APP="$1"
   
-  # Load AWS provider functions
+  # Load AWS provider functions (includes generic interface)
   local PROVIDER_SCRIPT
   PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/aws.sh"
   if [[ ! -f "$PROVIDER_SCRIPT" ]]; then
@@ -233,7 +233,7 @@ dns_app() {
   fi
   source "$PROVIDER_SCRIPT"
   
-  # Call the AWS sync function
+  # Call the AWS sync function (which uses the new adapter system internally)
   if declare -f "dns_provider_aws_sync_app" >/dev/null 2>&1; then
     dns_provider_aws_sync_app "$APP"
     return 0
