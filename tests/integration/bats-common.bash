@@ -24,11 +24,29 @@ skip_if_no_aws_credentials() {
     fi
 }
 
+# Setup mock provider for testing when AWS is not available
+setup_mock_provider() {
+    # Export mock API key to enable mock provider
+    export MOCK_API_KEY="test-key"
+    
+    # Disable AWS credentials to force mock provider usage
+    unset AWS_ACCESS_KEY_ID 2>/dev/null || true
+    unset AWS_SECRET_ACCESS_KEY 2>/dev/null || true
+    unset AWS_SESSION_TOKEN 2>/dev/null || true
+    unset AWS_PROFILE 2>/dev/null || true
+    
+    # Clear any existing provider cache to force re-detection
+    unset CURRENT_PROVIDER 2>/dev/null || true
+}
+
 # Helper function to create test app with domains
 setup_test_app() {
     local app_name="$1"
     local domain1="${2:-app.example.com}"
     local domain2="${3:-api.example.com}"
+    
+    # Setup mock provider for integration tests
+    setup_mock_provider
     
     if ! dokku apps:list 2>/dev/null | grep -q "$app_name"; then
         dokku apps:create "$app_name" >/dev/null 2>&1
