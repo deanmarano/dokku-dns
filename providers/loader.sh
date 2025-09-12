@@ -100,11 +100,8 @@ load_provider() {
 
 # Auto-detect and load the best available provider
 auto_load_provider() {
-    local providers=()
-    # Use compatible array loading for older bash versions
-    while IFS= read -r provider; do
-        [[ -n "$provider" ]] && providers+=("$provider")
-    done < <(get_available_providers)
+    local providers
+    mapfile -t providers < <(get_available_providers)
     
     for provider in "${providers[@]}"; do
         if load_provider "$provider"; then

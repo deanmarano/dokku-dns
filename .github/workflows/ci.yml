@@ -168,8 +168,6 @@ jobs:
             echo '🧪 Found BATS integration tests, running...' &&
             echo '📋 Available test files:' &&
             ls -la *.bats &&
-            export MOCK_API_KEY='test-key' &&
-            unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_PROFILE 2>/dev/null || true &&
             bats *.bats
           else
             echo '❌ No BATS integration tests found'
