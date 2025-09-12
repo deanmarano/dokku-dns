@@ -29,12 +29,6 @@ setup_mock_provider() {
     # Export mock API key to enable mock provider
     export MOCK_API_KEY="test-key"
     
-    # Disable AWS credentials to force mock provider usage
-    export AWS_ACCESS_KEY_ID="invalid"
-    export AWS_SECRET_ACCESS_KEY="invalid" 
-    unset AWS_SESSION_TOKEN 2>/dev/null || true
-    unset AWS_PROFILE 2>/dev/null || true
-    
     # Clear any existing provider cache to force re-detection
     unset CURRENT_PROVIDER 2>/dev/null || true
     
