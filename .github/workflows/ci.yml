@@ -148,6 +148,11 @@ jobs:
           mkdir -p /var/lib/dokku/services/dns &&
           chown -R dokku:dokku /var/lib/dokku/services/dns 2>/dev/null || true &&
           
+          # Install AWS CLI for integration tests
+          echo '🔧 Installing AWS CLI in Dokku container...' &&
+          apt-get update -qq >/dev/null 2>&1 &&
+          apt-get install -y awscli dnsutils >/dev/null 2>&1 &&
+          
           # Install BATS in dokku container
           if ! command -v bats >/dev/null 2>&1; then
             echo '📦 Installing BATS for integration testing...' &&
@@ -168,6 +173,11 @@ jobs:
             echo '🧪 Found BATS integration tests, running...' &&
             echo '📋 Available test files:' &&
             ls -la *.bats &&
+            echo '🔧 Setting up mock provider for testing...' &&
+            export MOCK_API_KEY='test-key' &&
+            export AWS_ACCESS_KEY_ID='invalid' &&
+            export AWS_SECRET_ACCESS_KEY='invalid' &&
+            unset AWS_SESSION_TOKEN AWS_PROFILE 2>/dev/null || true &&
             bats *.bats
           else
             echo '❌ No BATS integration tests found'
