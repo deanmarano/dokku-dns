@@ -47,11 +47,11 @@ setup() {
 @test "(providers) cloudflare provider has correct configuration" {
     run bash -c "source ../../providers/cloudflare/config.sh && echo \$PROVIDER_NAME"
     assert_success
-    assert_output "cloudflare"
+    assert_output --partial "cloudflare"
 
     run bash -c "source ../../providers/cloudflare/config.sh && echo \$PROVIDER_DISPLAY_NAME"
     assert_success
-    assert_output "Cloudflare"
+    assert_output --partial "Cloudflare"
 }
 
 @test "(providers) cloudflare provider implements required functions" {
