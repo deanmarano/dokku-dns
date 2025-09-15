@@ -12,10 +12,10 @@ setup() {
     check_dns_plugin_available
 }
 
-@test "(dns:report) shows AWS as default provider" {
+@test "(dns:report) shows mock provider when AWS CLI not available" {
     run dokku dns:report
     assert_success
-    assert_output --partial "DNS Provider: AWS"
+    assert_output --partial "DNS Provider: MOCK"
 }
 
 @test "(dns:providers:verify) shows AWS CLI status" {

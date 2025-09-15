@@ -70,36 +70,54 @@ service-sync-all-cmd() {
     return 0
   fi
   
-  # Check if we can use batch sync for AWS
-  local PROVIDER="aws"
-  if [[ "$PROVIDER" == "aws" ]]; then
-    dokku_log_info2 "Using batch sync for AWS Route53 (more efficient)"
+  # Try to use provider system for optimized batch sync
+  dokku_log_info2 "Using provider system for DNS sync (supports multi-provider)"
+  
+  # Load generic provider interface
+  local PROVIDER_SCRIPT
+  PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/providers/aws.sh"
+  if [[ -f "$PROVIDER_SCRIPT" ]]; then
+    source "$PROVIDER_SCRIPT"
     
-    # Load the provider functions
-    local PROVIDER_SCRIPT
-    PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/providers/$PROVIDER"
-    if [[ -f "$PROVIDER_SCRIPT" ]]; then
-      source "$PROVIDER_SCRIPT"
+    # Load adapter for batch operations
+    local PROVIDERS_DIR
+    PROVIDERS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/providers"
+    source "$PROVIDERS_DIR/adapter.sh"
+    
+    # Initialize provider system
+    if init_provider_system; then
+      # Use generic batch sync for all managed apps
+      local success_count=0
+      local fail_count=0
       
-      # Use batch sync function
-      if dns_provider_aws_batch_sync_all; then
-        dokku_log_info1 "🎉 Batch DNS sync completed successfully!"
+      for app in "${managed_apps[@]}"; do
+        dokku_log_info1 "Syncing DNS records for app: $app"
         
-        # Log end time
-        end_time=$(date '+%Y-%m-%d %H:%M:%S %Z')
-        echo "[$end_time] DNS sync-all operation completed"
+        if dns_sync_app "$app"; then
+          success_count=$((success_count + 1))
+          dokku_log_info1 "✅ Successfully synced DNS for: $app"
+        else
+          fail_count=$((fail_count + 1))
+          dokku_log_warn "❌ Failed to sync DNS for: $app"
+        fi
+      done
+      
+      # Log end time
+      end_time=$(date '+%Y-%m-%d %H:%M:%S %Z')
+      echo "[$end_time] DNS sync-all operation completed"
+      
+      if [[ $fail_count -eq 0 ]]; then
+        dokku_log_info1 "🎉 Batch DNS sync completed successfully!"
         return 0
       else
-        dokku_log_warn "Batch DNS sync encountered some failures"
-        
-        # Log end time
-        end_time=$(date '+%Y-%m-%d %H:%M:%S %Z')
-        echo "[$end_time] DNS sync-all operation completed"
+        dokku_log_warn "Batch DNS sync encountered some failures ($fail_count failed)"
         return 1
       fi
     else
-      dokku_log_fail "AWS provider script not found"
+      dokku_log_fail "Failed to initialize provider system"
     fi
+  else
+    dokku_log_fail "Provider script not found"
   fi
   
   # Fallback to individual app sync for other providers or if batch fails

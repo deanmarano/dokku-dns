@@ -80,8 +80,25 @@ dns_global_report() {
     fi
   fi
   
-  # Display global configuration
-  dokku_log_info1 "DNS Provider: AWS"
+  # Detect current provider dynamically
+  local CURRENT_PROVIDER="None"
+  local PROVIDER_SCRIPT
+  PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../providers/aws.sh"
+  if [[ -f "$PROVIDER_SCRIPT" ]]; then
+    source "$PROVIDER_SCRIPT"
+    # Try to get current provider from adapter system
+    local PROVIDERS_DIR
+    PROVIDERS_DIR="$(dirname "$PROVIDER_SCRIPT")"
+    if [[ -f "$PROVIDERS_DIR/loader.sh" ]]; then
+      source "$PROVIDERS_DIR/loader.sh"
+      if auto_load_provider >/dev/null 2>&1; then
+        CURRENT_PROVIDER=$(get_current_provider 2>/dev/null || echo "None")
+      fi
+    fi
+  fi
+  
+  # Display global configuration  
+  dokku_log_info1 "DNS Provider: $(echo "$CURRENT_PROVIDER" | tr '[:lower:]' '[:upper:]')"
   dokku_log_info1 "Configuration Status: $CONFIG_STATUS"
   
   # Get apps under DNS management
@@ -362,8 +379,25 @@ dns_report() {
     fi
   fi
   
+  # Detect current provider dynamically for single app report
+  local CURRENT_PROVIDER="None"
+  local PROVIDER_SCRIPT
+  PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../providers/aws.sh"
+  if [[ -f "$PROVIDER_SCRIPT" ]]; then
+    source "$PROVIDER_SCRIPT"
+    # Try to get current provider from adapter system
+    local PROVIDERS_DIR
+    PROVIDERS_DIR="$(dirname "$PROVIDER_SCRIPT")"
+    if [[ -f "$PROVIDERS_DIR/loader.sh" ]]; then
+      source "$PROVIDERS_DIR/loader.sh"
+      if auto_load_provider >/dev/null 2>&1; then
+        CURRENT_PROVIDER=$(get_current_provider 2>/dev/null || echo "None")
+      fi
+    fi
+  fi
+  
   # Display global configuration
-  dokku_log_info1 "DNS Provider: AWS"
+  dokku_log_info1 "DNS Provider: $(echo "$CURRENT_PROVIDER" | tr '[:lower:]' '[:upper:]')"
   dokku_log_info1 "Configuration Status: $CONFIG_STATUS"
   
   # Display DNS add status

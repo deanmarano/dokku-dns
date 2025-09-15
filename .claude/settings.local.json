@@ -109,7 +109,8 @@
       "Bash(gh pr create:*)",
       "Bash(gh pr diff:*)",
       "Bash(MOCK_API_KEY=\"test-key\" bash -c \"source providers/loader.sh && load_provider ''mock'' && echo ''Current provider:'' && get_current_provider && echo ''Available providers:'' && list_available_providers\")",
-      "Bash(MOCK_API_KEY=\"test-key\" bash -c \"source providers/adapter.sh && init_provider_system ''mock'' && echo ''Testing adapter functions:'' && dns_get_domain_status ''www.example.com'' ''192.168.1.100''\")"
+      "Bash(MOCK_API_KEY=\"test-key\" bash -c \"source providers/adapter.sh && init_provider_system ''mock'' && echo ''Testing adapter functions:'' && dns_get_domain_status ''www.example.com'' ''192.168.1.100''\")",
+      "Bash(gh run watch:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"
