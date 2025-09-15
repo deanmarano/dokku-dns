@@ -32,24 +32,24 @@ setup() {
 }
 
 @test "(providers) cloudflare provider is available in the system" {
-    run cat providers/available
+    run cat ../../providers/available
     assert_success
     assert_output --partial "cloudflare"
 }
 
 @test "(providers) cloudflare provider loads successfully" {
     export CLOUDFLARE_API_TOKEN="test-token-for-integration"
-    run bash -c "source providers/loader.sh && load_provider cloudflare 2>&1"
+    run bash -c "source ../../providers/loader.sh && load_provider cloudflare 2>&1"
     assert_success
     assert_output --partial "Loaded provider: cloudflare"
 }
 
 @test "(providers) cloudflare provider has correct configuration" {
-    run bash -c "source providers/cloudflare/config.sh && echo \$PROVIDER_NAME"
+    run bash -c "source ../../providers/cloudflare/config.sh && echo \$PROVIDER_NAME"
     assert_success
     assert_output "cloudflare"
 
-    run bash -c "source providers/cloudflare/config.sh && echo \$PROVIDER_DISPLAY_NAME"
+    run bash -c "source ../../providers/cloudflare/config.sh && echo \$PROVIDER_DISPLAY_NAME"
     assert_success
     assert_output "Cloudflare"
 }
@@ -65,18 +65,18 @@ setup() {
     )
 
     for func in "${required_functions[@]}"; do
-        run bash -c "source providers/cloudflare/provider.sh && declare -f $func"
+        run bash -c "source ../../providers/cloudflare/provider.sh && declare -f $func"
         assert_success
     done
 }
 
 @test "(providers) cloudflare provider validates structure correctly" {
-    run bash -c "source providers/loader.sh && validate_provider cloudflare"
+    run bash -c "source ../../providers/loader.sh && validate_provider cloudflare"
     assert_success
 }
 
 @test "(providers) multi-provider detection includes cloudflare" {
-    run bash -c "source providers/loader.sh && list_available_providers"
+    run bash -c "source ../../providers/loader.sh && list_available_providers"
     assert_success
     assert_output --partial "cloudflare"
     assert_output --partial "aws"
@@ -85,7 +85,7 @@ setup() {
 
 @test "(providers) cloudflare provider requires API token" {
     unset CLOUDFLARE_API_TOKEN
-    run bash -c "source providers/cloudflare/provider.sh && provider_validate_credentials"
+    run bash -c "source ../../providers/cloudflare/provider.sh && provider_validate_credentials"
     assert_failure
     assert_output --partial "Missing required environment variable: CLOUDFLARE_API_TOKEN"
 }
