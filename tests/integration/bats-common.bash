@@ -32,10 +32,10 @@ setup_mock_provider() {
     # Clear any existing provider cache to force re-detection
     unset CURRENT_PROVIDER 2>/dev/null || true
     
-    # Enable example.com zone for integration tests
-    if command -v dokku >/dev/null 2>&1; then
-        dokku dns:zones:enable example.com >/dev/null 2>&1 || true
-    fi
+    # Enable example.com zone for integration tests by directly creating the file
+    local PLUGIN_DATA_ROOT="${DNS_ROOT:-${DOKKU_LIB_ROOT:-/var/lib/dokku}/services/dns}"
+    mkdir -p "$PLUGIN_DATA_ROOT"
+    echo "example.com" > "$PLUGIN_DATA_ROOT/ENABLED_ZONES"
 }
 
 # Helper function to create test app with domains
