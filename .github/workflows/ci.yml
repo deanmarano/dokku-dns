@@ -177,6 +177,12 @@ jobs:
             export MOCK_API_KEY='test-key' &&
             echo '🔧 Temporarily removing AWS CLI for mock provider tests...' &&
             mv /usr/bin/aws /usr/bin/aws.bak 2>/dev/null || true &&
+            echo '🔍 Testing provider system before running tests...' &&
+            cd /tmp/dokku-dns && 
+            source providers/loader.sh && 
+            auto_load_provider && 
+            echo "Active provider: $(get_current_provider)" &&
+            cd tests/integration &&
             bats *.bats
           else
             echo '❌ No BATS integration tests found'
