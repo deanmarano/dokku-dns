@@ -6,8 +6,6 @@ The DNS plugin is in progress! Many core features have been implemented and test
 
 ### Phase 15: Terraform-Style Plan/Apply Workflow (High Priority)
 
-**Note: Phase 14 (Cloudflare Provider Implementation) has been completed ✅ and moved to [DONE.md](./DONE.md)**
-
 Improve user experience with clear change previews before DNS modifications.
 
 - [ ] **Add "plan" functionality to dns:report commands**
