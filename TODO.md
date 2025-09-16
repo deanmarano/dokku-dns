@@ -4,36 +4,6 @@ The DNS plugin is in progress! Many core features have been implemented and test
 
 ## High Priority Tasks
 
-### Phase 14: Cloudflare Provider Implementation (High Priority)
-
-With the generic provider interface now complete, Cloudflare is the next logical step for multi-provider support.
-
-- [ ] **Setup Cloudflare Provider Structure**
-  - [ ] Create `providers/cloudflare/` directory
-  - [ ] Copy and adapt `providers/template/` files
-  - [ ] Add "cloudflare" to `providers/available`
-  - [ ] Create `providers/cloudflare/config.sh` with metadata
-
-- [ ] **Implement Core Provider Interface (6 functions)**
-  - [ ] `provider_validate_credentials()` - Validate CLOUDFLARE_API_TOKEN
-  - [ ] `provider_list_zones()` - List Cloudflare zones via API
-  - [ ] `provider_get_zone_id(domain)` - Get Cloudflare zone ID for domain
-  - [ ] `provider_get_record(zone_id, name, type)` - Get DNS record value
-  - [ ] `provider_create_record(zone_id, name, type, value, ttl)` - Create/update record
-  - [ ] `provider_delete_record(zone_id, name, type)` - Delete record
-
-- [ ] **Cloudflare API Integration**
-  - [ ] Implement HTTP calls using curl to Cloudflare API v4
-  - [ ] Handle Cloudflare-specific error responses
-  - [ ] Support pagination for zone listing
-  - [ ] Handle rate limiting appropriately
-
-- [ ] **Test Multi-Provider Functionality**
-  - [ ] Test with both AWS and Cloudflare providers active
-  - [ ] Verify automatic zone delegation works correctly
-  - [ ] Test provider discovery and routing
-  - [ ] Update existing tests to work with multiple providers
-
 ### Phase 15: Terraform-Style Plan/Apply Workflow (High Priority)
 
 Improve user experience with clear change previews before DNS modifications.
