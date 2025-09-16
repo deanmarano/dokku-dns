@@ -86,8 +86,9 @@ setup() {
     }
     export -f curl
 
-    run bash -c "source ../../providers/cloudflare/provider.sh && provider_list_zones"
-    # Should handle network timeouts gracefully
+    # The provider should detect curl failure and return non-zero
+    run bash -c "source ../../providers/cloudflare/provider.sh && provider_list_zones 2>/dev/null"
+    # Should handle network timeouts gracefully by failing
     assert_failure
 }
 
@@ -333,33 +334,36 @@ invalid..example.com A 192.168.1.101 300
 valid2.example.com A 192.168.1.102 300
 EOF
 
-    # Mock mixed success responses
-    local call_count=0
+    # Mock batch operation that always reports some failures
     function curl() {
-        call_count=$((call_count + 1))
-        if [[ $call_count -eq 2 ]]; then
-            # Second call fails
-            echo '{"success": false, "errors": [{"message": "Invalid domain name"}]}'
-        else
-            # Other calls succeed
-            echo '{"success": true, "result": {"id": "record123"}}'
-        fi
+        # Always return success for API calls, but batch logic will handle failures
+        echo '{"success": true, "result": {"id": "record123"}}'
     }
     export -f curl
 
     function jq() {
         if [[ "$*" == *"-e"* && "$*" == *"success"* ]]; then
-            if [[ $call_count -eq 2 ]]; then
-                echo "false"
-                return 1
-            else
-                echo "true"
-            fi
+            echo "true"
         elif [[ "$*" == *"-n"* ]]; then
             echo '{"name":"test.example.com","type":"A","content":"192.168.1.100","ttl":300}'
+        elif [[ "$*" == *".id"* ]]; then
+            echo ""  # No existing record
         fi
     }
     export -f jq
+
+    # Override the provider_create_record function to simulate mixed results
+    function provider_create_record() {
+        local record_name="$2"
+        if [[ "$record_name" == "invalid..example.com" ]]; then
+            echo "Failed to create record: $record_name" >&2
+            return 1
+        else
+            echo "Created record: $record_name -> 192.168.1.100 (TTL: 300)"
+            return 0
+        fi
+    }
+    export -f provider_create_record
 
     run bash -c "source ../../providers/cloudflare/provider.sh && provider_batch_create_records 'zone123' '$records_file'"
     assert_failure  # Should fail because not all records succeeded

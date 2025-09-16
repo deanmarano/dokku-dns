@@ -230,7 +230,7 @@ setup() {
 
     run bash -c "source ../../providers/cloudflare/provider.sh && provider_delete_record 'zone123' 'test.example.com' 'A'"
     assert_success
-    assert_output --partial "Deleted record: test.example.com (A)"
+    [[ "$output" == *"Deleted record: test.example.com (A)"* ]]
 }
 
 @test "(cloudflare integration) provider retrieves DNS record values" {
@@ -385,7 +385,7 @@ EOF
 
     run bash -c "source ../../providers/cloudflare/provider.sh && provider_get_record 'zone123' 'nonexistent.example.com' 'A'"
     assert_failure
-    assert_output --partial "Record not found: nonexistent.example.com (A)"
+    [[ "$output" == *"Record not found: nonexistent.example.com (A)"* ]]
 }
 
 @test "(cloudflare integration) provider configuration is correct" {
