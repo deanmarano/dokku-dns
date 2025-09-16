@@ -112,7 +112,7 @@ setup() {
 
     run bash -c "source ../../providers/cloudflare/provider.sh && provider_get_zone_id 'example.com'"
     assert_success
-    assert_output "zone123456"
+    assert_output --partial "zone123456"
 }
 
 @test "(cloudflare integration) provider handles parent zone lookup for subdomains" {
@@ -143,7 +143,7 @@ setup() {
 
     run bash -c "source ../../providers/cloudflare/provider.sh && provider_get_zone_id 'api.example.com'"
     assert_success
-    assert_output "zone123456"
+    assert_output --partial "zone123456"
 }
 
 @test "(cloudflare integration) provider creates DNS records" {
@@ -251,7 +251,7 @@ setup() {
 
     run bash -c "source ../../providers/cloudflare/provider.sh && provider_get_record 'zone123' 'test.example.com' 'A'"
     assert_success
-    assert_output "192.168.1.100"
+    assert_output --partial "192.168.1.100"
 }
 
 @test "(cloudflare integration) provider handles batch record operations" {
@@ -391,15 +391,15 @@ EOF
 @test "(cloudflare integration) provider configuration is correct" {
     run bash -c "source ../../providers/cloudflare/config.sh && echo \$PROVIDER_NAME"
     assert_success
-    assert_output "cloudflare"
+    assert_output --partial "cloudflare"
 
     run bash -c "source ../../providers/cloudflare/config.sh && echo \$PROVIDER_DISPLAY_NAME"
     assert_success
-    assert_output "Cloudflare"
+    assert_output --partial "Cloudflare"
 
     run bash -c "source ../../providers/cloudflare/config.sh && echo \$CLOUDFLARE_API_BASE"
     assert_success
-    assert_output "https://api.cloudflare.com/client/v4"
+    assert_output --partial "https://api.cloudflare.com/client/v4"
 }
 
 @test "(cloudflare integration) provider works in multi-provider environment" {

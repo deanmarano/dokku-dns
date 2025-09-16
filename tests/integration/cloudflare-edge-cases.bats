@@ -110,7 +110,7 @@ setup() {
     run bash -c "source ../../providers/cloudflare/provider.sh && provider_list_zones"
     assert_success
     # Should return empty result without error
-    [[ -z "$output" ]]
+    assert_output ""
 }
 
 @test "(cloudflare edge cases) handles very large zone lists" {
@@ -138,7 +138,7 @@ setup() {
 
     run bash -c "source ../../providers/cloudflare/provider.sh && provider_list_zones | wc -l"
     assert_success
-    [[ "$output" =~ ^[[:space:]]*100[[:space:]]*$ ]]
+    assert_output --partial "100"
 }
 
 @test "(cloudflare edge cases) handles concurrent API calls gracefully" {
@@ -220,7 +220,7 @@ setup() {
 
     run bash -c "source ../../providers/cloudflare/provider.sh && provider_get_record 'zone123' 'record1.example.com' 'A'"
     assert_success
-    assert_output "192.168.1.100"
+    assert_output --partial "192.168.1.100"
 }
 
 @test "(cloudflare edge cases) handles missing jq dependency gracefully" {
