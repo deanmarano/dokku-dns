@@ -4,31 +4,30 @@ The DNS plugin is in progress! Many core features have been implemented and test
 
 ## High Priority Tasks
 
-### Phase 15: Terraform-Style Plan/Apply Workflow (High Priority)
+### Phase 15: Enhanced Reporting with Pending Changes (High Priority)
 
-Improve user experience with clear change previews before DNS modifications.
+Improve user experience with clear change previews in report commands.
 
-- [ ] **Add "plan" functionality to dns:report commands**
-  - [ ] Show planned changes in `dns:report` and `dns:apps:report` 
+- [ ] **Add "pending" functionality to dns:report commands**
+  - [ ] Show planned changes in `dns:report` and `dns:apps:report`
   - [ ] Display: "+ example.com → 192.168.1.1 (A record)" for new records
   - [ ] Display: "~ api.example.com → 192.168.1.1 [was: 192.168.1.2]" for updates
   - [ ] Add change summary: "Plan: 2 to add, 1 to change, 0 to destroy"
+  - [ ] Compare current DNS vs expected app domains (only as needed for reports)
+  - [ ] Return structured data about planned changes (only as needed for reports)
+
+### Phase 16: Enhanced Sync Operations (High Priority)
+
+Improve user experience during DNS sync operations with better feedback.
 
 - [ ] **Enhance dns:apps:sync with apply-style output**
   - [ ] Show real-time progress with checkmarks
   - [ ] Display what was actually changed after each operation
-  - [ ] Add `--dry-run` flag to preview changes without applying
   - [ ] Show "No changes needed" when records are already correct
-
-- [ ] **Create dns_plan_changes() helper function**
-  - [ ] Compare current DNS vs expected app domains
-  - [ ] Return structured data about planned changes
-  - [ ] Support change detection to avoid unnecessary API calls
-  - [ ] Work with both single apps and sync-all operations
 
 ## Medium Priority Tasks  
 
-### Phase 16: Subcommand Cleanup and Provider Interface Integration (Medium Priority)
+### Phase 17: Subcommand Cleanup and Provider Interface Integration (Medium Priority)
 
 Update remaining subcommands to use the new generic provider interface.
 
@@ -43,7 +42,7 @@ Update remaining subcommands to use the new generic provider interface.
   - [ ] Update zone management commands for provider-agnostic operation
   - [ ] Update reporting commands to show provider information generically
 
-### Phase 17: DigitalOcean Provider Implementation (Medium Priority)
+### Phase 18: DigitalOcean Provider Implementation (Medium Priority)
 
 - [ ] **Setup DigitalOcean Provider Structure**
   - [ ] Create `providers/digitalocean/` directory using template
@@ -58,7 +57,7 @@ Update remaining subcommands to use the new generic provider interface.
 
 ## Lower Priority Tasks
 
-### Phase 18: Enhanced Features (Lower Priority)
+### Phase 19: Enhanced Features (Lower Priority)
 
 - [ ] **TTL Support**
   - [ ] Add `--ttl <seconds>` parameter to relevant commands
@@ -74,7 +73,7 @@ Update remaining subcommands to use the new generic provider interface.
   - [ ] `post-app-clone-setup` - Handle cloned app domain updates
   - [ ] `post-proxy-ports-set` - Handle port changes affecting DNS
 
-### Phase 19: 1.0 Release Preparation (Lower Priority)
+### Phase 20: 1.0 Release Preparation (Lower Priority)
 
 - [ ] **Documentation Overhaul**
   - [ ] Create comprehensive README with multi-provider examples
