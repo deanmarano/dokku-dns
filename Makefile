@@ -55,11 +55,11 @@ ci-dependencies: shellcheck bats shfmt readlink
 
 format:
 	@echo "Formatting shell files with shfmt..."
-	@shfmt -w -i 2 -ci $(shell find . -name "*.sh" -o -name "*.bats" -o -name "functions" -o -name "config" -o -name "commands" -o -name "help-functions" -o -name "install" | grep -v './tmp/' | grep -v './.git/')
+	@shfmt -w -i 2 -ci $(shell find . -name "*.sh" -o -name "*.bats" -o -name "functions" -o -name "config" -o -name "commands" -o -name "help-functions" -o -name "install" -o -name "post-*" -o -name "pre-*" | grep -v './tmp/' | grep -v './.git/')
 
 format-check:
 	@echo "Checking shell file formatting with shfmt..."
-	@if ! shfmt -d -i 2 -ci $(shell find . -name "*.sh" -o -name "*.bats" -o -name "functions" -o -name "config" -o -name "commands" -o -name "help-functions" -o -name "install" | grep -v './tmp/' | grep -v './.git/'); then \
+	@if ! shfmt -d -i 2 -ci $(shell find . -name "*.sh" -o -name "*.bats" -o -name "functions" -o -name "config" -o -name "commands" -o -name "help-functions" -o -name "install" -o -name "post-*" -o -name "pre-*" | grep -v './tmp/' | grep -v './.git/'); then \
 		echo "❌ Shell files are not properly formatted"; \
 		echo "💡 Run 'make format' to fix formatting"; \
 		exit 1; \
