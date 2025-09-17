@@ -1,7 +1,7 @@
 HARDWARE = $(shell uname -m)
 SYSTEM_NAME  = $(shell uname -s | tr '[:upper:]' '[:lower:]')
 ARCH = $(shell dpkg --print-architecture)
-SHFMT_VERSION = 3.0.2
+SHFMT_VERSION = 3.8.0
 XUNIT_TO_GITHUB_VERSION = 0.3.0
 XUNIT_READER_VERSION = 0.1.0
 
