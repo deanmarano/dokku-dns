@@ -739,3 +739,206 @@ extract_root_domain() {
   # This works for most cases: api.example.com -> example.com
   echo "$DOMAIN" | awk -F. '{print $(NF-1)"."$NF}'
 }
+
+# Compare expected vs current DNS records for an app
+# Usage: dns_compare_app_records <app>
+# Returns: structured data about pending changes
+dns_compare_app_records() {
+  local APP="$1"
+  local SERVER_IP
+  SERVER_IP=$(get_server_ip)
+
+  # If we can't detect server IP, return empty
+  if [[ -z "$SERVER_IP" ]] || [[ "$SERVER_IP" == "Unknown" ]]; then
+    return 1
+  fi
+
+  # Get app domains
+  local APP_DOMAINS
+  APP_DOMAINS=$(get_app_domains "$APP" 2>/dev/null || echo "")
+
+  if [[ -z "$APP_DOMAINS" ]]; then
+    return 1
+  fi
+
+  # Load provider system for DNS checking
+  local PROVIDERS_DIR
+  PROVIDERS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers"
+  if [[ -f "$PROVIDERS_DIR/loader.sh" ]]; then
+    source "$PROVIDERS_DIR/loader.sh"
+    if ! auto_load_provider >/dev/null 2>&1; then
+      return 1
+    fi
+  else
+    return 1
+  fi
+
+  # Check each domain
+  while IFS= read -r DOMAIN; do
+    [[ -z "$DOMAIN" ]] && continue
+
+    # Get current DNS record
+    local zone_id
+    if zone_id=$(provider_get_zone_id "$DOMAIN" 2>/dev/null); then
+      local current_ip
+      current_ip=$(provider_get_record "$zone_id" "$DOMAIN" "A" 2>/dev/null || echo "")
+
+      if [[ -z "$current_ip" ]]; then
+        # No record exists - needs to be added
+        echo "ADD:$DOMAIN:$SERVER_IP"
+      elif [[ "$current_ip" != "$SERVER_IP" ]]; then
+        # Record exists but wrong IP - needs to be updated
+        echo "UPDATE:$DOMAIN:$SERVER_IP:$current_ip"
+      else
+        # Record exists and is correct
+        echo "CORRECT:$DOMAIN:$SERVER_IP"
+      fi
+    else
+      # No zone found - needs to be added (if zone management allows)
+      echo "ADD:$DOMAIN:$SERVER_IP"
+    fi
+  done <<< "$APP_DOMAINS"
+}
+
+# Display pending changes for an app in a formatted way
+# Usage: dns_display_pending_changes <app>
+dns_display_pending_changes() {
+  local APP="$1"
+  local changes
+
+  # Get the pending changes
+  if ! changes=$(dns_compare_app_records "$APP"); then
+    dokku_log_info1 "Unable to determine pending changes (missing server IP or DNS provider)"
+    return 1
+  fi
+
+  if [[ -z "$changes" ]]; then
+    dokku_log_info1 "No domains configured for analysis"
+    return 0
+  fi
+
+  # Count different types of changes
+  local add_count=0
+  local update_count=0
+  local correct_count=0
+
+  # Display changes and count them
+  echo
+  dokku_log_info2 "Pending DNS Changes:"
+
+  while IFS= read -r change; do
+    [[ -z "$change" ]] && continue
+
+    local action domain target_ip current_ip
+    IFS=':' read -r action domain target_ip current_ip <<< "$change"
+
+    case "$action" in
+      ADD)
+        echo "  + $domain → $target_ip (A record)"
+        ((add_count++))
+        ;;
+      UPDATE)
+        echo "  ~ $domain → $target_ip [was: $current_ip]"
+        ((update_count++))
+        ;;
+      CORRECT)
+        echo "  ✓ $domain → $target_ip (A record)"
+        ((correct_count++))
+        ;;
+    esac
+  done <<< "$changes"
+
+  # Display summary
+  echo
+  local total_changes=$((add_count + update_count))
+  if [[ $total_changes -eq 0 ]]; then
+    dokku_log_info1 "Plan: No changes needed - all records are correct"
+  else
+    dokku_log_info1 "Plan: $add_count to add, $update_count to change, 0 to destroy"
+  fi
+
+  return 0
+}
+
+# Display pending changes for all DNS-managed apps
+# Usage: dns_display_global_pending_changes
+dns_display_global_pending_changes() {
+  local APPS_LIST
+  APPS_LIST=$(get_dns_managed_apps)
+
+  if [[ -z "$APPS_LIST" ]]; then
+    return 0
+  fi
+
+  local global_add_count=0
+  local global_update_count=0
+  local global_correct_count=0
+  local any_changes_found=false
+
+  echo
+  dokku_log_info2 "Pending DNS Changes - All Apps:"
+
+  while IFS= read -r APP; do
+    [[ -z "$APP" ]] && continue
+
+    local changes
+    if changes=$(dns_compare_app_records "$APP" 2>/dev/null); then
+      if [[ -n "$changes" ]]; then
+        local app_has_changes=false
+        local add_count=0
+        local update_count=0
+
+        # Check if this app has any pending changes
+        while IFS= read -r change; do
+          [[ -z "$change" ]] && continue
+          local action
+          IFS=':' read -r action _ _ _ <<< "$change"
+          case "$action" in
+            ADD) ((add_count++)); app_has_changes=true ;;
+            UPDATE) ((update_count++)); app_has_changes=true ;;
+            CORRECT) ((global_correct_count++)) ;;
+          esac
+        done <<< "$changes"
+
+        if [[ "$app_has_changes" == "true" ]]; then
+          any_changes_found=true
+          echo
+          dokku_log_info1 "App: $APP"
+
+          # Display the changes for this app
+          while IFS= read -r change; do
+            [[ -z "$change" ]] && continue
+
+            local action domain target_ip current_ip
+            IFS=':' read -r action domain target_ip current_ip <<< "$change"
+
+            case "$action" in
+              ADD)
+                echo "    + $domain → $target_ip (A record)"
+                ((global_add_count++))
+                ;;
+              UPDATE)
+                echo "    ~ $domain → $target_ip [was: $current_ip]"
+                ((global_update_count++))
+                ;;
+            esac
+          done <<< "$changes"
+        fi
+      fi
+    fi
+  done <<< "$APPS_LIST"
+
+  # Display global summary
+  echo
+  if [[ "$any_changes_found" == "true" ]]; then
+    dokku_log_info1 "Global Plan: $global_add_count to add, $global_update_count to change, 0 to destroy"
+    echo
+    dokku_log_info1 "To apply changes:"
+    dokku_log_info1 "  Single app: dokku $PLUGIN_COMMAND_PREFIX:apps:sync <app>"
+    dokku_log_info1 "  All apps: for app in \$(dokku apps:list 2>/dev/null | tail -n +2); do dokku $PLUGIN_COMMAND_PREFIX:apps:sync \$app; done"
+  else
+    dokku_log_info1 "Global Plan: No changes needed - all records are correct"
+  fi
+
+  return 0
+}

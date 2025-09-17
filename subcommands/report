@@ -289,6 +289,11 @@ dns_global_report() {
     dokku_log_info1 "DNS status: ${CONFIG_PERCENTAGE}% correctly configured"
   fi
   
+  # Show pending changes if provider is ready
+  if [[ "$PROVIDER" != "None" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
+    dns_display_global_pending_changes
+  fi
+
   echo
   dokku_log_info2 "DNS Status Legend:"
   if [[ -n "$SERVER_IP" ]] && [[ "$SERVER_IP" != "Unknown" ]]; then
@@ -299,7 +304,7 @@ dns_global_report() {
   fi
   dokku_log_info1 "❌ No DNS record found"
   dokku_log_info1 "➖ No domains configured"
-  
+
   # Show DNS records to be deleted if provider is ready
   if [[ "$PROVIDER" != "None" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
     show_records_to_be_deleted_summary
@@ -516,7 +521,12 @@ dns_report() {
     # Format and display the row
     printf "%-30s %-8s %-15s %-15s %s\n" "$DOMAIN" "$DNS_EMOJI" "$DOMAIN_STATUS" "$PROVIDER" "$HOSTED_ZONE"
   done
-  
+
+  # Show pending changes if provider is ready
+  if [[ "$PROVIDER" != "None" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
+    dns_display_pending_changes "$APP"
+  fi
+
   echo
   dokku_log_info2 "DNS Status Legend:"
   if [[ -n "$SERVER_IP" ]] && [[ "$SERVER_IP" != "Unknown" ]]; then
