@@ -15,6 +15,67 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install linting dependencies
+        run: |
+          # Install system dependencies for linting
+          sudo apt-get update -qq
+          sudo apt-get install -qq -y shellcheck
+
+          # Install shfmt
+          wget -qO /tmp/shfmt https://github.com/mvdan/sh/releases/download/v3.0.2/shfmt_v3.0.2_linux_amd64
+          chmod +x /tmp/shfmt
+          sudo mv /tmp/shfmt /usr/local/bin/shfmt
+
+      - name: Generate README and run linting in parallel
+        run: |
+          # Run README generation check
+          git fetch -q origin main
+          changed=$(git --no-pager diff --name-only $GITHUB_SHA..origin/main)
+          if [ "$changed" = "Dockerfile" ]; then
+            echo "Please run 'make generate' to update the image version in the README.md"
+          else
+            make generate &
+            README_PID=$!
+
+            # Run linting in parallel
+            make lint &
+            LINT_PID=$!
+
+            # Wait for both to complete
+            wait $README_PID
+            wait $LINT_PID
+
+            # Check README changes
+            if ! git diff --quiet README.md; then
+              echo "Please run 'make generate'"
+              git status --short
+              git --no-pager diff README.md
+              exit 1
+            fi
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: lint-results
+          path: |
+            *.log
+            tmp/test-results/
+          if-no-files-found: ignore
+
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-24.04
@@ -30,39 +91,11 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Install dependencies
+      - name: Install test dependencies
         run: |
           # Install system dependencies for testing
           sudo apt-get update -qq
-          sudo apt-get install -qq -y shellcheck bats
-
-      - name: Generate README and run linting in parallel
-        run: |
-          # Run README generation check
-          git fetch -q origin main
-          changed=$(git --no-pager diff --name-only $GITHUB_SHA..origin/main)
-          if [ "$changed" = "Dockerfile" ]; then
-            echo "Please run 'make generate' to update the image version in the README.md"
-          else
-            make generate &
-            README_PID=$!
-            
-            # Run linting in parallel
-            make lint &
-            LINT_PID=$!
-            
-            # Wait for both to complete
-            wait $README_PID
-            wait $LINT_PID
-            
-            # Check README changes
-            if ! git diff --quiet README.md; then
-              echo "Please run 'make generate'"
-              git status --short
-              git --no-pager diff README.md
-              exit 1
-            fi
-          fi
+          sudo apt-get install -qq -y bats
 
       - name: Run unit tests
         run: make unit-tests
