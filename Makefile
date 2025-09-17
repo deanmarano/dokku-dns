@@ -51,25 +51,25 @@ endif
 	ln -nfs `which greadlink` tests/bin/readlink
 endif
 
-ci-dependencies: shellcheck bats readlink
+ci-dependencies: shellcheck bats shfmt readlink
+
+format:
+	@echo "Formatting shell files with shfmt..."
+	@shfmt -w -i 2 -ci $(shell find . -name "*.sh" -o -name "functions" -o -name "config" -o -name "commands" -o -name "help-functions" -o -name "install" | grep -v './tmp/' | grep -v './.git/')
+
+format-check:
+	@echo "Checking shell file formatting with shfmt..."
+	@if ! shfmt -d -i 2 -ci $(shell find . -name "*.sh" -o -name "functions" -o -name "config" -o -name "commands" -o -name "help-functions" -o -name "install" | grep -v './tmp/' | grep -v './.git/'); then \
+		echo "❌ Shell files are not properly formatted"; \
+		echo "💡 Run 'make format' to fix formatting"; \
+		exit 1; \
+	fi
 
 lint-setup:
 	@mkdir -p tmp/test-results/shellcheck tmp/shellcheck
 	@find . -not -path '*/\.*' -not -path './tmp/*' -type f | xargs file | grep text | sed 's/: .*text.*//' | xargs head -n1 | egrep -B1 "bash" | grep "==>" | awk '{ print $$2 }' > tmp/shellcheck/test-files
 	@cat tests/shellcheck-exclude | sed -n -e '/^# SC/p' | cut -d' ' -f2 | paste -d, -s - > tmp/shellcheck/exclude
 
-lint: lint-setup
-	# these are disabled due to their expansive existence in the codebase. we should clean it up though
-	@cat tests/shellcheck-exclude | sed -n -e '/^# SC/p'
-	@echo linting...
-	@cat tmp/shellcheck/test-files | xargs shellcheck -e $(shell cat tmp/shellcheck/exclude) > tmp/shellcheck-output.log 2>&1; \
-	EXIT_CODE=$$?; \
-	tests/shellcheck-to-junit --output tmp/test-results/shellcheck/results.xml --files tmp/shellcheck/test-files --exclude $(shell cat tmp/shellcheck/exclude) < tmp/shellcheck-output.log; \
-	if [ $$EXIT_CODE -ne 0 ]; then \
-		echo "❌ Shellcheck found violations"; \
-		cat tmp/shellcheck-output.log; \
-		exit $$EXIT_CODE; \
-	fi
 
 unit-tests:
 	@echo running unit tests...
@@ -119,6 +119,19 @@ tmp/xunit-reader:
 setup:
 	bash tests/setup.sh
 	$(MAKE) ci-dependencies
+
+lint: lint-setup format-check
+	# these are disabled due to their expansive existence in the codebase. we should clean it up though
+	@cat tests/shellcheck-exclude | sed -n -e '/^# SC/p'
+	@echo linting...
+	@cat tmp/shellcheck/test-files | xargs shellcheck -e $(shell cat tmp/shellcheck/exclude) > tmp/shellcheck-output.log 2>&1; \
+	EXIT_CODE=$$?; \
+	tests/shellcheck-to-junit --output tmp/test-results/shellcheck/results.xml --files tmp/shellcheck/test-files --exclude $(shell cat tmp/shellcheck/exclude) < tmp/shellcheck-output.log; \
+	if [ $$EXIT_CODE -ne 0 ]; then \
+		echo "❌ Shellcheck found violations"; \
+		cat tmp/shellcheck-output.log; \
+		exit $$EXIT_CODE; \
+	fi
 
 test: lint unit-tests
 
