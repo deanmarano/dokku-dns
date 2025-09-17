@@ -3,166 +3,166 @@
 load test_helper
 
 setup() {
-    # Skip setup in Docker environment - apps and provider already configured
-    if [[ ! -d "/var/lib/dokku" ]] || [[ ! -w "/var/lib/dokku" ]]; then
-        cleanup_dns_data
-        setup_dns_provider aws
-    fi
+  # Skip setup in Docker environment - apps and provider already configured
+  if [[ ! -d "/var/lib/dokku" ]] || [[ ! -w "/var/lib/dokku" ]]; then
+    cleanup_dns_data
+    setup_dns_provider aws
+  fi
 }
 
 teardown() {
-    # Skip teardown in Docker environment to preserve setup
-    if [[ ! -d "/var/lib/dokku" ]] || [[ ! -w "/var/lib/dokku" ]]; then
-        cleanup_dns_data
-        cleanup_mock_cron
-    fi
+  # Skip teardown in Docker environment to preserve setup
+  if [[ ! -d "/var/lib/dokku" ]] || [[ ! -w "/var/lib/dokku" ]]; then
+    cleanup_dns_data
+    cleanup_mock_cron
+  fi
 }
 
 @test "(dns:cron) shows cron status" {
-    run dns_cmd cron
-    assert_success
-    # Either enabled or disabled is fine - just check it shows status
-    assert_output_contains "DNS Cron Status"
-    assert_output_contains "Status:"
+  run dns_cmd cron
+  assert_success
+  # Either enabled or disabled is fine - just check it shows status
+  assert_output_contains "DNS Cron Status"
+  assert_output_contains "Status:"
 }
 
 @test "(dns:cron --enable) works without explicit provider configuration" {
-    cleanup_dns_data
-    
-    run dns_cmd cron --enable
-    assert_success
-    assert_output_contains "DNS cron job enabled successfully"
+  cleanup_dns_data
+
+  run dns_cmd cron --enable
+  assert_success
+  assert_output_contains "DNS cron job enabled successfully"
 }
 
 @test "(dns:cron --enable) creates cron job when provider configured" {
-    # Setup provider
-    setup_mock_provider
-    
-    # Mock crontab commands
-    create_mock_crontab
-    
-    run dns_cmd cron --enable
-    assert_success
-    assert_output_contains "✅ DNS cron job enabled successfully!"
-    assert_output_contains "Creating DNS Cron Job"
-    assert_output_contains "Daily at 2:00 AM - default"
-    assert_output_contains "Next Steps"
-    
-    # Check metadata files were created
-    [[ -f "$PLUGIN_DATA_ROOT/cron/status" ]]
-    [[ -f "$PLUGIN_DATA_ROOT/cron/schedule" ]]
-    [[ -f "$PLUGIN_DATA_ROOT/cron/enabled_at" ]]
-    
-    # Check status file content
-    [[ "$(cat "$PLUGIN_DATA_ROOT/cron/status")" = "enabled" ]]
+  # Setup provider
+  setup_mock_provider
+
+  # Mock crontab commands
+  create_mock_crontab
+
+  run dns_cmd cron --enable
+  assert_success
+  assert_output_contains "✅ DNS cron job enabled successfully!"
+  assert_output_contains "Creating DNS Cron Job"
+  assert_output_contains "Daily at 2:00 AM - default"
+  assert_output_contains "Next Steps"
+
+  # Check metadata files were created
+  [[ -f "$PLUGIN_DATA_ROOT/cron/status" ]]
+  [[ -f "$PLUGIN_DATA_ROOT/cron/schedule" ]]
+  [[ -f "$PLUGIN_DATA_ROOT/cron/enabled_at" ]]
+
+  # Check status file content
+  [[ "$(cat "$PLUGIN_DATA_ROOT/cron/status")" = "enabled" ]]
 }
 
 @test "(dns:cron --enable) overwrites existing cron job" {
-    # Setup provider and enable cron first to create existing job
-    setup_mock_provider
-    dns_cmd cron --enable >/dev/null
-    
-    run dns_cmd cron --enable
-    assert_success
-    assert_output_contains "=====> Updating DNS Cron Job"
-    assert_output_contains "Previous: 0 2 * * *"
-    assert_output_contains "New: 0 2 * * * (Daily at 2:00 AM - default)"
-    assert_output_contains "✅ DNS cron job updated successfully!"
+  # Setup provider and enable cron first to create existing job
+  setup_mock_provider
+  dns_cmd cron --enable >/dev/null
+
+  run dns_cmd cron --enable
+  assert_success
+  assert_output_contains "=====> Updating DNS Cron Job"
+  assert_output_contains "Previous: 0 2 * * *"
+  assert_output_contains "New: 0 2 * * * (Daily at 2:00 AM - default)"
+  assert_output_contains "✅ DNS cron job updated successfully!"
 }
 
 @test "(dns:cron --disable) fails when no cron job exists" {
-    # Mock empty crontab
-    create_mock_crontab
-    
-    run dns_cmd cron --disable
-    assert_failure
-    assert_output_contains "No DNS cron job found"
-    assert_output_contains "Enable with: dokku dns:cron --enable"
+  # Mock empty crontab
+  create_mock_crontab
+
+  run dns_cmd cron --disable
+  assert_failure
+  assert_output_contains "No DNS cron job found"
+  assert_output_contains "Enable with: dokku dns:cron --enable"
 }
 
 @test "(dns:cron --disable) removes existing cron job" {
-    # Setup provider and enable cron first
-    setup_mock_provider
-    dns_cmd cron --enable >/dev/null
-    
-    run dns_cmd cron --disable
-    assert_success
-    assert_output_contains "Disabling DNS Cron Job"
-    assert_output_contains "Current: 0 2 * * * (Daily at 2:00 AM - default)"
-    assert_output_contains "✅ DNS cron job disabled successfully!"
-    assert_output_contains "Automated DNS synchronization is now inactive"
-    
-    # Check status was updated
-    [[ "$(cat "$PLUGIN_DATA_ROOT/cron/status")" = "disabled" ]]
-    [[ -f "$PLUGIN_DATA_ROOT/cron/disabled_at" ]]
+  # Setup provider and enable cron first
+  setup_mock_provider
+  dns_cmd cron --enable >/dev/null
+
+  run dns_cmd cron --disable
+  assert_success
+  assert_output_contains "Disabling DNS Cron Job"
+  assert_output_contains "Current: 0 2 * * * (Daily at 2:00 AM - default)"
+  assert_output_contains "✅ DNS cron job disabled successfully!"
+  assert_output_contains "Automated DNS synchronization is now inactive"
+
+  # Check status was updated
+  [[ "$(cat "$PLUGIN_DATA_ROOT/cron/status")" = "disabled" ]]
+  [[ -f "$PLUGIN_DATA_ROOT/cron/disabled_at" ]]
 }
 
 @test "(dns:cron) shows enabled status when cron job exists" {
-    # Setup provider and enable cron first
-    setup_mock_provider
-    dns_cmd cron --enable >/dev/null
-    
-    run dns_cmd cron
-    assert_success
-    assert_output_contains "-----> Status: ✅ ENABLED"
-    assert_output_contains "Schedule: 0 2 * * * (Daily at 2:00 AM - default)"
-    assert_output_contains "Command: dokku dns:sync-all"
-    assert_output_contains "Enabled At:"
-    assert_output_contains "Recent Log Entries"
+  # Setup provider and enable cron first
+  setup_mock_provider
+  dns_cmd cron --enable >/dev/null
+
+  run dns_cmd cron
+  assert_success
+  assert_output_contains "-----> Status: ✅ ENABLED"
+  assert_output_contains "Schedule: 0 2 * * * (Daily at 2:00 AM - default)"
+  assert_output_contains "Command: dokku dns:sync-all"
+  assert_output_contains "Enabled At:"
+  assert_output_contains "Recent Log Entries"
 }
 
 @test "(dns:cron) shows log information correctly" {
-    # Create cron metadata with log file
-    mkdir -p "$PLUGIN_DATA_ROOT/cron"
-    echo "enabled" > "$PLUGIN_DATA_ROOT/cron/status"
-    echo "$PLUGIN_DATA_ROOT/cron/sync.log" > "$PLUGIN_DATA_ROOT/cron/log_file"
-    
-    # Create log file with multiple entries
-    local log_file="$PLUGIN_DATA_ROOT/cron/sync.log"
-    for i in {1..15}; do
-        echo "$(date): Log entry $i" >> "$log_file"
-    done
-    
-    run dns_cmd cron
-    assert_success
-    assert_output_contains "Log Entries: 15 lines"
-    assert_output_contains "Recent Log Entries (last 10 lines)"
-    assert_output_contains "Log entry 15"  # Should show the last entry
-    # Should not show early entries (entries 1-5 should not appear in last 10 lines)
-    if echo "$output" | grep -q "Log entry 5"; then
-        flunk "Output should not contain 'Log entry 5' but it does"
-    fi
+  # Create cron metadata with log file
+  mkdir -p "$PLUGIN_DATA_ROOT/cron"
+  echo "enabled" >"$PLUGIN_DATA_ROOT/cron/status"
+  echo "$PLUGIN_DATA_ROOT/cron/sync.log" >"$PLUGIN_DATA_ROOT/cron/log_file"
+
+  # Create log file with multiple entries
+  local log_file="$PLUGIN_DATA_ROOT/cron/sync.log"
+  for i in {1..15}; do
+    echo "$(date): Log entry $i" >>"$log_file"
+  done
+
+  run dns_cmd cron
+  assert_success
+  assert_output_contains "Log Entries: 15 lines"
+  assert_output_contains "Recent Log Entries (last 10 lines)"
+  assert_output_contains "Log entry 15" # Should show the last entry
+  # Should not show early entries (entries 1-5 should not appear in last 10 lines)
+  if echo "$output" | grep -q "Log entry 5"; then
+    flunk "Output should not contain 'Log entry 5' but it does"
+  fi
 }
 
 # Helper functions
 setup_mock_provider() {
-    mkdir -p "$PLUGIN_DATA_ROOT"
-    echo "aws" > "$PLUGIN_DATA_ROOT/PROVIDER"
+  mkdir -p "$PLUGIN_DATA_ROOT"
+  echo "aws" >"$PLUGIN_DATA_ROOT/PROVIDER"
 }
 
 cleanup_mock_cron() {
-    # Remove any mock crontab
-    rm -f "$TEST_TMP_DIR/bin/crontab" >/dev/null 2>&1 || true
-    # Clean up any existing cron data
-    rm -rf "$PLUGIN_DATA_ROOT/cron" >/dev/null 2>&1 || true
+  # Remove any mock crontab
+  rm -f "$TEST_TMP_DIR/bin/crontab" >/dev/null 2>&1 || true
+  # Clean up any existing cron data
+  rm -rf "$PLUGIN_DATA_ROOT/cron" >/dev/null 2>&1 || true
 }
 
 create_mock_crontab() {
-    # Ensure test bin directory exists
-    mkdir -p "$TEST_TMP_DIR/bin"
-    
-    # Update PATH to prioritize mock crontab
-    export PATH="$TEST_TMP_DIR/bin:$PATH"
-    
-    # Create mock crontab state file
-    export MOCK_CRONTAB_FILE="$TEST_TMP_DIR/mock_crontab"
-    touch "$MOCK_CRONTAB_FILE"
-    
-    # Also embed the file path directly in the mock script to avoid env var issues
-    MOCK_FILE_PATH="$MOCK_CRONTAB_FILE"
-    
-    # Create mock crontab command that simulates empty crontab initially
-    cat > "$TEST_TMP_DIR/bin/crontab" << EOF
+  # Ensure test bin directory exists
+  mkdir -p "$TEST_TMP_DIR/bin"
+
+  # Update PATH to prioritize mock crontab
+  export PATH="$TEST_TMP_DIR/bin:$PATH"
+
+  # Create mock crontab state file
+  export MOCK_CRONTAB_FILE="$TEST_TMP_DIR/mock_crontab"
+  touch "$MOCK_CRONTAB_FILE"
+
+  # Also embed the file path directly in the mock script to avoid env var issues
+  MOCK_FILE_PATH="$MOCK_CRONTAB_FILE"
+
+  # Create mock crontab command that simulates empty crontab initially
+  cat >"$TEST_TMP_DIR/bin/crontab" <<EOF
 #!/usr/bin/env bash
 MOCK_CRONTAB_FILE="$MOCK_FILE_PATH"
 
@@ -184,25 +184,25 @@ else
     exit 1
 fi
 EOF
-    chmod +x "$TEST_TMP_DIR/bin/crontab"
+  chmod +x "$TEST_TMP_DIR/bin/crontab"
 }
 
 create_mock_crontab_with_existing_job() {
-    # Ensure test bin directory exists  
-    mkdir -p "$TEST_TMP_DIR/bin"
-    
-    # Update PATH to prioritize mock crontab
-    export PATH="$TEST_TMP_DIR/bin:$PATH"
-    
-    # Create mock crontab state file with existing DNS job
-    export MOCK_CRONTAB_FILE="$TEST_TMP_DIR/mock_crontab"
-    echo "0 2 * * * dokku dns:sync-all >> /var/lib/dokku/services/dns/cron/sync.log 2>&1 # Dokku DNS auto-sync" > "$MOCK_CRONTAB_FILE"
-    
-    # Also embed the file path directly in the mock script to avoid env var issues
-    MOCK_FILE_PATH="$MOCK_CRONTAB_FILE"
-    
-    # Create mock crontab command that uses the state file
-    cat > "$TEST_TMP_DIR/bin/crontab" << EOF
+  # Ensure test bin directory exists
+  mkdir -p "$TEST_TMP_DIR/bin"
+
+  # Update PATH to prioritize mock crontab
+  export PATH="$TEST_TMP_DIR/bin:$PATH"
+
+  # Create mock crontab state file with existing DNS job
+  export MOCK_CRONTAB_FILE="$TEST_TMP_DIR/mock_crontab"
+  echo "0 2 * * * dokku dns:sync-all >> /var/lib/dokku/services/dns/cron/sync.log 2>&1 # Dokku DNS auto-sync" >"$MOCK_CRONTAB_FILE"
+
+  # Also embed the file path directly in the mock script to avoid env var issues
+  MOCK_FILE_PATH="$MOCK_CRONTAB_FILE"
+
+  # Create mock crontab command that uses the state file
+  cat >"$TEST_TMP_DIR/bin/crontab" <<EOF
 #!/usr/bin/env bash
 MOCK_CRONTAB_FILE="$MOCK_FILE_PATH"
 
@@ -224,113 +224,113 @@ else
     exit 1
 fi
 EOF
-    chmod +x "$TEST_TMP_DIR/bin/crontab"
+  chmod +x "$TEST_TMP_DIR/bin/crontab"
 }
 
 @test "(dns:cron --enable --schedule) creates cron job with custom schedule" {
-    # Setup provider
-    setup_mock_provider
-    
-    # Mock crontab commands
-    create_mock_crontab
-    
-    run dns_cmd cron --enable --schedule "0 4 * * *"
-    assert_success
-    assert_output_contains "✅ DNS cron job enabled successfully!"
-    assert_output_contains "Creating DNS Cron Job"
-    assert_output_contains "0 4 * * * (custom)"
-    assert_output_contains "Next Steps"
-    
-    # Check metadata files were created with custom schedule
-    [[ -f "$PLUGIN_DATA_ROOT/cron/schedule" ]]
-    [[ "$(cat "$PLUGIN_DATA_ROOT/cron/schedule")" = "0 4 * * *" ]]
+  # Setup provider
+  setup_mock_provider
+
+  # Mock crontab commands
+  create_mock_crontab
+
+  run dns_cmd cron --enable --schedule "0 4 * * *"
+  assert_success
+  assert_output_contains "✅ DNS cron job enabled successfully!"
+  assert_output_contains "Creating DNS Cron Job"
+  assert_output_contains "0 4 * * * (custom)"
+  assert_output_contains "Next Steps"
+
+  # Check metadata files were created with custom schedule
+  [[ -f "$PLUGIN_DATA_ROOT/cron/schedule" ]]
+  [[ "$(cat "$PLUGIN_DATA_ROOT/cron/schedule")" = "0 4 * * *" ]]
 }
 
 @test "(dns:cron --enable --schedule) validates cron schedule format" {
-    # Setup provider
-    setup_mock_provider
-    
-    # Mock crontab commands  
-    create_mock_crontab
-    
-    # Test invalid schedule (too few fields)
-    run dns_cmd cron --enable --schedule "0 4 *"
-    assert_failure
-    assert_output_contains "Invalid cron schedule"
-    assert_output_contains "Must have 5 fields"
+  # Setup provider
+  setup_mock_provider
+
+  # Mock crontab commands
+  create_mock_crontab
+
+  # Test invalid schedule (too few fields)
+  run dns_cmd cron --enable --schedule "0 4 *"
+  assert_failure
+  assert_output_contains "Invalid cron schedule"
+  assert_output_contains "Must have 5 fields"
 }
 
 @test "(dns:cron --schedule) automatically enables cron job" {
-    # Setup provider
-    setup_mock_provider
-    
-    # Mock crontab commands
-    create_mock_crontab
-    
-    run dns_cmd cron --schedule "0 4 * * *"
-    assert_success
-    assert_output_contains "✅ DNS cron job enabled successfully!"
-    assert_output_contains "Schedule: 0 4 * * * (custom)"
-    
-    # Check metadata files were created with custom schedule
-    [[ -f "$PLUGIN_DATA_ROOT/cron/schedule" ]]
-    [[ "$(cat "$PLUGIN_DATA_ROOT/cron/schedule")" = "0 4 * * *" ]]
-    [[ "$(cat "$PLUGIN_DATA_ROOT/cron/status")" = "enabled" ]]
+  # Setup provider
+  setup_mock_provider
+
+  # Mock crontab commands
+  create_mock_crontab
+
+  run dns_cmd cron --schedule "0 4 * * *"
+  assert_success
+  assert_output_contains "✅ DNS cron job enabled successfully!"
+  assert_output_contains "Schedule: 0 4 * * * (custom)"
+
+  # Check metadata files were created with custom schedule
+  [[ -f "$PLUGIN_DATA_ROOT/cron/schedule" ]]
+  [[ "$(cat "$PLUGIN_DATA_ROOT/cron/schedule")" = "0 4 * * *" ]]
+  [[ "$(cat "$PLUGIN_DATA_ROOT/cron/status")" = "enabled" ]]
 }
 
 @test "(dns:cron --schedule) fails when no schedule value provided" {
-    run dns_cmd cron --schedule
-    assert_failure
-    assert_output_contains "--schedule requires a cron schedule argument"
+  run dns_cmd cron --schedule
+  assert_failure
+  assert_output_contains "--schedule requires a cron schedule argument"
 }
 
 @test "(dns:cron) shows custom schedule correctly in status" {
-    # Setup provider and enable cron with custom schedule
-    setup_mock_provider
-    dns_cmd cron --enable --schedule "*/30 * * * *" >/dev/null
-    
-    run dns_cmd cron
-    assert_success
-    assert_output_contains "-----> Status: ✅ ENABLED"
-    assert_output_contains "*/30 * * * * (custom)"
+  # Setup provider and enable cron with custom schedule
+  setup_mock_provider
+  dns_cmd cron --enable --schedule "*/30 * * * *" >/dev/null
+
+  run dns_cmd cron
+  assert_success
+  assert_output_contains "-----> Status: ✅ ENABLED"
+  assert_output_contains "*/30 * * * * (custom)"
 }
 
 @test "(dns:cron --disable --schedule) fails with conflicting flags" {
-    run dns_cmd cron --disable --schedule "0 4 * * *"
-    assert_failure
-    assert_output_contains "Cannot use both --enable and --disable flags together"
+  run dns_cmd cron --disable --schedule "0 4 * * *"
+  assert_failure
+  assert_output_contains "Cannot use both --enable and --disable flags together"
 }
 
 @test "(dns:cron --schedule) overwrites existing cron job with new schedule" {
-    # Setup provider and enable cron with default schedule first
-    setup_mock_provider
-    dns_cmd cron --enable >/dev/null
-    
-    run dns_cmd cron --schedule "0 6 * * *"
-    assert_success
-    assert_output_contains "=====> Updating DNS Cron Job"
-    assert_output_contains "Previous: 0 2 * * *"
-    assert_output_contains "New: 0 6 * * * (custom)"
-    assert_output_contains "✅ DNS cron job updated successfully!"
-    
-    # Verify new schedule was saved
-    [[ "$(cat "$PLUGIN_DATA_ROOT/cron/schedule")" = "0 6 * * *" ]]
+  # Setup provider and enable cron with default schedule first
+  setup_mock_provider
+  dns_cmd cron --enable >/dev/null
+
+  run dns_cmd cron --schedule "0 6 * * *"
+  assert_success
+  assert_output_contains "=====> Updating DNS Cron Job"
+  assert_output_contains "Previous: 0 2 * * *"
+  assert_output_contains "New: 0 6 * * * (custom)"
+  assert_output_contains "✅ DNS cron job updated successfully!"
+
+  # Verify new schedule was saved
+  [[ "$(cat "$PLUGIN_DATA_ROOT/cron/schedule")" = "0 6 * * *" ]]
 }
 
 @test "(dns:cron --schedule) validates schedule format properly" {
-    # Test invalid schedule (too many fields)
-    run dns_cmd cron --schedule "0 4 * * * 2024"
-    assert_failure
-    assert_output_contains "Invalid cron schedule:"
-    assert_output_contains "Must have 5 fields"
-    
-    # Test invalid schedule (non-numeric hour)
-    run dns_cmd cron --schedule "0 XX * * *"
-    assert_failure  
-    assert_output_contains "Invalid hour field:"
+  # Test invalid schedule (too many fields)
+  run dns_cmd cron --schedule "0 4 * * * 2024"
+  assert_failure
+  assert_output_contains "Invalid cron schedule:"
+  assert_output_contains "Must have 5 fields"
+
+  # Test invalid schedule (non-numeric hour)
+  run dns_cmd cron --schedule "0 XX * * *"
+  assert_failure
+  assert_output_contains "Invalid hour field:"
 }
 
 # Command aliases for easier testing
 dns_cron() {
-    "$PLUGIN_ROOT/subcommands/cron" "$@"
+  "$PLUGIN_ROOT/subcommands/cron" "$@"
 }

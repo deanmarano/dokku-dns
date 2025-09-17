@@ -16,10 +16,10 @@ update-rc.d cron enable
 
 # Verify cron is running
 if service cron status | grep -q "running"; then
-    echo "✅ Cron installed and running successfully"
+  echo "✅ Cron installed and running successfully"
 else
-    echo "❌ Failed to start cron service"
-    exit 1
+  echo "❌ Failed to start cron service"
+  exit 1
 fi
 
 echo "Cron initialization completed"

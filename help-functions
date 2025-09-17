@@ -14,7 +14,10 @@ if ! declare -f dokku_log_info1 >/dev/null 2>&1; then
 fi
 
 if ! declare -f dokku_log_fail >/dev/null 2>&1; then
-  dokku_log_fail() { echo " !     $*" >&2; exit 1; }
+  dokku_log_fail() {
+    echo " !     $*" >&2
+    exit 1
+  }
 fi
 SUBCOMMAND_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/subcommands"
 export SUBCOMMAND_ROOT
@@ -22,10 +25,10 @@ export SUBCOMMAND_ROOT
 is_implemented_command() {
   declare desc="return true if the subcommand is implemented"
   local SUBCOMMAND="$1"
-  
+
   # All our subcommands are implemented
   case "$SUBCOMMAND" in
-    cron|help|report|sync-all|sync:deletions|version|zones|zones:enable|zones:disable|providers:verify|apps|apps:enable|apps:disable|apps:sync|apps:report|triggers|triggers:enable|triggers:disable)
+    cron | help | report | sync-all | sync:deletions | version | zones | zones:enable | zones:disable | providers:verify | apps | apps:enable | apps:disable | apps:sync | apps:report | triggers | triggers:enable | triggers:disable)
       return 0
       ;;
     *)
@@ -97,7 +100,7 @@ fn-help-contents() {
   local NORMAL
   NORMAL="$(fn-help-fancy-color "\033[m")"
   echo -e "$(printf "    %s%-20s " "dns" ":help [<subcommand>]")${LIGHT_GRAY}show help for DNS commands or specific subcommand${NORMAL}"
-  
+
   pushd "$SUBCOMMAND_ROOT" >/dev/null 2>&1
   for cmd in *; do
     fn-help-contents-subcommand "$cmd" || true
@@ -191,7 +194,6 @@ fn-help-fancy-color() {
   echo "$@"
 }
 
-
 fn-help-subcommand-args() {
   declare FUNC_FILE="$1" FULL_OUTPUT="$2"
   local args argpos BLUE NORMAL arg_name arg_desc
@@ -200,10 +202,10 @@ fn-help-subcommand-args() {
     BLUE="$(fn-help-fancy-color "\033[0;34m")"
     NORMAL="$(fn-help-fancy-color "\033[m")"
   fi
-  
+
   args=""
   argpos=0
-  
+
   # Parse #A lines to get argument information
   while IFS= read -r line; do
     [[ -z "$line" ]] && continue
@@ -212,11 +214,11 @@ fn-help-subcommand-args() {
       args+="..."
       break
     fi
-    
+
     # Extract argument name (first word, remove comma) and description (rest)
     arg_name=$(echo "$line" | awk '{print $1}' | sed 's/,$//' | tr '[:upper:]' '[:lower:]')
     arg_desc=$(echo "$line" | cut -d' ' -f2-)
-    
+
     # Check if argument is optional based on description
     if [[ "$arg_desc" == *"optional"* ]] || [[ "$arg_desc" == *"omitted"* ]]; then
       args+=" [<${arg_name}>]"
@@ -224,7 +226,7 @@ fn-help-subcommand-args() {
       args+=" <${arg_name}>"
     fi
   done < <(grep "^[[:space:]]*#A " "$FUNC_FILE" | sed 's/^[[:space:]]*#A //')
-  
+
   # If no #A lines found, fall back to old method
   if [[ -z "$args" ]]; then
     argline=$(grep declare "$FUNC_FILE" | grep -v "declare desc" | head -1 || true)
@@ -259,7 +261,7 @@ fn-help-subcommand-args() {
       fi
     done
   fi
-  
+
   args=$(echo "$args" | tr "\n" " ")
   # shellcheck disable=SC2001
   echo "$args" | sed -e 's/^[[:space:]]*//'

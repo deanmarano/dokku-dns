@@ -3,54 +3,54 @@
 load test_helper
 
 setup() {
-    # Use the test environment's PLUGIN_DATA_ROOT that's already set up
-    # Don't override it since the config file will override it back
-    
-    # Setup test environment - make sure the directory exists and is clean
-    mkdir -p "$PLUGIN_DATA_ROOT"
-    rm -rf "$PLUGIN_DATA_ROOT"/*
+  # Use the test environment's PLUGIN_DATA_ROOT that's already set up
+  # Don't override it since the config file will override it back
+
+  # Setup test environment - make sure the directory exists and is clean
+  mkdir -p "$PLUGIN_DATA_ROOT"
+  rm -rf "$PLUGIN_DATA_ROOT"/*
 }
 
 teardown() {
-    cleanup_mock_provider_scripts
-    restore_main_aws_mock
-    rm -rf "$PLUGIN_DATA_ROOT"
+  cleanup_mock_provider_scripts
+  restore_main_aws_mock
+  rm -rf "$PLUGIN_DATA_ROOT"
 }
 
 # Helper function to run dns:zones command
 dns_zones() {
-    run "$PLUGIN_ROOT/subcommands/zones" "$@"
+  run "$PLUGIN_ROOT/subcommands/zones" "$@"
 }
 
 # Helper function to run dns:zones:enable command
 dns_zones_add() {
-    run "$PLUGIN_ROOT/subcommands/zones:enable" "$@"
+  run "$PLUGIN_ROOT/subcommands/zones:enable" "$@"
 }
 
 # Helper function to run dns:zones:disable command
 dns_zones_remove() {
-    run "$PLUGIN_ROOT/subcommands/zones:disable" "$@"
+  run "$PLUGIN_ROOT/subcommands/zones:disable" "$@"
 }
 
 # Helper function to setup a mock provider
 setup_mock_provider() {
-    local provider="${1:-aws}"
-    # Ensure the PLUGIN_DATA_ROOT directory exists
-    mkdir -p "$PLUGIN_DATA_ROOT"
-    # AWS is always the provider now - no global PROVIDER file needed
-    # This function is kept for backward compatibility but does nothing
-    return 0
+  local provider="${1:-aws}"
+  # Ensure the PLUGIN_DATA_ROOT directory exists
+  mkdir -p "$PLUGIN_DATA_ROOT"
+  # AWS is always the provider now - no global PROVIDER file needed
+  # This function is kept for backward compatibility but does nothing
+  return 0
 }
 
 # Mock AWS CLI for testing
 create_mock_aws() {
-    # Backup the main AWS mock before creating our temporary one
-    backup_main_aws_mock
-    
-    # Create a mock aws command that returns test data
-    local BIN_DIR="$PLUGIN_DATA_ROOT/bin"
-    mkdir -p "$BIN_DIR"
-    cat > "$BIN_DIR/aws" << 'EOF'
+  # Backup the main AWS mock before creating our temporary one
+  backup_main_aws_mock
+
+  # Create a mock aws command that returns test data
+  local BIN_DIR="$PLUGIN_DATA_ROOT/bin"
+  mkdir -p "$BIN_DIR"
+  cat >"$BIN_DIR/aws" <<'EOF'
 #!/bin/bash
 case "$*" in
     "sts get-caller-identity"*)
@@ -161,37 +161,37 @@ RECORDS_JSON
         ;;
 esac
 EOF
-    chmod +x "$BIN_DIR/aws"
-    export PATH="$BIN_DIR:$PATH"
+  chmod +x "$BIN_DIR/aws"
+  export PATH="$BIN_DIR:$PATH"
 }
 
 # Create mock provider scripts for testing
 create_mock_provider_scripts() {
-    # Use test-specific providers directory to avoid overwriting real provider files
-    local PROVIDERS_DIR="$PLUGIN_DATA_ROOT/test-providers"
-    mkdir -p "$PROVIDERS_DIR"
-    
-    # Override PLUGIN_ROOT temporarily to point to test providers
-    export ORIGINAL_PLUGIN_ROOT="$PLUGIN_ROOT"
-    
-    # Create a test plugin structure that includes our mock providers
-    local TEST_PLUGIN_ROOT="$PLUGIN_DATA_ROOT/test-plugin"
-    mkdir -p "$TEST_PLUGIN_ROOT"
-    
-    # Symlink everything from real plugin root except providers
-    for item in "$ORIGINAL_PLUGIN_ROOT"/*; do
-        local basename="$(basename "$item")"
-        if [[ "$basename" != "providers" ]]; then
-            ln -sf "$item" "$TEST_PLUGIN_ROOT/$basename"
-        fi
-    done
-    
-    # Create mock providers directory
-    mkdir -p "$TEST_PLUGIN_ROOT/providers"
-    export PLUGIN_ROOT="$TEST_PLUGIN_ROOT"
-    
-    # Create mock AWS provider script in test directory
-    cat > "$TEST_PLUGIN_ROOT/providers/aws.sh" << 'EOF'
+  # Use test-specific providers directory to avoid overwriting real provider files
+  local PROVIDERS_DIR="$PLUGIN_DATA_ROOT/test-providers"
+  mkdir -p "$PROVIDERS_DIR"
+
+  # Override PLUGIN_ROOT temporarily to point to test providers
+  export ORIGINAL_PLUGIN_ROOT="$PLUGIN_ROOT"
+
+  # Create a test plugin structure that includes our mock providers
+  local TEST_PLUGIN_ROOT="$PLUGIN_DATA_ROOT/test-plugin"
+  mkdir -p "$TEST_PLUGIN_ROOT"
+
+  # Symlink everything from real plugin root except providers
+  for item in "$ORIGINAL_PLUGIN_ROOT"/*; do
+    local basename="$(basename "$item")"
+    if [[ "$basename" != "providers" ]]; then
+      ln -sf "$item" "$TEST_PLUGIN_ROOT/$basename"
+    fi
+  done
+
+  # Create mock providers directory
+  mkdir -p "$TEST_PLUGIN_ROOT/providers"
+  export PLUGIN_ROOT="$TEST_PLUGIN_ROOT"
+
+  # Create mock AWS provider script in test directory
+  cat >"$TEST_PLUGIN_ROOT/providers/aws.sh" <<'EOF'
 #!/bin/bash
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
@@ -257,22 +257,22 @@ dns_provider_aws_sync_app() {
     return 0
 }
 EOF
-    chmod +x "$TEST_PLUGIN_ROOT/providers/aws.sh"
+  chmod +x "$TEST_PLUGIN_ROOT/providers/aws.sh"
 }
 
 # Cleanup mock provider scripts
 cleanup_mock_provider_scripts() {
-    if [[ -n "$ORIGINAL_PLUGIN_ROOT" ]]; then
-        export PLUGIN_ROOT="$ORIGINAL_PLUGIN_ROOT"
-        unset ORIGINAL_PLUGIN_ROOT
-    fi
+  if [[ -n "$ORIGINAL_PLUGIN_ROOT" ]]; then
+    export PLUGIN_ROOT="$ORIGINAL_PLUGIN_ROOT"
+    unset ORIGINAL_PLUGIN_ROOT
+  fi
 }
 
 # Mock dokku commands
 create_mock_dokku() {
-    local BIN_DIR="$PLUGIN_DATA_ROOT/bin"
-    mkdir -p "$BIN_DIR"
-    cat > "$BIN_DIR/dokku" << 'EOF'
+  local BIN_DIR="$PLUGIN_DATA_ROOT/bin"
+  mkdir -p "$BIN_DIR"
+  cat >"$BIN_DIR/dokku" <<'EOF'
 #!/bin/bash
 case "$*" in
     "apps:list")
@@ -295,218 +295,217 @@ case "$*" in
         ;;
 esac
 EOF
-    chmod +x "$BIN_DIR/dokku"
-    export PATH="$BIN_DIR:$PATH"
+  chmod +x "$BIN_DIR/dokku"
+  export PATH="$BIN_DIR:$PATH"
 }
 
-
 @test "(dns:zones) works with AWS provider (always configured)" {
-    create_mock_aws
-    dns_zones
-    assert_success
-    assert_output_contains "AWS"
+  create_mock_aws
+  dns_zones
+  assert_success
+  assert_output_contains "AWS"
 }
 
 @test "(dns:zones) lists AWS zones when provider configured" {
-    setup_mock_provider "aws"
-    create_mock_aws
-    
-    dns_zones
-    assert_success
-    assert_output_contains "DNS Zones Status (AWS provider)"
-    assert_output_contains "example.com"
-    assert_output_contains "test.org"
+  setup_mock_provider "aws"
+  create_mock_aws
+
+  dns_zones
+  assert_success
+  assert_output_contains "DNS Zones Status (AWS provider)"
+  assert_output_contains "example.com"
+  assert_output_contains "test.org"
 }
 
 @test "(dns:zones) AWS zones work properly" {
-    create_mock_aws
-    
-    dns_zones
-    assert_success
-    assert_output_contains "DNS Zones Status"
+  create_mock_aws
+
+  dns_zones
+  assert_success
+  assert_output_contains "DNS Zones Status"
 }
 
 @test "(dns:zones) works with AWS provider only" {
-    create_mock_aws
-    
-    dns_zones
-    assert_success
-    assert_output_contains "AWS"
+  create_mock_aws
+
+  dns_zones
+  assert_success
+  assert_output_contains "AWS"
 }
 
 @test "(dns:zones:enable) requires zone name argument" {
-    setup_mock_provider "aws"
-    
-    dns_zones_add
-    assert_failure
-    assert_output_contains "Please specify a zone name or use --all flag"
+  setup_mock_provider "aws"
+
+  dns_zones_add
+  assert_failure
+  assert_output_contains "Please specify a zone name or use --all flag"
 }
 
 @test "(dns:zones:disable) requires zone name argument" {
-    setup_mock_provider "aws"
-    
-    dns_zones_remove
-    assert_failure
-    assert_output_contains "Please specify a zone name or use --all flag"
+  setup_mock_provider "aws"
+
+  dns_zones_remove
+  assert_failure
+  assert_output_contains "Please specify a zone name or use --all flag"
 }
 
 @test "(dns:zones:enable) fails with both zone and --all" {
-    setup_mock_provider "aws"
-    
-    dns_zones_add example.com --all
-    assert_failure
-    assert_output_contains "Cannot specify both zone name and --all flag together"
+  setup_mock_provider "aws"
+
+  dns_zones_add example.com --all
+  assert_failure
+  assert_output_contains "Cannot specify both zone name and --all flag together"
 }
 
 @test "(dns:zones:disable) fails with both zone and --all" {
-    setup_mock_provider "aws"
-    
-    dns_zones_remove example.com --all
-    assert_failure
-    assert_output_contains "Cannot specify both zone name and --all flag together"
+  setup_mock_provider "aws"
+
+  dns_zones_remove example.com --all
+  assert_failure
+  assert_output_contains "Cannot specify both zone name and --all flag together"
 }
 
 @test "(dns:zones:enable) fails when zone not found" {
-    setup_mock_provider "aws"
-    create_mock_aws
-    
-    dns_zones_add "nonexistent.com"
-    assert_failure
-    assert_output_contains "Zone 'nonexistent.com' not found in Route53"
+  setup_mock_provider "aws"
+  create_mock_aws
+
+  dns_zones_add "nonexistent.com"
+  assert_failure
+  assert_output_contains "Zone 'nonexistent.com' not found in Route53"
 }
 
 @test "(dns:zones:enable) works with valid zone" {
-    setup_mock_provider "aws"
-    create_mock_aws
-    create_mock_dokku
-    
-    dns_zones_add "example.com"
-    assert_success
-    assert_output_contains "Adding zone to auto-discovery: example.com"
-    assert_output_contains "Zone 'example.com' added to auto-discovery"
+  setup_mock_provider "aws"
+  create_mock_aws
+  create_mock_dokku
+
+  dns_zones_add "example.com"
+  assert_success
+  assert_output_contains "Adding zone to auto-discovery: example.com"
+  assert_output_contains "Zone 'example.com' added to auto-discovery"
 }
 
 @test "(dns:zones:disable) removes domains from zone" {
-    setup_mock_provider "aws"
-    
-    # Setup some managed domains first
-    mkdir -p "$PLUGIN_DATA_ROOT/app1"
-    echo "app1.example.com" > "$PLUGIN_DATA_ROOT/app1/DOMAINS"
-    echo "api.example.com" >> "$PLUGIN_DATA_ROOT/app1/DOMAINS"
-    echo "app1" > "$PLUGIN_DATA_ROOT/LINKS"
-    
-    dns_zones_remove "example.com"
-    assert_success
-    assert_output_contains "Removing zone from auto-discovery: example.com"
-    assert_output_contains "• app1: app1.example.com api.example.com"
-    assert_output_contains "Zone 'example.com' removed from auto-discovery"
-    assert_output_contains "Removed 2 domains from 1 app"
+  setup_mock_provider "aws"
+
+  # Setup some managed domains first
+  mkdir -p "$PLUGIN_DATA_ROOT/app1"
+  echo "app1.example.com" >"$PLUGIN_DATA_ROOT/app1/DOMAINS"
+  echo "api.example.com" >>"$PLUGIN_DATA_ROOT/app1/DOMAINS"
+  echo "app1" >"$PLUGIN_DATA_ROOT/LINKS"
+
+  dns_zones_remove "example.com"
+  assert_success
+  assert_output_contains "Removing zone from auto-discovery: example.com"
+  assert_output_contains "• app1: app1.example.com api.example.com"
+  assert_output_contains "Zone 'example.com' removed from auto-discovery"
+  assert_output_contains "Removed 2 domains from 1 app"
 }
 
 @test "(dns:zones:enable --all) processes all zones" {
-    setup_mock_provider "aws"
-    create_mock_aws
-    create_mock_dokku
-    
-    dns_zones_add --all
-    assert_success
-    assert_output_contains "Adding all zones to auto-discovery"
-    assert_output_contains "Adding zone: example.com"
-    assert_output_contains "Adding zone: test.org"
+  setup_mock_provider "aws"
+  create_mock_aws
+  create_mock_dokku
+
+  dns_zones_add --all
+  assert_success
+  assert_output_contains "Adding all zones to auto-discovery"
+  assert_output_contains "Adding zone: example.com"
+  assert_output_contains "Adding zone: test.org"
 }
 
 @test "(dns:zones) shows management commands" {
-    setup_mock_provider "aws"
-    create_mock_aws
-    
-    dns_zones
-    assert_success
-    assert_output_contains "Management Commands"
-    assert_output_contains "Add zone to auto-discovery: dokku dns:zones:enable"
-    assert_output_contains "Remove zone from auto-discovery: dokku dns:zones:disable"
-    assert_output_contains "Add all zones to auto-discovery: dokku dns:zones:enable --all"
+  setup_mock_provider "aws"
+  create_mock_aws
+
+  dns_zones
+  assert_success
+  assert_output_contains "Management Commands"
+  assert_output_contains "Add zone to auto-discovery: dokku dns:zones:enable"
+  assert_output_contains "Remove zone from auto-discovery: dokku dns:zones:disable"
+  assert_output_contains "Add all zones to auto-discovery: dokku dns:zones:enable --all"
 }
 
 @test "(dns:zones) handles zones with managed domains" {
-    setup_mock_provider "aws"
-    create_mock_aws
-    
-    # Setup some managed domains
-    mkdir -p "$PLUGIN_DATA_ROOT/app1"
-    echo "app1.example.com" > "$PLUGIN_DATA_ROOT/app1/DOMAINS"
-    echo "app1" > "$PLUGIN_DATA_ROOT/LINKS"
-    
-    dns_zones
-    assert_success
-    assert_output_contains "ACTIVE"
-    assert_output_contains "Managed domains"
+  setup_mock_provider "aws"
+  create_mock_aws
+
+  # Setup some managed domains
+  mkdir -p "$PLUGIN_DATA_ROOT/app1"
+  echo "app1.example.com" >"$PLUGIN_DATA_ROOT/app1/DOMAINS"
+  echo "app1" >"$PLUGIN_DATA_ROOT/LINKS"
+
+  dns_zones
+  assert_success
+  assert_output_contains "ACTIVE"
+  assert_output_contains "Managed domains"
 }
 
 @test "(dns:zones <zone>) shows zone details" {
-    setup_mock_provider "aws"
-    create_mock_aws
-    
-    dns_zones example.com
-    assert_success
-    assert_output_contains "DNS Zone Details: example.com"
+  setup_mock_provider "aws"
+  create_mock_aws
+
+  dns_zones example.com
+  assert_success
+  assert_output_contains "DNS Zone Details: example.com"
 }
 
 @test "(dns:zones <zone>) fails when zone not found" {
-    setup_mock_provider "aws"
-    create_mock_aws
-    
-    dns_zones nonexistent.com
-    assert_failure
-    assert_output_contains "Zone 'nonexistent.com' not found in Route53"
+  setup_mock_provider "aws"
+  create_mock_aws
+
+  dns_zones nonexistent.com
+  assert_failure
+  assert_output_contains "Zone 'nonexistent.com' not found in Route53"
 }
 
 @test "(dns:zones) handles unknown flag" {
-    setup_mock_provider "aws"
-    
-    dns_zones --invalid-flag
-    assert_failure
-    assert_output_contains "Flags are no longer supported. Use 'dokku dns:zones:enable' or 'dokku dns:zones:disable' instead."
+  setup_mock_provider "aws"
+
+  dns_zones --invalid-flag
+  assert_failure
+  assert_output_contains "Flags are no longer supported. Use 'dokku dns:zones:enable' or 'dokku dns:zones:disable' instead."
 }
 
 @test "(dns:zones:enable) works with AWS provider" {
-    create_mock_aws
-    
-    dns_zones_add "example.com"
-    assert_success
-    assert_output_contains "Adding zone to auto-discovery: example.com"
+  create_mock_aws
+
+  dns_zones_add "example.com"
+  assert_success
+  assert_output_contains "Adding zone to auto-discovery: example.com"
 }
 
 @test "(dns:zones:disable) works without provider restriction" {
-    setup_mock_provider "cloudflare"
-    
-    # Setup some managed domains
-    mkdir -p "$PLUGIN_DATA_ROOT/app1"
-    echo "app1.example.com" > "$PLUGIN_DATA_ROOT/app1/DOMAINS"
-    echo "app1" > "$PLUGIN_DATA_ROOT/LINKS"
-    
-    dns_zones_remove "example.com"
-    assert_success
-    assert_output_contains "Removing zone from auto-discovery: example.com"
+  setup_mock_provider "cloudflare"
+
+  # Setup some managed domains
+  mkdir -p "$PLUGIN_DATA_ROOT/app1"
+  echo "app1.example.com" >"$PLUGIN_DATA_ROOT/app1/DOMAINS"
+  echo "app1" >"$PLUGIN_DATA_ROOT/LINKS"
+
+  dns_zones_remove "example.com"
+  assert_success
+  assert_output_contains "Removing zone from auto-discovery: example.com"
 }
 
 @test "(dns:zones:disable) handles empty LINKS file" {
-    setup_mock_provider "aws"
-    
-    # Create empty LINKS file
-    touch "$PLUGIN_DATA_ROOT/LINKS"
-    
-    dns_zones_remove "example.com"
-    assert_success
-    assert_output_contains "No apps are currently managed by DNS"
+  setup_mock_provider "aws"
+
+  # Create empty LINKS file
+  touch "$PLUGIN_DATA_ROOT/LINKS"
+
+  dns_zones_remove "example.com"
+  assert_success
+  assert_output_contains "No apps are currently managed by DNS"
 }
 
 @test "(dns:zones:enable) handles no Dokku apps" {
-    setup_mock_provider "aws"
-    create_mock_aws
-    
-    # Mock dokku apps:list to return no apps (header only)
-    mkdir -p "$PLUGIN_DATA_ROOT/bin"
-    cat > "$PLUGIN_DATA_ROOT/bin/dokku" << 'EOF'
+  setup_mock_provider "aws"
+  create_mock_aws
+
+  # Mock dokku apps:list to return no apps (header only)
+  mkdir -p "$PLUGIN_DATA_ROOT/bin"
+  cat >"$PLUGIN_DATA_ROOT/bin/dokku" <<'EOF'
 #!/bin/bash
 case "$*" in
     "apps:list")
@@ -519,156 +518,156 @@ case "$*" in
         ;;
 esac
 EOF
-    chmod +x "$PLUGIN_DATA_ROOT/bin/dokku"
-    export PATH="$PLUGIN_DATA_ROOT/bin:$PATH"
-    
-    # Override the dokku function instead of relying on PATH
-    dokku() {
-        case "$*" in
-            "apps:list")
-                echo "=====> My Apps"
-                ;;
-            *)
-                echo "Mock dokku - command not implemented: $*" >&2
-                return 1
-                ;;
-        esac
-    }
-    export -f dokku
-    
-    dns_zones_add "example.com"
-    assert_success
-    assert_output_contains "Zone 'example.com' added to auto-discovery"
+  chmod +x "$PLUGIN_DATA_ROOT/bin/dokku"
+  export PATH="$PLUGIN_DATA_ROOT/bin:$PATH"
+
+  # Override the dokku function instead of relying on PATH
+  dokku() {
+    case "$*" in
+      "apps:list")
+        echo "=====> My Apps"
+        ;;
+      *)
+        echo "Mock dokku - command not implemented: $*" >&2
+        return 1
+        ;;
+    esac
+  }
+  export -f dokku
+
+  dns_zones_add "example.com"
+  assert_success
+  assert_output_contains "Zone 'example.com' added to auto-discovery"
 }
 
 # Helper functions for test assertions
 assert_output_contains() {
-    local expected="$1"
-    if [[ "$output" != *"$expected"* ]]; then
-        echo "Expected output to contain: $expected"
-        echo "Actual output: $output"
-        return 1
-    fi
+  local expected="$1"
+  if [[ "$output" != *"$expected"* ]]; then
+    echo "Expected output to contain: $expected"
+    echo "Actual output: $output"
+    return 1
+  fi
 }
 
 assert_file_exists() {
-    local file="$1"
-    if [[ ! -f "$file" ]]; then
-        echo "Expected file to exist: $file"
-        return 1
-    fi
+  local file="$1"
+  if [[ ! -f "$file" ]]; then
+    echo "Expected file to exist: $file"
+    return 1
+  fi
 }
 
 assert_file_contains() {
-    local file="$1"
-    local expected="$2"
-    if [[ ! -f "$file" ]]; then
-        echo "File does not exist: $file"
-        return 1
-    fi
-    if ! grep -q "$expected" "$file"; then
-        echo "Expected file $file to contain: $expected"
-        echo "Actual content:"
-        cat "$file"
-        return 1
-    fi
+  local file="$1"
+  local expected="$2"
+  if [[ ! -f "$file" ]]; then
+    echo "File does not exist: $file"
+    return 1
+  fi
+  if ! grep -q "$expected" "$file"; then
+    echo "Expected file $file to contain: $expected"
+    echo "Actual content:"
+    cat "$file"
+    return 1
+  fi
 }
 
 @test "(dns:zones:disable --all) removes all apps from DNS management" {
-    setup_mock_provider "aws"
-    
-    # Setup some managed domains
-    mkdir -p "$PLUGIN_DATA_ROOT/testapp1" "$PLUGIN_DATA_ROOT/testapp2"
-    echo -e "example.com\napi.example.com" > "$PLUGIN_DATA_ROOT/testapp1/DOMAINS"
-    echo "test.org" > "$PLUGIN_DATA_ROOT/testapp2/DOMAINS"
-    echo -e "testapp1\ntestapp2" > "$PLUGIN_DATA_ROOT/LINKS"
-    
-    dns_zones_remove --all
-    assert_success
-    assert_output_contains "Removing all zones from auto-discovery"
-    assert_output_contains "Removing app 'testapp1' from DNS management (2 domains)"
-    assert_output_contains "Removing app 'testapp2' from DNS management (1 domains)"
-    assert_output_contains "Apps removed from DNS: 2"
-    assert_output_contains "Total domains removed: 3"
-    
-    # Verify cleanup
-    assert_output_contains "All zones removed from auto-discovery"
-    run test -f "$PLUGIN_DATA_ROOT/testapp1/DOMAINS"
-    assert_failure
-    run test -f "$PLUGIN_DATA_ROOT/testapp2/DOMAINS"
-    assert_failure
-    
-    # LINKS file should be empty
-    run cat "$PLUGIN_DATA_ROOT/LINKS"
-    assert_success
-    assert_output ""
+  setup_mock_provider "aws"
+
+  # Setup some managed domains
+  mkdir -p "$PLUGIN_DATA_ROOT/testapp1" "$PLUGIN_DATA_ROOT/testapp2"
+  echo -e "example.com\napi.example.com" >"$PLUGIN_DATA_ROOT/testapp1/DOMAINS"
+  echo "test.org" >"$PLUGIN_DATA_ROOT/testapp2/DOMAINS"
+  echo -e "testapp1\ntestapp2" >"$PLUGIN_DATA_ROOT/LINKS"
+
+  dns_zones_remove --all
+  assert_success
+  assert_output_contains "Removing all zones from auto-discovery"
+  assert_output_contains "Removing app 'testapp1' from DNS management (2 domains)"
+  assert_output_contains "Removing app 'testapp2' from DNS management (1 domains)"
+  assert_output_contains "Apps removed from DNS: 2"
+  assert_output_contains "Total domains removed: 3"
+
+  # Verify cleanup
+  assert_output_contains "All zones removed from auto-discovery"
+  run test -f "$PLUGIN_DATA_ROOT/testapp1/DOMAINS"
+  assert_failure
+  run test -f "$PLUGIN_DATA_ROOT/testapp2/DOMAINS"
+  assert_failure
+
+  # LINKS file should be empty
+  run cat "$PLUGIN_DATA_ROOT/LINKS"
+  assert_success
+  assert_output ""
 }
 
 @test "(dns:zones:disable --all) handles no managed apps gracefully" {
-    setup_mock_provider "aws"
-    
-    dns_zones_remove --all
-    assert_success
-    assert_output_contains "Removing all zones from auto-discovery"
-    assert_output_contains "No apps are currently managed by DNS"
+  setup_mock_provider "aws"
+
+  dns_zones_remove --all
+  assert_success
+  assert_output_contains "Removing all zones from auto-discovery"
+  assert_output_contains "No apps are currently managed by DNS"
 }
 
 @test "(dns:zones) shows zones status by default" {
-    setup_mock_provider "aws"
-    create_mock_aws
-    
-    dns_zones
-    assert_success
-    assert_output_contains "DNS Zones Status"
+  setup_mock_provider "aws"
+  create_mock_aws
+
+  dns_zones
+  assert_success
+  assert_output_contains "DNS Zones Status"
 }
 
 @test "(dns:zones) rejects old flags with helpful message" {
-    setup_mock_provider "aws"
-    
-    dns_zones --enable
-    assert_failure
-    assert_output_contains "Flags are no longer supported. Use 'dokku dns:zones:enable' or 'dokku dns:zones:disable' instead."
+  setup_mock_provider "aws"
+
+  dns_zones --enable
+  assert_failure
+  assert_output_contains "Flags are no longer supported. Use 'dokku dns:zones:enable' or 'dokku dns:zones:disable' instead."
 }
 
 @test "(dns:zones) rejects old disable flags with helpful message" {
-    setup_mock_provider "aws"
-    
-    dns_zones --disable
-    assert_failure
-    assert_output_contains "Flags are no longer supported. Use 'dokku dns:zones:enable' or 'dokku dns:zones:disable' instead."
+  setup_mock_provider "aws"
+
+  dns_zones --disable
+  assert_failure
+  assert_output_contains "Flags are no longer supported. Use 'dokku dns:zones:enable' or 'dokku dns:zones:disable' instead."
 }
 
 @test "(dns:zones:disable --all) shows helpful next steps" {
-    setup_mock_provider "aws"
-    
-    # Setup some managed domains
-    mkdir -p "$PLUGIN_DATA_ROOT/testapp"
-    echo "example.com" > "$PLUGIN_DATA_ROOT/testapp/DOMAINS"
-    echo "testapp" > "$PLUGIN_DATA_ROOT/LINKS"
-    
-    dns_zones_remove --all
-    assert_success
-    assert_output_contains "To re-enable: dokku dns:zones:enable --all"
-    assert_output_contains "Or add apps individually: dokku dns:apps:enable <app>"
+  setup_mock_provider "aws"
+
+  # Setup some managed domains
+  mkdir -p "$PLUGIN_DATA_ROOT/testapp"
+  echo "example.com" >"$PLUGIN_DATA_ROOT/testapp/DOMAINS"
+  echo "testapp" >"$PLUGIN_DATA_ROOT/LINKS"
+
+  dns_zones_remove --all
+  assert_success
+  assert_output_contains "To re-enable: dokku dns:zones:enable --all"
+  assert_output_contains "Or add apps individually: dokku dns:apps:enable <app>"
 }
 
 @test "(dns:zones:enable) persists zone as enabled globally" {
   setup_mock_provider "aws"
   create_mock_aws
-  
+
   # Enable a zone
   run dns_zones_add "example.com"
   assert_success
-  
+
   # Check that zone is stored in ENABLED_ZONES file
   assert_exists "$PLUGIN_DATA_ROOT/ENABLED_ZONES"
   run cat "$PLUGIN_DATA_ROOT/ENABLED_ZONES"
   assert_output_contains "example.com"
-  
+
   # Enable another zone
   run dns_zones_add "test.org"
   assert_success
-  
+
   # Check both zones are stored
   run cat "$PLUGIN_DATA_ROOT/ENABLED_ZONES"
   assert_output_contains "example.com"
@@ -678,22 +677,22 @@ assert_file_contains() {
 @test "(dns:zones:disable) removes zone from enabled zones" {
   setup_mock_provider "aws"
   create_mock_aws
-  
+
   # First enable two zones
   run dns_zones_add "example.com"
   assert_success
   run dns_zones_add "test.org"
   assert_success
-  
+
   # Verify both are enabled
   run cat "$PLUGIN_DATA_ROOT/ENABLED_ZONES"
   assert_output_contains "example.com"
   assert_output_contains "test.org"
-  
+
   # Disable one zone
   run dns_zones_remove "example.com"
   assert_success
-  
+
   # Check that only test.org remains enabled
   run cat "$PLUGIN_DATA_ROOT/ENABLED_ZONES"
   run bash -c "! grep -q 'example.com' '$PLUGIN_DATA_ROOT/ENABLED_ZONES'"
@@ -705,16 +704,16 @@ assert_file_contains() {
 @test "(dns:zones) shows enabled status in zone listing" {
   setup_mock_provider "aws"
   create_mock_aws
-  
+
   # Enable one zone but not the other
   run dns_zones_add "example.com"
   assert_success
-  
+
   # Verify the ENABLED_ZONES file was created and contains the enabled zone
   [[ -f "$PLUGIN_DATA_ROOT/ENABLED_ZONES" ]]
   run cat "$PLUGIN_DATA_ROOT/ENABLED_ZONES"
   assert_output_contains "example.com"
-  
+
   # For this test, just verify that the zone enabling worked
   # The exact output format of zones listing can vary based on AWS CLI availability
   # But we know the enabling functionality works since other tests pass
@@ -722,32 +721,32 @@ assert_file_contains() {
 
 @test "zones enabled checking functions work correctly" {
   setup_mock_provider "aws"
-  
+
   # Test with no enabled zones
   run bash -c "source '$PLUGIN_ROOT/functions' && is_zone_enabled 'example.com'"
   assert_failure
-  
+
   run bash -c "source '$PLUGIN_ROOT/functions' && is_domain_in_enabled_zone 'app.example.com'"
   assert_failure
-  
+
   # Enable a zone
   mkdir -p "$PLUGIN_DATA_ROOT"
-  echo "example.com" > "$PLUGIN_DATA_ROOT/ENABLED_ZONES"
-  
+  echo "example.com" >"$PLUGIN_DATA_ROOT/ENABLED_ZONES"
+
   # Test zone enabled check
   run bash -c "source '$PLUGIN_ROOT/functions' && is_zone_enabled 'example.com'"
   assert_success
-  
+
   run bash -c "source '$PLUGIN_ROOT/functions' && is_zone_enabled 'test.org'"
   assert_failure
-  
+
   # Test domain in enabled zone check
   run bash -c "source '$PLUGIN_ROOT/functions' && is_domain_in_enabled_zone 'app.example.com'"
   assert_success
-  
+
   run bash -c "source '$PLUGIN_ROOT/functions' && is_domain_in_enabled_zone 'example.com'"
   assert_success
-  
+
   run bash -c "source '$PLUGIN_ROOT/functions' && is_domain_in_enabled_zone 'app.test.org'"
   assert_failure
 }
@@ -756,19 +755,19 @@ assert_file_contains() {
   setup_mock_provider "aws"
   create_mock_aws
   create_mock_provider_scripts
-  
+
   # Create a test app with domains
   create_test_app "testapp"
   add_test_domains "testapp" "app1.example.com" "app2.test.org"
-  
+
   # Manually add app to DNS management (bypass dns:apps:enable since it might fail with no real hosted zones)
   mkdir -p "$PLUGIN_DATA_ROOT/testapp"
-  echo -e "app1.example.com\napp2.test.org" > "$PLUGIN_DATA_ROOT/testapp/DOMAINS"
-  echo "testapp" >> "$PLUGIN_DATA_ROOT/LINKS"
-  
+  echo -e "app1.example.com\napp2.test.org" >"$PLUGIN_DATA_ROOT/testapp/DOMAINS"
+  echo "testapp" >>"$PLUGIN_DATA_ROOT/LINKS"
+
   # Create empty ENABLED_ZONES file to ensure no zones are enabled
   touch "$PLUGIN_DATA_ROOT/ENABLED_ZONES"
-  
+
   # Sync should work regardless of zone enablement for explicitly added apps
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" "testapp"
   assert_success
@@ -776,30 +775,30 @@ assert_file_contains() {
   assert_output_contains "Syncing domain: app2.test.org"
   assert_output_contains "DNS record created: app1.example.com -> 192.168.1.100"
   assert_output_contains "DNS record created: app2.test.org -> 192.168.1.100"
-  
+
   # Zone enablement should not affect explicitly added apps
   run dns_zones "--enable" "example.com"
   assert_success
-  
+
   # Sync should still work for all domains
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" "testapp"
   assert_success
   assert_output_contains "Syncing domain: app1.example.com"
   assert_output_contains "Syncing domain: app2.test.org"
-  
+
   cleanup_test_app "testapp"
 }
 
 @test "(dns:zones:enable) implements simple zone enablement" {
-    setup_mock_provider "aws"
-    create_mock_aws
-    create_mock_dokku
-    
-    dns_zones_add "example.com"
-    assert_success
-    assert_output_contains "Adding zone to auto-discovery: example.com"
-    assert_output_contains "Zone 'example.com' added to auto-discovery"
-    
-    # The implementation simply enables zones for auto-discovery without automatic domain discovery
-    # Applications must be added manually via dns:apps:enable command after zone enablement
+  setup_mock_provider "aws"
+  create_mock_aws
+  create_mock_dokku
+
+  dns_zones_add "example.com"
+  assert_success
+  assert_output_contains "Adding zone to auto-discovery: example.com"
+  assert_output_contains "Zone 'example.com' added to auto-discovery"
+
+  # The implementation simply enables zones for auto-discovery without automatic domain discovery
+  # Applications must be added manually via dns:apps:enable command after zone enablement
 }

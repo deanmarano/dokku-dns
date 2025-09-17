@@ -34,66 +34,66 @@ source "$TRIGGER_BASE_PATH/functions"
 # Main trigger logic
 main() {
   local APP="$1"
-  local IMAGE_TAG="$2"  # Optional second argument
-  
+  local IMAGE_TAG="$2" # Optional second argument
+
   # Check if triggers are enabled
   local TRIGGERS_ENABLED_FILE="$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED"
   if [[ ! -f "$TRIGGERS_ENABLED_FILE" ]]; then
     # Triggers are disabled - exit silently
     return 0
   fi
-  
+
   # Skip if no app provided
   [[ -z "$APP" ]] && return 0
-  
+
   # Check if app is managed by DNS
   if ! is_app_dns_managed "$APP"; then
     # App not managed by DNS, nothing to clean up
     return 0
   fi
-  
+
   dokku_log_info2 "DNS: Cleaning up DNS management for app '$APP'"
-  
+
   # Get domains that were managed before removal
   local APP_DOMAINS_FILE="$PLUGIN_DATA_ROOT/$APP/DOMAINS"
   local managed_domains=()
-  
+
   if [[ -f "$APP_DOMAINS_FILE" ]]; then
     while IFS= read -r domain; do
       [[ -n "$domain" ]] && managed_domains+=("$domain")
-    done < "$APP_DOMAINS_FILE"
+    done <"$APP_DOMAINS_FILE"
   fi
-  
+
   if [[ ${#managed_domains[@]} -gt 0 ]]; then
     dokku_log_info1 "DNS: Removing DNS management for domains:"
     for domain in "${managed_domains[@]}"; do
       dokku_log_info1 "  • $domain"
     done
   fi
-  
+
   # Remove app from DNS management
   local LINKS_FILE="$PLUGIN_DATA_ROOT/LINKS"
   if [[ -f "$LINKS_FILE" ]]; then
     # Create temp file without the app
     local TEMP_LINKS_FILE
     TEMP_LINKS_FILE=$(mktemp)
-    grep -v "^$APP$" "$LINKS_FILE" > "$TEMP_LINKS_FILE" 2>/dev/null || true
+    grep -v "^$APP$" "$LINKS_FILE" >"$TEMP_LINKS_FILE" 2>/dev/null || true
     mv "$TEMP_LINKS_FILE" "$LINKS_FILE"
   fi
-  
+
   # Remove app's domain tracking directory
   if [[ -d "$PLUGIN_DATA_ROOT/$APP" ]]; then
     rm -rf "${PLUGIN_DATA_ROOT:?}/${APP:?}"
   fi
-  
+
   if [[ ${#managed_domains[@]} -gt 0 ]]; then
     # Queue domains for potential deletion
     local DELETIONS_QUEUE="$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
     for domain in "${managed_domains[@]}"; do
       # Add timestamp and source info to the deletions queue
-      echo "$(date '+%Y-%m-%d %H:%M:%S') post-delete $APP $domain" >> "$DELETIONS_QUEUE"
+      echo "$(date '+%Y-%m-%d %H:%M:%S') post-delete $APP $domain" >>"$DELETIONS_QUEUE"
     done
-    
+
     dokku_log_info1 "DNS: App '$APP' removed from DNS management"
     dokku_log_info1 "DNS: Domains queued for cleanup: ${managed_domains[*]}"
     dokku_log_info1 "DNS: Run 'dokku $PLUGIN_COMMAND_PREFIX:sync:deletions' to clean up orphaned DNS records"

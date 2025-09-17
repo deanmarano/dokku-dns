@@ -14,98 +14,98 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 log() {
-    local level="$1"
-    shift
-    local message="$*"
-    
-    case "$level" in
-        "INFO")
-            echo -e "${BLUE}[INFO]${NC} $message"
-            ;;
-        "SUCCESS")
-            echo -e "${GREEN}[SUCCESS]${NC} $message"
-            ;;
-        "WARNING")
-            echo -e "${YELLOW}[WARNING]${NC} $message"
-            ;;
-        "ERROR")
-            echo -e "${RED}[ERROR]${NC} $message"
-            ;;
-    esac
+  local level="$1"
+  shift
+  local message="$*"
+
+  case "$level" in
+    "INFO")
+      echo -e "${BLUE}[INFO]${NC} $message"
+      ;;
+    "SUCCESS")
+      echo -e "${GREEN}[SUCCESS]${NC} $message"
+      ;;
+    "WARNING")
+      echo -e "${YELLOW}[WARNING]${NC} $message"
+      ;;
+    "ERROR")
+      echo -e "${RED}[ERROR]${NC} $message"
+      ;;
+  esac
 }
 
 # Function to run BATS unit tests in background
 run_bats_background() {
-    local temp_file="$1"
-    
-    if ! command -v bats >/dev/null 2>&1; then
-        echo "WARNING:BATS not found, skipping unit tests" > "$temp_file"
-        return 0
-    fi
-    
-    if make unit-tests >/dev/null 2>&1; then
-        echo "SUCCESS:BATS unit tests passed" > "$temp_file"
-    else
-        echo "ERROR:BATS unit tests failed" > "$temp_file"
-    fi
+  local temp_file="$1"
+
+  if ! command -v bats >/dev/null 2>&1; then
+    echo "WARNING:BATS not found, skipping unit tests" >"$temp_file"
+    return 0
+  fi
+
+  if make unit-tests >/dev/null 2>&1; then
+    echo "SUCCESS:BATS unit tests passed" >"$temp_file"
+  else
+    echo "ERROR:BATS unit tests failed" >"$temp_file"
+  fi
 }
 
-# Function to run Docker integration tests in background  
+# Function to run Docker integration tests in background
 run_docker_background() {
-    local temp_file="$1"
-    
-    # Use unique compose project to avoid conflicts
-    local project_name="dns-precommit-$$"
-    export COMPOSE_PROJECT_NAME="$project_name"
-    
-    # Clean up any existing containers for this project
+  local temp_file="$1"
+
+  # Use unique compose project to avoid conflicts
+  local project_name="dns-precommit-$$"
+  export COMPOSE_PROJECT_NAME="$project_name"
+
+  # Clean up any existing containers for this project
+  docker-compose -f tests/docker/docker-compose.yml down --volumes >/dev/null 2>&1 || true
+
+  # Wait for cleanup
+  sleep 1
+
+  if scripts/test-docker.sh >/dev/null 2>&1; then
+    echo "SUCCESS:Docker integration tests passed" >"$temp_file"
+    # Clean up after successful tests
     docker-compose -f tests/docker/docker-compose.yml down --volumes >/dev/null 2>&1 || true
-    
-    # Wait for cleanup
-    sleep 1
-    
-    if scripts/test-docker.sh >/dev/null 2>&1; then
-        echo "SUCCESS:Docker integration tests passed" > "$temp_file"
-        # Clean up after successful tests
-        docker-compose -f tests/docker/docker-compose.yml down --volumes >/dev/null 2>&1 || true
-    else
-        echo "ERROR:Docker integration tests failed" > "$temp_file"
-        # Clean up after failed tests  
-        docker-compose -f tests/docker/docker-compose.yml down --volumes >/dev/null 2>&1 || true
-    fi
+  else
+    echo "ERROR:Docker integration tests failed" >"$temp_file"
+    # Clean up after failed tests
+    docker-compose -f tests/docker/docker-compose.yml down --volumes >/dev/null 2>&1 || true
+  fi
 }
 
 # Check if we should skip tests
 if [[ "${SKIP_TESTS:-}" == "1" ]]; then
-    log "WARNING" "Skipping tests (SKIP_TESTS=1)"
-    exit 0
+  log "WARNING" "Skipping tests (SKIP_TESTS=1)"
+  exit 0
 fi
 
 # Check if this is a documentation-only change (excluding README.md since it's generated)
 if git diff --cached --name-only | grep -qv -E '^(TODO\.md|DONE\.md|.*\.txt|.*\.rst)$'; then
-    CODE_CHANGES=true
+  CODE_CHANGES=true
 else
-    CODE_CHANGES=false
+  CODE_CHANGES=false
 fi
 
 # Skip tests for documentation-only changes
 if [[ "$CODE_CHANGES" == "false" ]]; then
-    log "INFO" "Documentation-only change detected (TODO.md, DONE.md), skipping tests but running basic checks"
+  log "INFO" "Documentation-only change detected (TODO.md, DONE.md), skipping tests but running basic checks"
 fi
 
 # Run linting for code changes
 if [[ "$CODE_CHANGES" == "true" ]]; then
-    log "INFO" "Running shellcheck linting..."
-    if make lint >/dev/null 2>&1; then
-        log "SUCCESS" "Linting passed"
-    else
-        log "ERROR" "Linting failed"
-        echo "To fix linting issues, run: make lint"
-        echo "To skip this check: SKIP_TESTS=1 git commit"
-        exit 1
-    fi
+  log "INFO" "Running shellcheck linting..."
+  if make lint >/dev/null 2>&1; then
+    log "SUCCESS" "Linting passed"
+  else
+    log "ERROR" "Linting failed"
+    echo "To fix linting issues, run: make lint"
+    echo "To skip this check: SKIP_TESTS=1 git commit"
+    exit 1
+  fi
 else
-    log "INFO" "Skipping linting for documentation-only change"
+  log "INFO" "Skipping linting for documentation-only change"
 fi
 
 # Check README generation for any changes (including documentation changes)
@@ -113,146 +113,146 @@ log "INFO" "Checking README generation..."
 make generate >/dev/null 2>&1
 
 if git diff --quiet README.md; then
-    log "SUCCESS" "README is up-to-date"
+  log "SUCCESS" "README is up-to-date"
 else
-    log "ERROR" "README needs to be regenerated"
-    echo "Please run 'make generate' and commit the updated README.md"
-    exit 1
+  log "ERROR" "README needs to be regenerated"
+  echo "Please run 'make generate' and commit the updated README.md"
+  exit 1
 fi
 
 # Run tests for code changes (disabled by default to speed up commits)
 if [[ "$CODE_CHANGES" == "true" && "${RUN_TESTS:-0}" == "1" ]]; then
-    # Run tests in parallel if Docker is available
-    if command -v docker >/dev/null 2>&1 && [[ "${RUN_DOCKER_TESTS:-1}" == "1" ]]; then
-        log "INFO" "Running BATS and Docker tests in parallel..."
-    
+  # Run tests in parallel if Docker is available
+  if command -v docker >/dev/null 2>&1 && [[ "${RUN_DOCKER_TESTS:-1}" == "1" ]]; then
+    log "INFO" "Running BATS and Docker tests in parallel..."
+
     # Create unique temporary files
     bats_result_file=$(mktemp "/tmp/bats-result-$$.XXXXXX")
     docker_result_file=$(mktemp "/tmp/docker-result-$$.XXXXXX")
-    
+
     # Start both test suites in background
     run_bats_background "$bats_result_file" &
     bats_pid=$!
-    
+
     run_docker_background "$docker_result_file" &
     docker_pid=$!
-    
+
     # Wait for both to complete with timeout
     # Docker tests need more time for DH parameter generation and container startup
     timeout=300 # 5 minutes
     elapsed=0
     still_running=true
-    
+
     while [[ $still_running == true && $elapsed -lt $timeout ]]; do
-        if ! kill -0 "$bats_pid" 2>/dev/null && ! kill -0 "$docker_pid" 2>/dev/null; then
-            still_running=false
-            break
-        fi
-        sleep 2
-        elapsed=$((elapsed + 2))
-        if [[ $((elapsed % 10)) -eq 0 ]]; then
-            printf "."
-        fi
+      if ! kill -0 "$bats_pid" 2>/dev/null && ! kill -0 "$docker_pid" 2>/dev/null; then
+        still_running=false
+        break
+      fi
+      sleep 2
+      elapsed=$((elapsed + 2))
+      if [[ $((elapsed % 10)) -eq 0 ]]; then
+        printf "."
+      fi
     done
     echo ""
-    
+
     # Kill any remaining processes if timeout exceeded
     if [[ $elapsed -ge $timeout ]]; then
-        log "ERROR" "Tests timed out after $timeout seconds"
-        kill "$bats_pid" "$docker_pid" 2>/dev/null || true
-        rm -f "$bats_result_file" "$docker_result_file"
-        exit 1
+      log "ERROR" "Tests timed out after $timeout seconds"
+      kill "$bats_pid" "$docker_pid" 2>/dev/null || true
+      rm -f "$bats_result_file" "$docker_result_file"
+      exit 1
     fi
-    
+
     # Wait for processes and get exit codes
     wait "$bats_pid" 2>/dev/null || true
     wait "$docker_pid" 2>/dev/null || true
-    
+
     # Read and parse results
     overall_success=true
-    
+
     if [[ -f "$bats_result_file" ]]; then
-        bats_result=$(cat "$bats_result_file")
-        rm -f "$bats_result_file"
-        
-        case "$bats_result" in
-            SUCCESS:*)
-                log "SUCCESS" "${bats_result#SUCCESS:}"
-                ;;
-            WARNING:*)
-                log "WARNING" "${bats_result#WARNING:}"
-                ;;
-            ERROR:*)
-                log "ERROR" "${bats_result#ERROR:}"
-                overall_success=false
-                ;;
-            *)
-                log "ERROR" "BATS tests failed to complete"
-                overall_success=false
-                ;;
-        esac
+      bats_result=$(cat "$bats_result_file")
+      rm -f "$bats_result_file"
+
+      case "$bats_result" in
+        SUCCESS:*)
+          log "SUCCESS" "${bats_result#SUCCESS:}"
+          ;;
+        WARNING:*)
+          log "WARNING" "${bats_result#WARNING:}"
+          ;;
+        ERROR:*)
+          log "ERROR" "${bats_result#ERROR:}"
+          overall_success=false
+          ;;
+        *)
+          log "ERROR" "BATS tests failed to complete"
+          overall_success=false
+          ;;
+      esac
     else
-        log "ERROR" "BATS tests failed to produce results"
-        overall_success=false
+      log "ERROR" "BATS tests failed to produce results"
+      overall_success=false
     fi
-    
+
     if [[ -f "$docker_result_file" ]]; then
-        docker_result=$(cat "$docker_result_file")
-        rm -f "$docker_result_file"
-        
-        case "$docker_result" in
-            SUCCESS:*)
-                log "SUCCESS" "${docker_result#SUCCESS:}"
-                ;;
-            ERROR:*)
-                log "ERROR" "${docker_result#ERROR:}"
-                overall_success=false
-                ;;
-            *)
-                log "ERROR" "Docker tests failed to complete"
-                overall_success=false
-                ;;
-        esac
+      docker_result=$(cat "$docker_result_file")
+      rm -f "$docker_result_file"
+
+      case "$docker_result" in
+        SUCCESS:*)
+          log "SUCCESS" "${docker_result#SUCCESS:}"
+          ;;
+        ERROR:*)
+          log "ERROR" "${docker_result#ERROR:}"
+          overall_success=false
+          ;;
+        *)
+          log "ERROR" "Docker tests failed to complete"
+          overall_success=false
+          ;;
+      esac
     else
-        log "ERROR" "Docker tests failed to produce results"
-        overall_success=false
+      log "ERROR" "Docker tests failed to produce results"
+      overall_success=false
     fi
-    
+
     if [[ "$overall_success" != "true" ]]; then
-        echo "To fix unit test issues, run: make unit-tests"
-        echo "To fix Docker test issues, run: make docker-test"
-        echo "To run tests in pre-commit: RUN_TESTS=1 git commit"
-        exit 1
+      echo "To fix unit test issues, run: make unit-tests"
+      echo "To fix Docker test issues, run: make docker-test"
+      echo "To run tests in pre-commit: RUN_TESTS=1 git commit"
+      exit 1
     fi
-    
-else
+
+  else
     # Docker not available, run only BATS tests
     if [[ "${RUN_DOCKER_TESTS:-1}" == "0" ]]; then
-        log "INFO" "Docker tests disabled (RUN_DOCKER_TESTS=0)"
+      log "INFO" "Docker tests disabled (RUN_DOCKER_TESTS=0)"
     else
-        log "WARNING" "Docker not available, running BATS tests only"
+      log "WARNING" "Docker not available, running BATS tests only"
     fi
-    
+
     log "INFO" "Running BATS unit tests..."
     if command -v bats >/dev/null 2>&1; then
-        if make unit-tests >/dev/null 2>&1; then
-            log "SUCCESS" "BATS unit tests passed"
-        else
-            log "ERROR" "BATS unit tests failed"
-            echo "To fix unit test issues, run: make unit-tests"
-            echo "To skip tests: SKIP_TESTS=1 git commit"
-            exit 1
-        fi
+      if make unit-tests >/dev/null 2>&1; then
+        log "SUCCESS" "BATS unit tests passed"
+      else
+        log "ERROR" "BATS unit tests failed"
+        echo "To fix unit test issues, run: make unit-tests"
+        echo "To skip tests: SKIP_TESTS=1 git commit"
+        exit 1
+      fi
     else
-        log "WARNING" "BATS not found, skipping unit tests"
+      log "WARNING" "BATS not found, skipping unit tests"
     fi
-    fi
+  fi
 else
-    if [[ "$CODE_CHANGES" == "true" ]]; then
-        log "INFO" "Tests disabled by default - use RUN_TESTS=1 to run tests in pre-commit"
-    else
-        log "INFO" "Documentation-only change - skipping tests"
-    fi
+  if [[ "$CODE_CHANGES" == "true" ]]; then
+    log "INFO" "Tests disabled by default - use RUN_TESTS=1 to run tests in pre-commit"
+  else
+    log "INFO" "Documentation-only change - skipping tests"
+  fi
 fi
 
 log "SUCCESS" "All pre-commit checks passed!"
