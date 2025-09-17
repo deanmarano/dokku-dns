@@ -23,7 +23,10 @@ if ! declare -f dokku_log_warn >/dev/null 2>&1; then
 fi
 
 if ! declare -f dokku_log_fail >/dev/null 2>&1; then
-  dokku_log_fail() { echo " !     $*" >&2; exit 1; }
+  dokku_log_fail() {
+    echo " !     $*" >&2
+    exit 1
+  }
 fi
 
 # DNS-specific functions
@@ -40,7 +43,7 @@ get_app_domains() {
   # Use dokku domains:report to get app domains
   # Note: This is acceptable as it's using the domains plugin API correctly
   domains_output=$(dokku domains:report "$APP" --domains-app-vhosts 2>/dev/null || echo "")
-  
+
   # Convert space-separated domains to newline-separated for proper array processing
   if [[ -n "$domains_output" ]]; then
     for domain in $domains_output; do
@@ -54,7 +57,7 @@ get_app_domains() {
 # Returns: newline-separated list of app names
 get_dns_managed_apps() {
   local LINKS_FILE="$PLUGIN_DATA_ROOT/LINKS"
-  
+
   if [[ -f "$LINKS_FILE" ]]; then
     cat "$LINKS_FILE" 2>/dev/null || echo ""
   fi
@@ -66,7 +69,7 @@ get_dns_managed_apps() {
 is_app_dns_managed() {
   local APP="$1"
   local LINKS_FILE="$PLUGIN_DATA_ROOT/LINKS"
-  
+
   if [[ -f "$LINKS_FILE" ]] && grep -q "^$APP$" "$LINKS_FILE" 2>/dev/null; then
     return 0
   else
@@ -78,32 +81,32 @@ is_app_dns_managed() {
 zones_set_enabled() {
   local ZONE="$1"
   local ENABLED_ZONES_FILE="$PLUGIN_DATA_ROOT/ENABLED_ZONES"
-  
+
   mkdir -p "$PLUGIN_DATA_ROOT"
-  
+
   # Add zone to enabled zones if not already present
   if [[ ! -f "$ENABLED_ZONES_FILE" ]] || ! grep -q "^$ZONE$" "$ENABLED_ZONES_FILE"; then
-    echo "$ZONE" >> "$ENABLED_ZONES_FILE"
+    echo "$ZONE" >>"$ENABLED_ZONES_FILE"
   fi
 }
 
 zones_set_disabled() {
   local ZONE="$1"
   local ENABLED_ZONES_FILE="$PLUGIN_DATA_ROOT/ENABLED_ZONES"
-  
+
   if [[ -f "$ENABLED_ZONES_FILE" ]]; then
     # Remove the zone from enabled zones file
     local temp_file
     temp_file=$(mktemp)
-    grep -v "^$ZONE$" "$ENABLED_ZONES_FILE" > "$temp_file" || true
-    
+    grep -v "^$ZONE$" "$ENABLED_ZONES_FILE" >"$temp_file" || true
+
     # If file is empty after removal, delete it
     if [[ ! -s "$temp_file" ]]; then
       rm -f "$ENABLED_ZONES_FILE"
     else
       mv "$temp_file" "$ENABLED_ZONES_FILE"
     fi
-    
+
     rm -f "$temp_file"
   fi
 }
@@ -114,28 +117,28 @@ zones_set_disabled() {
 is_domain_in_enabled_zone() {
   local DOMAIN="$1"
   local ENABLED_ZONES_FILE="$PLUGIN_DATA_ROOT/ENABLED_ZONES"
-  
+
   # If no enabled zones file exists, return false (no zones enabled)
   if [[ ! -f "$ENABLED_ZONES_FILE" ]]; then
     return 1
   fi
-  
+
   # If file exists but is empty, no zones are enabled
   if [[ ! -s "$ENABLED_ZONES_FILE" ]]; then
     return 1
   fi
-  
+
   # Check if domain matches any enabled zone
   while IFS= read -r zone; do
     [[ -z "$zone" ]] && continue
-    
+
     # Check if domain matches this zone exactly or is a subdomain
     if [[ "$DOMAIN" == "$zone" ]] || [[ "$DOMAIN" == *".$zone" ]]; then
-      return 0  # Domain is in an enabled zone
+      return 0 # Domain is in an enabled zone
     fi
-  done < "$ENABLED_ZONES_FILE"
-  
-  return 1  # Domain not in any enabled zone
+  done <"$ENABLED_ZONES_FILE"
+
+  return 1 # Domain not in any enabled zone
 }
 
 # Get list of enabled zones
@@ -143,7 +146,7 @@ is_domain_in_enabled_zone() {
 # Returns: newline-separated list of enabled zone names
 get_enabled_zones() {
   local ENABLED_ZONES_FILE="$PLUGIN_DATA_ROOT/ENABLED_ZONES"
-  
+
   if [[ -f "$ENABLED_ZONES_FILE" ]]; then
     cat "$ENABLED_ZONES_FILE" 2>/dev/null || echo ""
   fi
@@ -155,7 +158,7 @@ get_enabled_zones() {
 is_zone_enabled() {
   local ZONE="$1"
   local ENABLED_ZONES_FILE="$PLUGIN_DATA_ROOT/ENABLED_ZONES"
-  
+
   if [[ -f "$ENABLED_ZONES_FILE" ]] && grep -q "^$ZONE$" "$ENABLED_ZONES_FILE" 2>/dev/null; then
     return 0
   else
@@ -163,10 +166,9 @@ is_zone_enabled() {
   fi
 }
 
-
 dns_get_record_ip() {
   local DOMAIN="$1"
-  
+
   # Try AWS provider DNS checking first (bypasses DNS caching)
   local PROVIDER_SCRIPT
   PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/aws.sh"
@@ -180,7 +182,7 @@ dns_get_record_ip() {
       fi
     fi
   fi
-  
+
   # Fallback to DNS resolution (may be cached)
   local current_ip
   current_ip=$(dig +short "$DOMAIN" A 2>/dev/null | tail -n1 || echo "")
@@ -188,43 +190,43 @@ dns_get_record_ip() {
     echo "$current_ip"
     return 0
   fi
-  
+
   return 1
 }
 
 dns_get_server_ip() {
   # Try to get the server's public IP using multiple methods
   local SERVER_IP
-  
+
   # First try to use global domains to resolve server IP
   local GLOBAL_DOMAINS
   # Use dokku domains:report to get global domains
   # Note: This is acceptable as it's using the domains plugin API correctly
   GLOBAL_DOMAINS=$(dokku domains:report --domains-global-vhosts 2>/dev/null || echo "")
-  
+
   if [[ -n "$GLOBAL_DOMAINS" ]]; then
     # Use the first global domain to resolve server IP
     local FIRST_GLOBAL_DOMAIN
     FIRST_GLOBAL_DOMAIN=$(echo "$GLOBAL_DOMAINS" | head -n1)
     SERVER_IP=$(dig +short "$FIRST_GLOBAL_DOMAIN" | tail -n1 2>/dev/null || echo "")
   fi
-  
+
   # If no global domains or couldn't resolve, try to get server IP another way
   if [[ -z "$SERVER_IP" ]]; then
     # Try to get the server's public IP
     SERVER_IP=$(curl -s --max-time 3 ifconfig.me 2>/dev/null || curl -s --max-time 3 ipecho.net/plain 2>/dev/null || curl -s --max-time 3 icanhazip.com 2>/dev/null || echo "")
   fi
-  
+
   if [[ -z "$SERVER_IP" ]]; then
     dokku_log_fail "Could not determine server IP. Please ensure your server has internet access or configure global domains."
   fi
-  
+
   echo "$SERVER_IP"
 }
 
 dns_app() {
   local APP="$1"
-  
+
   # Load AWS provider functions (includes generic interface)
   local PROVIDER_SCRIPT
   PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/aws.sh"
@@ -232,7 +234,7 @@ dns_app() {
     dokku_log_fail "AWS provider not found at $PROVIDER_SCRIPT"
   fi
   source "$PROVIDER_SCRIPT"
-  
+
   # Call the AWS sync function (which uses the new adapter system internally)
   if declare -f "dns_provider_aws_sync_app" >/dev/null 2>&1; then
     dns_provider_aws_sync_app "$APP"
@@ -246,46 +248,45 @@ dns_add_app_domains() {
   local APP="$1"
   shift
   local DOMAINS=("$@")
-  
+
   # If no domains specified, get all domains for the app
   if [[ ${#DOMAINS[@]} -eq 0 ]]; then
     local APP_DOMAINS
     # Use dokku domains:report to get app domains
     # Note: This is acceptable as it's using the domains plugin API correctly
     APP_DOMAINS=$(dokku domains:report "$APP" --domains-app-vhosts 2>/dev/null || echo "")
-    
+
     if [[ -z "$APP_DOMAINS" ]]; then
       dokku_log_warn "No domains configured for app: $APP"
       dokku_log_info1 "Add domains with: dokku domains:add $APP <domain>"
       return 0
     fi
-    
+
     # Convert space-separated domains to array
-    read -ra DOMAINS <<< "$APP_DOMAINS"
+    read -ra DOMAINS <<<"$APP_DOMAINS"
   fi
-  
+
   if [[ ${#DOMAINS[@]} -eq 0 ]]; then
     dokku_log_warn "No domains to add for app: $APP"
     return 0
   fi
-  
-  
+
   # Check which domains are already added to DNS for this app
   local APP_DOMAINS_FILE="$PLUGIN_DATA_ROOT/$APP/DOMAINS"
   local ALREADY_ADDED_DOMAINS=()
   local NEW_DOMAINS=()
-  
+
   # Get list of already added domains for this app
   if [[ -f "$APP_DOMAINS_FILE" ]]; then
     while IFS= read -r domain; do
       [[ -n "$domain" ]] && ALREADY_ADDED_DOMAINS+=("$domain")
-    done < "$APP_DOMAINS_FILE"
+    done <"$APP_DOMAINS_FILE"
   fi
-  
+
   # Separate already-added domains from new domains
   for DOMAIN in "${DOMAINS[@]}"; do
     [[ -z "$DOMAIN" ]] && continue
-    
+
     local IS_ALREADY_ADDED=false
     for ADDED_DOMAIN in "${ALREADY_ADDED_DOMAINS[@]}"; do
       if [[ "$DOMAIN" == "$ADDED_DOMAIN" ]]; then
@@ -293,7 +294,7 @@ dns_add_app_domains() {
         break
       fi
     done
-    
+
     if [[ "$IS_ALREADY_ADDED" == true ]]; then
       # Domain is already added, don't process it again
       continue
@@ -301,7 +302,7 @@ dns_add_app_domains() {
       NEW_DOMAINS+=("$DOMAIN")
     fi
   done
-  
+
   # Show status of already-added domains
   if [[ ${#ALREADY_ADDED_DOMAINS[@]} -gt 0 ]]; then
     dokku_log_info1 "Already added domains for app '$APP':"
@@ -314,14 +315,14 @@ dns_add_app_domains() {
           break
         fi
       done
-      
+
       if [[ "$SHOW_DOMAIN" == true ]]; then
         dokku_log_info1 "  ✓ $DOMAIN (already in DNS management)"
       fi
     done
     echo
   fi
-  
+
   # If no new domains to add, show message and exit
   if [[ ${#NEW_DOMAINS[@]} -eq 0 ]]; then
     if [[ ${#ALREADY_ADDED_DOMAINS[@]} -gt 0 ]]; then
@@ -331,23 +332,23 @@ dns_add_app_domains() {
     fi
     return 0
   fi
-  
+
   dokku_log_info1 "Processing ${#NEW_DOMAINS[@]} new domain(s) for app '$APP':"
   for domain in "${NEW_DOMAINS[@]}"; do
     dokku_log_info1 "  • $domain"
   done
   echo
-  
+
   # Filter new domains to only include those with hosted zones
   local VALID_DOMAINS=()
   local SKIPPED_DOMAINS=()
-  
+
   dokku_log_info1 "Filtering domains - Using provider system, New domains: ${#NEW_DOMAINS[@]}"
-  
+
   # Load generic provider interface
   local PROVIDER_SCRIPT
   PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/aws.sh"
-  
+
   # Check if any provider is available and configured
   local PROVIDER_AVAILABLE=false
   if [[ -f "$PROVIDER_SCRIPT" ]]; then
@@ -357,14 +358,14 @@ dns_add_app_domains() {
       PROVIDER_AVAILABLE=true
     fi
   fi
-  
+
   if [[ -f "$PROVIDER_SCRIPT" ]] && [[ "$PROVIDER_AVAILABLE" == "true" ]]; then
     # Provider system is available - check zones for domain validation
     dokku_log_info1 "Provider system ready - checking zones for new domains..."
-    
+
     for DOMAIN in "${NEW_DOMAINS[@]}"; do
       [[ -z "$DOMAIN" ]] && continue
-      
+
       dokku_log_info1 "Checking domain: $DOMAIN"
       # Check if domain can be managed by any provider
       if provider_validate_domain "$DOMAIN"; then
@@ -393,18 +394,18 @@ dns_add_app_domains() {
     fi
     VALID_DOMAINS=("${NEW_DOMAINS[@]}")
   fi
-  
+
   # Report skipped domains
   if [[ ${#SKIPPED_DOMAINS[@]} -gt 0 ]]; then
     dokku_log_warn "Skipping domains without hosted zones or disabled zones:"
     for DOMAIN in "${SKIPPED_DOMAINS[@]}"; do
       # Check if it was skipped due to zone being disabled vs no hosted zone
       local ZONE_ID
-      set +e  # Temporarily disable exit on error
+      set +e # Temporarily disable exit on error
       ZONE_ID=$(dns_provider_aws_get_hosted_zone_id "$DOMAIN" 2>/dev/null)
       local ZONE_EXISTS=$?
-      set -e  # Re-enable exit on error
-      
+      set -e # Re-enable exit on error
+
       if [[ $ZONE_EXISTS -eq 0 ]] && [[ -n "$ZONE_ID" ]]; then
         dokku_log_info1 "  ❌ $DOMAIN (zone not enabled for auto-discovery)"
       else
@@ -413,11 +414,11 @@ dns_add_app_domains() {
     done
     echo
   fi
-  
+
   # Always show status table for all requested domains
   echo
   dns_display_domains_table "$APP" "${NEW_DOMAINS[@]}"
-  
+
   # Check if we have any valid domains left
   if [[ ${#VALID_DOMAINS[@]} -eq 0 ]]; then
     dokku_log_warn "No domains with enabled hosted zones found for app: $APP"
@@ -427,33 +428,33 @@ dns_add_app_domains() {
     fi
     return 0
   fi
-  
+
   dokku_log_info2 "Adding domains for app '$APP' to DNS (${#VALID_DOMAINS[@]} domains)"
-  
+
   # Track this app as being added to DNS
   local LINKS_FILE="$PLUGIN_DATA_ROOT/LINKS"
   mkdir -p "$PLUGIN_DATA_ROOT"
   mkdir -p "$PLUGIN_DATA_ROOT/$APP"
-  
+
   # Add app to LINKS file if not already present
   if [[ ! -f "$LINKS_FILE" ]] || ! grep -q "^$APP$" "$LINKS_FILE" 2>/dev/null; then
-    echo "$APP" >> "$LINKS_FILE"
+    echo "$APP" >>"$LINKS_FILE"
     dokku_log_info1 "App '$APP' added to DNS"
   else
     dokku_log_info1 "App '$APP' already in DNS, adding new domains"
   fi
-  
+
   # Add valid domains to the app's domains file
   for DOMAIN in "${VALID_DOMAINS[@]}"; do
-    echo "$DOMAIN" >> "$APP_DOMAINS_FILE"
+    echo "$DOMAIN" >>"$APP_DOMAINS_FILE"
   done
-  
+
   # Remove duplicates from the domains file
   if [[ -f "$APP_DOMAINS_FILE" ]]; then
-    sort -u "$APP_DOMAINS_FILE" > "${APP_DOMAINS_FILE}.tmp"
+    sort -u "$APP_DOMAINS_FILE" >"${APP_DOMAINS_FILE}.tmp"
     mv "${APP_DOMAINS_FILE}.tmp" "$APP_DOMAINS_FILE"
   fi
-  
+
   dokku_log_info1 "${#VALID_DOMAINS[@]} domain(s) with hosted zones have been added to DNS"
   dokku_log_info1 "Next step: dokku $PLUGIN_COMMAND_PREFIX:apps:sync $APP"
 }
@@ -461,39 +462,39 @@ dns_add_app_domains() {
 dns_remove_app() {
   local APP="$1"
   local LINKS_FILE="$PLUGIN_DATA_ROOT/LINKS"
-  
+
   dokku_log_info2 "Removing app '$APP' from DNS"
-  
+
   # Check if LINKS file exists
   if [[ ! -f "$LINKS_FILE" ]]; then
     dokku_log_warn "No DNS tracking file found"
     return 0
   fi
-  
+
   # Remove app from LINKS file
   if grep -q "^$APP$" "$LINKS_FILE" 2>/dev/null; then
     # Create a temporary file without this app
-    grep -v "^$APP$" "$LINKS_FILE" > "${LINKS_FILE}.tmp" || true
+    grep -v "^$APP$" "$LINKS_FILE" >"${LINKS_FILE}.tmp" || true
     mv "${LINKS_FILE}.tmp" "$LINKS_FILE"
-    
+
     # Remove the app's domains file
     local APP_DOMAINS_FILE="$PLUGIN_DATA_ROOT/$APP/DOMAINS"
     if [[ -f "$APP_DOMAINS_FILE" ]]; then
       rm -f "$APP_DOMAINS_FILE"
     fi
-    
+
     # Remove the app directory if it's empty
     if [[ -d "$PLUGIN_DATA_ROOT/$APP" ]]; then
       rmdir "$PLUGIN_DATA_ROOT/$APP" 2>/dev/null || true
     fi
-    
+
     dokku_log_info1 "App '$APP' removed from DNS"
     dokku_log_info1 "Note: Existing DNS records were not deleted"
     dokku_log_info1 "To clean up DNS records, run: dokku $PLUGIN_COMMAND_PREFIX:apps:sync $APP (before removing next time)"
   else
     dokku_log_warn "App '$APP' was not found in DNS tracking"
   fi
-  
+
   # Clean up empty LINKS file
   if [[ ! -s "$LINKS_FILE" ]]; then
     rm -f "$LINKS_FILE"
@@ -505,15 +506,15 @@ dns_display_domains_table() {
   local APP="$1"
   shift
   local DOMAINS=("$@")
-  
+
   # Get server IP
   local SERVER_IP
   SERVER_IP=$(dns_get_server_ip)
-  
+
   # Check AWS provider status
   local SYNC_STATUS="Not configured"
   local CREDENTIALS_DIR="$PLUGIN_DATA_ROOT/credentials"
-  
+
   if [[ -d "$CREDENTIALS_DIR" ]] && [[ -f "$CREDENTIALS_DIR/AWS_ACCESS_KEY_ID" ]]; then
     SYNC_STATUS="Ready"
   elif aws sts get-caller-identity >/dev/null 2>&1; then
@@ -521,7 +522,7 @@ dns_display_domains_table() {
   else
     SYNC_STATUS="Missing auth"
   fi
-  
+
   # Load AWS provider functions if available
   if [[ "$SYNC_STATUS" == "Ready" ]]; then
     local PROVIDER_SCRIPT
@@ -531,19 +532,19 @@ dns_display_domains_table() {
       dns_provider_aws_setup_env
     fi
   fi
-  
+
   echo
   dokku_log_info2 "Domain Status Table for app '$APP':"
   printf "%-30s %-8s %-15s %-15s %s\n" "Domain" "Status" "Enabled" "Provider" "Zone (Enabled)"
   printf "%-30s %-8s %-15s %-15s %s\n" "------" "------" "-------" "--------" "---------------"
-  
+
   for DOMAIN in "${DOMAINS[@]}"; do
     [[ -z "$DOMAIN" ]] && continue
-    
+
     # Get current DNS resolution (using provider-specific checking if available)
     local CURRENT_IP
     CURRENT_IP=$(dns_get_record_ip "$DOMAIN" || echo "")
-    
+
     # Determine DNS status emoji
     local DNS_EMOJI="❌"
     if [[ -n "$CURRENT_IP" ]]; then
@@ -553,7 +554,7 @@ dns_display_domains_table() {
         DNS_EMOJI="⚠️"
       fi
     fi
-    
+
     # Try to get hosted zone if AWS is ready
     local HOSTED_ZONE="-"
     local ZONE_ID=""
@@ -575,7 +576,7 @@ dns_display_domains_table() {
         fi
       fi
     fi
-    
+
     # Check if domain is enabled based on zone enablement
     local ENABLED_STATUS="No"
     if [[ "$SYNC_STATUS" == "Ready" ]]; then
@@ -592,10 +593,10 @@ dns_display_domains_table() {
     else
       ENABLED_STATUS="No (provider not ready)"
     fi
-    
+
     printf "%-30s %-8s %-15s %-15s %s\n" "$DOMAIN" "$DNS_EMOJI" "$ENABLED_STATUS" "AWS" "$HOSTED_ZONE"
   done
-  
+
   echo
   dokku_log_info2 "Status Legend:"
   if [[ -n "$SERVER_IP" ]] && [[ "$SERVER_IP" != "Unknown" ]]; then
@@ -613,11 +614,11 @@ dns_display_domains_table() {
 get_server_ip() {
   local SERVER_IP=""
   local GLOBAL_DOMAINS=""
-  
+
   if command -v dokku >/dev/null 2>&1; then
     GLOBAL_DOMAINS=$(dokku domains:report --domains-global-vhosts 2>/dev/null || echo "")
   fi
-  
+
   if [[ -n "$GLOBAL_DOMAINS" ]] && command -v dig >/dev/null 2>&1; then
     # Use the first global domain to resolve server IP
     local FIRST_GLOBAL_DOMAIN
@@ -628,7 +629,7 @@ get_server_ip() {
       SERVER_IP="$RESOLVED_IP"
     fi
   fi
-  
+
   # If no global domains or couldn't resolve, try to get server IP another way
   if [[ -z "$SERVER_IP" ]] && command -v curl >/dev/null 2>&1; then
     # Try to get the server's public IP
@@ -638,12 +639,12 @@ get_server_ip() {
       SERVER_IP="$PUBLIC_IP"
     fi
   fi
-  
+
   # If still no IP detected, return Unknown instead of broken localhost
   if [[ -z "$SERVER_IP" ]]; then
     SERVER_IP="Unknown"
   fi
-  
+
   echo "$SERVER_IP"
 }
 
@@ -654,12 +655,12 @@ domain_points_to_server() {
   local DOMAIN="$1"
   local SERVER_IP
   SERVER_IP=$(get_server_ip)
-  
+
   # If we can't detect the server IP, we can't validate - fail safe
   if [[ -z "$SERVER_IP" ]] || [[ "$SERVER_IP" == "Unknown" ]]; then
     return 1
   fi
-  
+
   if command -v dig >/dev/null 2>&1; then
     local CURRENT_IP
     CURRENT_IP=$(dig +short "$DOMAIN" A 2>/dev/null | tail -n1 || echo "")
@@ -667,7 +668,7 @@ domain_points_to_server() {
       return 0
     fi
   fi
-  
+
   return 1
 }
 
@@ -676,14 +677,14 @@ domain_points_to_server() {
 # Returns: 0 if domain matches a zone with managed domains, 1 otherwise
 dns_domain_matches_managed_zone() {
   local DOMAIN="$1"
-  
+
   # Check if any apps are managed by DNS
   local LINKS_FILE="$PLUGIN_DATA_ROOT/LINKS"
   if [[ ! -f "$LINKS_FILE" ]] || [[ ! -s "$LINKS_FILE" ]]; then
     # No managed apps at all
     return 1
   fi
-  
+
   # Get all managed domains across all apps
   local all_managed_domains=()
   while IFS= read -r app; do
@@ -692,19 +693,19 @@ dns_domain_matches_managed_zone() {
     if [[ -f "$APP_DOMAINS_FILE" ]]; then
       while IFS= read -r domain; do
         [[ -n "$domain" ]] && all_managed_domains+=("$domain")
-      done < "$APP_DOMAINS_FILE"
+      done <"$APP_DOMAINS_FILE"
     fi
-  done < "$LINKS_FILE"
-  
+  done <"$LINKS_FILE"
+
   if [[ ${#all_managed_domains[@]} -eq 0 ]]; then
     # No managed domains at all
     return 1
   fi
-  
+
   # Extract the zone (root domain) from the input domain
   local domain_zone
   domain_zone=$(extract_root_domain "$DOMAIN")
-  
+
   # Check if any managed domain shares the same zone
   for managed_domain in "${all_managed_domains[@]}"; do
     local managed_zone
@@ -714,7 +715,7 @@ dns_domain_matches_managed_zone() {
       return 0
     fi
   done
-  
+
   # No managed domains in the same zone
   return 1
 }
@@ -724,17 +725,17 @@ dns_domain_matches_managed_zone() {
 # Returns: root domain (e.g., "example.com" from "api.example.com")
 extract_root_domain() {
   local DOMAIN="$1"
-  
+
   # Handle simple cases first
   local part_count
   part_count=$(echo "$DOMAIN" | tr '.' '\n' | wc -l)
-  
+
   if [[ $part_count -le 2 ]]; then
     # Already a root domain (e.g., "example.com" or "localhost")
     echo "$DOMAIN"
     return 0
   fi
-  
+
   # For domains with more parts, take the last two parts
   # This works for most cases: api.example.com -> example.com
   echo "$DOMAIN" | awk -F. '{print $(NF-1)"."$NF}'
@@ -797,7 +798,7 @@ dns_compare_app_records() {
       # No zone found - needs to be added (if zone management allows)
       echo "ADD:$DOMAIN:$SERVER_IP"
     fi
-  done <<< "$APP_DOMAINS"
+  done <<<"$APP_DOMAINS"
 }
 
 # Display pending changes for an app in a formatted way
@@ -830,7 +831,7 @@ dns_display_pending_changes() {
     [[ -z "$change" ]] && continue
 
     local action domain target_ip current_ip
-    IFS=':' read -r action domain target_ip current_ip <<< "$change"
+    IFS=':' read -r action domain target_ip current_ip <<<"$change"
 
     case "$action" in
       ADD)
@@ -846,7 +847,7 @@ dns_display_pending_changes() {
         ((correct_count++))
         ;;
     esac
-  done <<< "$changes"
+  done <<<"$changes"
 
   # Display summary
   echo
@@ -892,13 +893,19 @@ dns_display_global_pending_changes() {
         while IFS= read -r change; do
           [[ -z "$change" ]] && continue
           local action
-          IFS=':' read -r action _ _ _ <<< "$change"
+          IFS=':' read -r action _ _ _ <<<"$change"
           case "$action" in
-            ADD) ((add_count++)); app_has_changes=true ;;
-            UPDATE) ((update_count++)); app_has_changes=true ;;
+            ADD)
+              ((add_count++))
+              app_has_changes=true
+              ;;
+            UPDATE)
+              ((update_count++))
+              app_has_changes=true
+              ;;
             CORRECT) ((global_correct_count++)) ;;
           esac
-        done <<< "$changes"
+        done <<<"$changes"
 
         if [[ "$app_has_changes" == "true" ]]; then
           any_changes_found=true
@@ -910,7 +917,7 @@ dns_display_global_pending_changes() {
             [[ -z "$change" ]] && continue
 
             local action domain target_ip current_ip
-            IFS=':' read -r action domain target_ip current_ip <<< "$change"
+            IFS=':' read -r action domain target_ip current_ip <<<"$change"
 
             case "$action" in
               ADD)
@@ -922,11 +929,11 @@ dns_display_global_pending_changes() {
                 ((global_update_count++))
                 ;;
             esac
-          done <<< "$changes"
+          done <<<"$changes"
         fi
       fi
     fi
-  done <<< "$APPS_LIST"
+  done <<<"$APPS_LIST"
 
   # Display global summary
   echo

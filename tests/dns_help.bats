@@ -23,7 +23,7 @@ teardown() {
   run dokku "$PLUGIN_COMMAND_PREFIX"
   assert_success
   assert_output_contains "usage"
-  assert_output_contains "dokku dns[:COMMAND]" 
+  assert_output_contains "dokku dns[:COMMAND]"
   assert_output_contains "Manage DNS for your apps with cloud providers"
 }
 

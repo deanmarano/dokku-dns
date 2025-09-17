@@ -39,8 +39,8 @@ teardown() {
   assert_output_contains "Domain                         Status   Enabled         Provider        Zone (Enabled)"
   [[ "$output" =~ example\.com ]]
   [[ "$output" =~ api\.example\.com ]]
-  assert_output_contains "No (zone disabled)" 2  # Enabled column - appears once per domain
-  assert_output_contains "Provider system ready" 1  
+  assert_output_contains "No (zone disabled)" 2 # Enabled column - appears once per domain
+  assert_output_contains "Provider system ready" 1
   assert_output_contains "Status Legend:"
   assert_output_contains "✅ Points to server IP"
   assert_output_contains "⚠️  Points to different IP"
@@ -54,7 +54,7 @@ teardown() {
   assert_output_contains "Adding specified domains for app 'my-app':"
   assert_output_contains "Domain Status Table for app 'my-app':"
   [[ "$output" =~ example\.com ]]
-  assert_output_contains "No (zone disabled)" 1  # Enabled column - appears in table
+  assert_output_contains "No (zone disabled)" 1 # Enabled column - appears in table
   assert_output_contains "Provider system ready" 1
   assert_output_contains "Status Legend:"
 }
@@ -72,19 +72,19 @@ teardown() {
 @test "(dns:apps:enable) handles app with no domains gracefully" {
   # Create app with no domains
   create_test_app empty-app
-  
+
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" empty-app
   assert_failure
   assert_output_contains "No domains found for app 'empty-app'"
   assert_output_contains "Add domains first with: dokku domains:add empty-app <domain>"
-  
+
   # Clean up
   cleanup_test_app empty-app
 }
 
 @test "(dns:apps:enable) works without credentials configured" {
-  cleanup_dns_data  # Clear any existing data
-  
+  cleanup_dns_data # Clear any existing data
+
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app
   assert_success
   assert_output_contains "provider system" 3
@@ -92,7 +92,7 @@ teardown() {
   # Count should match the number of domains for my-app (typically 2: example.com, api.example.com)
   local domain_count=$(echo "$output" | grep -c "No (zone disabled)")
   # Be flexible about the count since it depends on test setup
-  [[ $domain_count -ge 1 ]]  # At least one domain should show this status
+  [[ $domain_count -ge 1 ]] # At least one domain should show this status
   assert_output_contains "Enable zones for auto-discovery with: dokku dns:zones:enable"
 }
 
@@ -100,11 +100,11 @@ teardown() {
   # Create app with single domain
   create_test_app single-app
   add_test_domains single-app single.example.com
-  
+
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" single-app
   assert_success
   assert_output_contains "Domain Status Table for app 'single-app'"
   [[ "$output" =~ single\.example\.com ]]
-  
+
   cleanup_test_app single-app
 }

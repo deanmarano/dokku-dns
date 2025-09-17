@@ -22,14 +22,14 @@ detect_and_configure_provider() {
   local PROVIDER_FILE="$PLUGIN_DATA_ROOT/PROVIDER"
   local DETECTED_PROVIDERS=()
   local CONFIGURED_PROVIDER=""
-  
+
   # Ensure the data directory exists
   mkdir -p "$PLUGIN_DATA_ROOT" 2>/dev/null || true
-  
+
   # Check for AWS CLI
   if command -v aws >/dev/null 2>&1; then
     DETECTED_PROVIDERS+=("aws")
-    
+
     if aws sts get-caller-identity >/dev/null 2>&1; then
       # Test Route53 access
       if aws route53 list-hosted-zones >/dev/null 2>&1; then
@@ -46,7 +46,7 @@ detect_and_configure_provider() {
   else
     echo "       - AWS CLI not installed"
   fi
-  
+
   # Check for Cloudflare CLI (flarectl)
   if command -v flarectl >/dev/null 2>&1; then
     echo "       ✓ Cloudflare CLI (flarectl) detected"
@@ -55,32 +55,32 @@ detect_and_configure_provider() {
   else
     echo "       - Cloudflare CLI not installed"
   fi
-  
+
   # Set default provider based on detection
   if [[ -n "$CONFIGURED_PROVIDER" ]]; then
     echo "       → Setting $CONFIGURED_PROVIDER as default DNS provider (fully configured)"
-    echo "$CONFIGURED_PROVIDER" > "$PROVIDER_FILE" 2>/dev/null || true
+    echo "$CONFIGURED_PROVIDER" >"$PROVIDER_FILE" 2>/dev/null || true
     return 0
   elif [[ ${#DETECTED_PROVIDERS[@]} -eq 1 ]]; then
     echo "       → Setting ${DETECTED_PROVIDERS[0]} as default DNS provider"
-    echo "${DETECTED_PROVIDERS[0]}" > "$PROVIDER_FILE" 2>/dev/null || true
-    return 0  # Configuration is complete, provider just needs credentials
+    echo "${DETECTED_PROVIDERS[0]}" >"$PROVIDER_FILE" 2>/dev/null || true
+    return 0 # Configuration is complete, provider just needs credentials
   elif [[ ${#DETECTED_PROVIDERS[@]} -gt 1 ]]; then
     echo "       → Multiple providers detected: ${DETECTED_PROVIDERS[*]}"
     echo "       → Setting aws as default (use dokku $PLUGIN_COMMAND_PREFIX:configure to change)"
-    echo "aws" > "$PROVIDER_FILE" 2>/dev/null || true
+    echo "aws" >"$PROVIDER_FILE" 2>/dev/null || true
     return 0
   else
     echo "       → No DNS provider CLI tools detected"
     echo "       → Setting aws as default provider"
-    echo "aws" > "$PROVIDER_FILE" 2>/dev/null || true
+    echo "aws" >"$PROVIDER_FILE" 2>/dev/null || true
     return 0
   fi
 }
 
 plugin-install() {
   echo "-----> Installing $PLUGIN_SERVICE plugin"
-  
+
   # Set up plugin properties
   fn-plugin-property-setup "$PLUGIN_COMMAND_PREFIX"
 
@@ -109,14 +109,14 @@ plugin-install() {
   else
     echo "-----> $PLUGIN_SERVICE plugin installed successfully"
   fi
-  
+
   echo ""
   echo "Next steps:"
   echo "  1. Set up AWS credentials:     dokku $PLUGIN_COMMAND_PREFIX:providers:verify"
   echo "  2. Add app domains:            dokku $PLUGIN_COMMAND_PREFIX:apps:enable <app>"
   echo "  3. Sync DNS records:           dokku $PLUGIN_COMMAND_PREFIX:apps:sync <app>"
   echo ""
-  
+
   # Show the help output directly
   dokku "$PLUGIN_COMMAND_PREFIX:help" 2>/dev/null || echo "Run 'dokku $PLUGIN_COMMAND_PREFIX:help' to see all available commands"
 }

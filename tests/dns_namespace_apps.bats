@@ -29,10 +29,10 @@ teardown() {
   # Configure DNS first
   run dokku "$PLUGIN_COMMAND_PREFIX:providers:configure" aws
   assert_success
-  
+
   # Add some domains to the app
   run dokku domains:add "$TEST_APP" "test.example.com"
-  
+
   # Try to enable DNS (should behave like dns:apps:enable)
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" "$TEST_APP"
   # This may fail without AWS credentials, but should at least try
@@ -53,7 +53,7 @@ teardown() {
   # Configure DNS first so report command works
   run dokku "$PLUGIN_COMMAND_PREFIX:providers:configure" aws
   assert_success
-  
+
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:report"
   assert_failure
   assert_contains "${lines[*]}" "Usage: dokku dns:apps:report <app>"
@@ -63,15 +63,15 @@ teardown() {
   run dokku "$PLUGIN_COMMAND_PREFIX:help" "apps:enable"
   assert_success
   assert_contains "$output" "enable DNS management for an application"
-  
+
   run dokku "$PLUGIN_COMMAND_PREFIX:help" "apps:disable"
   assert_success
   assert_contains "$output" "disable DNS management for an application"
-  
+
   run dokku "$PLUGIN_COMMAND_PREFIX:help" "apps:sync"
   assert_success
   assert_contains "$output" "synchronize DNS records for an application"
-  
+
   run dokku "$PLUGIN_COMMAND_PREFIX:help" "apps:report"
   assert_success
   assert_contains "$output" "display DNS status for a specific application"

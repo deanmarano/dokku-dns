@@ -26,20 +26,19 @@ teardown() {
 }
 
 @test "(dns:apps:sync) works without provider configuration" {
-  cleanup_dns_data  # Clear any existing data
-  
+  cleanup_dns_data # Clear any existing data
+
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" my-app
   assert_success
   assert_output_contains "No DNS-managed domains found for app: my-app"
 }
 
-
 @test "(dns:apps:sync) attempts AWS sync when configured" {
   # Add app to DNS management first
   dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1
-  
+
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" my-app
-  
+
   # Test passes if command runs (may succeed or fail depending on environment)
   # The important thing is the command doesn't crash
   [[ "$status" -eq 0 ]] || [[ "$status" -eq 1 ]]
@@ -47,19 +46,19 @@ teardown() {
 
 @test "(dns:apps:sync) handles app with no domains" {
   create_test_app empty-app
-  
+
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" empty-app
-  
+
   # Test passes if command runs (may succeed or fail depending on environment)
   # The important thing is the command doesn't crash
   [[ "$status" -eq 0 ]] || [[ "$status" -eq 1 ]]
-  
+
   cleanup_test_app empty-app
 }
 
 @test "(dns:apps:sync) shows helpful error when AWS not accessible" {
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" my-app
-  
+
   # In test environment, likely to fail with provider not configured
   if [[ "$status" -ne 0 ]]; then
     assert_output_contains "No DNS provider configured" || assert_output_contains "credentials"
@@ -71,9 +70,9 @@ teardown() {
   add_test_domains my-app test2.com working.com
   # Add app to DNS first
   dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1
-  
+
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" my-app
-  
+
   # Test passes if command runs (may succeed or fail depending on environment)
   # The important thing is the command doesn't crash
   [[ "$status" -eq 0 ]] || [[ "$status" -eq 1 ]]
