@@ -27,20 +27,64 @@ Improve user experience during DNS sync operations with better feedback.
 
 ## Medium Priority Tasks  
 
-### Phase 17: Subcommand Cleanup and Provider Interface Integration (Medium Priority)
+### Phase 17a: Add New Provider Structure (High Priority)
 
-Update remaining subcommands to use the new generic provider interface.
+Add new standardized provider structure while keeping existing system working.
 
-- [ ] **Update Core Subcommands**
-  - [ ] Update `dns_app()` function to use generic interface
-  - [ ] Update `dns_provider_aws_sync_app()` to use generic interface
-  - [ ] Update batch sync operations for multi-provider support
-  - [ ] Remove legacy AWS-specific function calls
+- [ ] **AWS Provider Structure Addition**
+  - [ ] Ensure `providers/aws/provider.sh` has complete 6-function interface
+  - [ ] Ensure `providers/aws/config.sh` has proper metadata
+  - [ ] Add comprehensive `providers/aws/README.md` documentation
+  - [ ] Verify new AWS provider structure matches Cloudflare template pattern
 
-- [ ] **Update Management Commands**
-  - [ ] Update `providers:verify` to work with multiple providers
-  - [ ] Update zone management commands for provider-agnostic operation
-  - [ ] Update reporting commands to show provider information generically
+- [ ] **Safe Cleanup of Redundant Files**
+  - [ ] Remove only redundant helper files: `aws/add.sh`, `aws/sync.sh`, `aws/report.sh`, `aws/common.sh`
+  - [ ] Remove `providers/aws.backup` backup file from repository
+  - [ ] Keep `providers/aws.sh` (still needed by legacy references)
+  - [ ] Verify all existing functionality still works
+
+- [ ] **Validation**
+  - [ ] Run tests to ensure no regressions
+  - [ ] Verify both old and new provider systems work
+  - [ ] Confirm all commands still function properly
+
+### Phase 17b: Migrate to Modern Provider Interface (High Priority)
+
+Migrate all core files to use the provider adapter system instead of direct provider calls.
+
+- [ ] **Functions File Migration**
+  - [ ] Update `functions` file to use `providers/adapter.sh` instead of direct AWS calls
+  - [ ] Replace `dns_provider_aws_*` function calls with adapter functions
+  - [ ] Remove 4 direct references to `providers/aws.sh` from functions file
+  - [ ] Test that all DNS operations work through adapter
+
+- [ ] **Subcommands Migration**
+  - [ ] Update `subcommands/sync-all` to use adapter system
+  - [ ] Update `subcommands/report` to use adapter system (2 locations)
+  - [ ] Update `subcommands/sync:deletions` to use adapter system
+  - [ ] Ensure all subcommands work with multi-provider architecture
+
+- [ ] **Test Infrastructure Updates**
+  - [ ] Update `tests/dns_zones.bats` to work with new provider structure
+  - [ ] Update `tests/test_helper.bash` AWS backup file handling
+  - [ ] Verify all tests pass with modern provider interface
+
+### Phase 17c: Remove Legacy Provider Files (High Priority)
+
+Safely remove legacy provider files now that everything uses the modern interface.
+
+- [ ] **Legacy File Removal**
+  - [ ] Remove `providers/aws.sh` legacy compatibility layer (now unused)
+  - [ ] Clean up any remaining obsolete provider files
+  - [ ] Remove any remaining legacy function references
+
+- [ ] **Final Validation**
+  - [ ] Run full test suite to ensure no regressions
+  - [ ] Verify all DNS commands work properly
+  - [ ] Confirm multi-provider architecture functions correctly
+  - [ ] Test both AWS and Cloudflare providers work simultaneously
+
+**Strategy:** Additive first (17a), migrate references (17b), then remove legacy (17c). Each phase is safely shipable without breaking existing functionality.
 
 ### Phase 18: DigitalOcean Provider Implementation (Medium Priority)
 
