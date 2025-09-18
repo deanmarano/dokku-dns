@@ -27,10 +27,10 @@ fi
 
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
 
-# Load AWS provider functions
-PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../providers/aws.sh"
-if [[ -f "$PROVIDER_SCRIPT" ]]; then
-  source "$PROVIDER_SCRIPT"
+# Load provider adapter system
+ADAPTER_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../providers/adapter.sh"
+if [[ -f "$ADAPTER_PATH" ]]; then
+  source "$ADAPTER_PATH"
 fi
 
 #E Remove DNS records that no longer correspond to active Dokku apps

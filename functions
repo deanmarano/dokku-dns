@@ -169,14 +169,14 @@ is_zone_enabled() {
 dns_get_record_ip() {
   local DOMAIN="$1"
 
-  # Try AWS provider DNS checking first (bypasses DNS caching)
-  local PROVIDER_SCRIPT
-  PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/aws.sh"
-  if [[ -f "$PROVIDER_SCRIPT" ]]; then
-    source "$PROVIDER_SCRIPT"
-    if declare -f "dns_provider_aws_get_record_ip" >/dev/null 2>&1; then
+  # Try DNS provider checking first (bypasses DNS caching)
+  local ADAPTER_PATH
+  ADAPTER_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/adapter.sh"
+  if [[ -f "$ADAPTER_PATH" ]]; then
+    source "$ADAPTER_PATH"
+    if init_provider_system >/dev/null 2>&1; then
       local provider_ip
-      if provider_ip=$(dns_provider_aws_get_record_ip "$DOMAIN") && [[ -n "$provider_ip" ]]; then
+      if provider_ip=$(dns_get_record "$DOMAIN" "A" 2>/dev/null) && [[ -n "$provider_ip" ]]; then
         echo "$provider_ip"
         return 0
       fi
@@ -227,20 +227,20 @@ dns_get_server_ip() {
 dns_app() {
   local APP="$1"
 
-  # Load AWS provider functions (includes generic interface)
-  local PROVIDER_SCRIPT
-  PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/aws.sh"
-  if [[ ! -f "$PROVIDER_SCRIPT" ]]; then
-    dokku_log_fail "AWS provider not found at $PROVIDER_SCRIPT"
+  # Load provider adapter system
+  local ADAPTER_PATH
+  ADAPTER_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/adapter.sh"
+  if [[ ! -f "$ADAPTER_PATH" ]]; then
+    dokku_log_fail "Provider adapter not found at $ADAPTER_PATH"
   fi
-  source "$PROVIDER_SCRIPT"
+  source "$ADAPTER_PATH"
 
-  # Call the AWS sync function (which uses the new adapter system internally)
-  if declare -f "dns_provider_aws_sync_app" >/dev/null 2>&1; then
-    dns_provider_aws_sync_app "$APP"
+  # Initialize provider system and sync the app
+  if init_provider_system >/dev/null 2>&1; then
+    dns_sync_app "$APP"
     return 0
   else
-    dokku_log_fail "AWS provider does not support sync operations"
+    dokku_log_fail "No working DNS provider found"
   fi
 }
 
@@ -345,21 +345,21 @@ dns_add_app_domains() {
 
   dokku_log_info1 "Filtering domains - Using provider system, New domains: ${#NEW_DOMAINS[@]}"
 
-  # Load generic provider interface
-  local PROVIDER_SCRIPT
-  PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/aws.sh"
+  # Load provider adapter system
+  local ADAPTER_PATH
+  ADAPTER_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/adapter.sh"
 
   # Check if any provider is available and configured
   local PROVIDER_AVAILABLE=false
-  if [[ -f "$PROVIDER_SCRIPT" ]]; then
-    source "$PROVIDER_SCRIPT"
+  if [[ -f "$ADAPTER_PATH" ]]; then
+    source "$ADAPTER_PATH"
     # Try to initialize provider system to check availability
-    if provider_validate_domain "test.example.com" >/dev/null 2>&1 || [[ $? -eq 1 ]]; then
+    if init_provider_system >/dev/null 2>&1; then
       PROVIDER_AVAILABLE=true
     fi
   fi
 
-  if [[ -f "$PROVIDER_SCRIPT" ]] && [[ "$PROVIDER_AVAILABLE" == "true" ]]; then
+  if [[ -f "$ADAPTER_PATH" ]] && [[ "$PROVIDER_AVAILABLE" == "true" ]]; then
     # Provider system is available - check zones for domain validation
     dokku_log_info1 "Provider system ready - checking zones for new domains..."
 
@@ -368,7 +368,7 @@ dns_add_app_domains() {
 
       dokku_log_info1 "Checking domain: $DOMAIN"
       # Check if domain can be managed by any provider
-      if provider_validate_domain "$DOMAIN"; then
+      if dns_validate_domain "$DOMAIN"; then
         # Check if this domain is in an enabled zone
         if is_domain_in_enabled_zone "$DOMAIN"; then
           VALID_DOMAINS+=("$DOMAIN")
@@ -402,7 +402,7 @@ dns_add_app_domains() {
       # Check if it was skipped due to zone being disabled vs no hosted zone
       local ZONE_ID
       set +e # Temporarily disable exit on error
-      ZONE_ID=$(dns_provider_aws_get_hosted_zone_id "$DOMAIN" 2>/dev/null)
+      ZONE_ID=$(provider_get_zone_id "$DOMAIN" 2>/dev/null)
       local ZONE_EXISTS=$?
       set -e # Re-enable exit on error
 
@@ -523,13 +523,13 @@ dns_display_domains_table() {
     SYNC_STATUS="Missing auth"
   fi
 
-  # Load AWS provider functions if available
+  # Load provider adapter system if available
   if [[ "$SYNC_STATUS" == "Ready" ]]; then
-    local PROVIDER_SCRIPT
-    PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/aws.sh"
-    if [[ -f "$PROVIDER_SCRIPT" ]]; then
-      source "$PROVIDER_SCRIPT"
-      dns_provider_aws_setup_env
+    local ADAPTER_PATH
+    ADAPTER_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/adapter.sh"
+    if [[ -f "$ADAPTER_PATH" ]]; then
+      source "$ADAPTER_PATH"
+      init_provider_system >/dev/null 2>&1
     fi
   fi
 
@@ -559,8 +559,8 @@ dns_display_domains_table() {
     local HOSTED_ZONE="-"
     local ZONE_ID=""
     if [[ "$SYNC_STATUS" == "Ready" ]]; then
-      if declare -f "dns_provider_aws_get_hosted_zone_id" >/dev/null 2>&1; then
-        ZONE_ID=$(dns_provider_aws_get_hosted_zone_id "$DOMAIN" 2>/dev/null || echo "")
+      if declare -f "provider_get_zone_id" >/dev/null 2>&1; then
+        ZONE_ID=$(provider_get_zone_id "$DOMAIN" 2>/dev/null || echo "")
         if [[ -n "$ZONE_ID" ]]; then
           # Get the zone name from AWS
           local ZONE_NAME

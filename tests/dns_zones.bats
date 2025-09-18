@@ -190,7 +190,10 @@ create_mock_provider_scripts() {
   mkdir -p "$TEST_PLUGIN_ROOT/providers"
   export PLUGIN_ROOT="$TEST_PLUGIN_ROOT"
 
-  # Create mock AWS provider script in test directory
+  # Use existing mock provider system instead of creating a custom one
+  cp -r "$TEST_PLUGIN_ROOT/providers/mock" "$TEST_PLUGIN_ROOT/providers/test-mock"
+
+  # Create mock provider adapter script that uses the mock provider
   cat >"$TEST_PLUGIN_ROOT/providers/aws.sh" <<'EOF'
 #!/bin/bash
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"

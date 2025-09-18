@@ -82,18 +82,12 @@ dns_global_report() {
   
   # Detect current provider dynamically
   local CURRENT_PROVIDER="None"
-  local PROVIDER_SCRIPT
-  PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../providers/aws.sh"
-  if [[ -f "$PROVIDER_SCRIPT" ]]; then
-    source "$PROVIDER_SCRIPT"
-    # Try to get current provider from adapter system
-    local PROVIDERS_DIR
-    PROVIDERS_DIR="$(dirname "$PROVIDER_SCRIPT")"
-    if [[ -f "$PROVIDERS_DIR/loader.sh" ]]; then
-      source "$PROVIDERS_DIR/loader.sh"
-      if auto_load_provider >/dev/null 2>&1; then
-        CURRENT_PROVIDER=$(get_current_provider 2>/dev/null || echo "None")
-      fi
+  local PROVIDERS_DIR
+  PROVIDERS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../providers"
+  if [[ -f "$PROVIDERS_DIR/loader.sh" ]]; then
+    source "$PROVIDERS_DIR/loader.sh"
+    if auto_load_provider >/dev/null 2>&1; then
+      CURRENT_PROVIDER=$(get_current_provider 2>/dev/null || echo "None")
     fi
   fi
   
@@ -386,18 +380,12 @@ dns_report() {
   
   # Detect current provider dynamically for single app report
   local CURRENT_PROVIDER="None"
-  local PROVIDER_SCRIPT
-  PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../providers/aws.sh"
-  if [[ -f "$PROVIDER_SCRIPT" ]]; then
-    source "$PROVIDER_SCRIPT"
-    # Try to get current provider from adapter system
-    local PROVIDERS_DIR
-    PROVIDERS_DIR="$(dirname "$PROVIDER_SCRIPT")"
-    if [[ -f "$PROVIDERS_DIR/loader.sh" ]]; then
-      source "$PROVIDERS_DIR/loader.sh"
-      if auto_load_provider >/dev/null 2>&1; then
-        CURRENT_PROVIDER=$(get_current_provider 2>/dev/null || echo "None")
-      fi
+  local PROVIDERS_DIR
+  PROVIDERS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../providers"
+  if [[ -f "$PROVIDERS_DIR/loader.sh" ]]; then
+    source "$PROVIDERS_DIR/loader.sh"
+    if auto_load_provider >/dev/null 2>&1; then
+      CURRENT_PROVIDER=$(get_current_provider 2>/dev/null || echo "None")
     fi
   fi
   
