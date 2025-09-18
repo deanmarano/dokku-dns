@@ -27,22 +27,51 @@ Improve user experience during DNS sync operations with better feedback.
 
 ## Medium Priority Tasks  
 
-### Phase 17: Subcommand Cleanup and Provider Interface Integration (Medium Priority)
+### Phase 17: Provider Architecture Cleanup and Standardization ✅ COMPLETED
 
-Update remaining subcommands to use the new generic provider interface.
+Clean up and standardize provider architecture for consistency and maintainability.
 
-- [ ] **Update Core Subcommands**
-  - [ ] Update `dns_app()` function to use generic interface
-  - [ ] Update `dns_provider_aws_sync_app()` to use generic interface
-  - [ ] Update batch sync operations for multi-provider support
-  - [ ] Remove legacy AWS-specific function calls
+- [x] **AWS Provider Consolidation**
+  - [x] Consolidate AWS provider from 6 files into 2 files (config.sh + provider.sh) like Cloudflare
+  - [x] Merge `aws/add.sh`, `aws/sync.sh`, `aws/report.sh`, `aws/common.sh` into `aws/provider.sh`
+  - [x] Keep only `aws/config.sh` and `aws/provider.sh` for consistency with template pattern
+  - [x] Remove redundant AWS helper files that duplicate core functionality
 
-- [ ] **Update Management Commands**
-  - [ ] Update `providers:verify` to work with multiple providers
-  - [ ] Update zone management commands for provider-agnostic operation
-  - [ ] Update reporting commands to show provider information generically
+- [x] **Legacy File Cleanup**
+  - [x] Remove `providers/aws.sh` legacy compatibility layer (no longer needed)
+  - [x] Remove `providers/aws.backup` backup file from repository
+  - [x] Clean up any other obsolete provider files
 
-### Phase 18: DigitalOcean Provider Implementation (Medium Priority)
+- [x] **Provider Structure Standardization**
+  - [x] Ensure all providers follow same 2-file pattern: `config.sh` + `provider.sh`
+  - [x] Verify AWS provider implements same 6-function interface as Cloudflare
+  - [x] Add missing documentation (AWS provider now has comprehensive README.md)
+
+**Note:** Legacy provider references discovered in `functions` file and subcommands - addressed in Phase 18.
+
+### Phase 18: Legacy Provider Reference Cleanup (High Priority)
+
+Fix legacy references to removed AWS provider files and complete provider interface migration.
+
+- [ ] **Fix Legacy AWS Provider References**
+  - [ ] Update `functions` file references to `providers/aws.sh` (4 locations)
+  - [ ] Update `subcommands/sync-all` reference to `providers/aws.sh`
+  - [ ] Update `subcommands/report` references to `providers/aws.sh` (2 locations)
+  - [ ] Update `subcommands/sync:deletions` reference to `providers/aws.sh`
+  - [ ] Create compatibility layer or migrate to adapter system
+
+- [ ] **Provider Interface Migration**
+  - [ ] Migrate `functions` file to use provider adapter system instead of direct AWS calls
+  - [ ] Update subcommands to use generic provider interface through adapter
+  - [ ] Remove legacy `dns_provider_aws_*` function calls
+  - [ ] Ensure all commands work with multi-provider architecture
+
+- [ ] **Test Infrastructure Updates**
+  - [ ] Update `tests/dns_zones.bats` AWS provider mock references
+  - [ ] Update `tests/test_helper.bash` AWS backup file handling
+  - [ ] Verify all tests pass with new provider structure
+
+### Phase 19: DigitalOcean Provider Implementation (Medium Priority)
 
 - [ ] **Setup DigitalOcean Provider Structure**
   - [ ] Create `providers/digitalocean/` directory using template
@@ -57,7 +86,7 @@ Update remaining subcommands to use the new generic provider interface.
 
 ## Lower Priority Tasks
 
-### Phase 19: Enhanced Features (Lower Priority)
+### Phase 20: Enhanced Features (Lower Priority)
 
 - [ ] **TTL Support**
   - [ ] Add `--ttl <seconds>` parameter to relevant commands
@@ -73,7 +102,7 @@ Update remaining subcommands to use the new generic provider interface.
   - [ ] `post-app-clone-setup` - Handle cloned app domain updates
   - [ ] `post-proxy-ports-set` - Handle port changes affecting DNS
 
-### Phase 20: 1.0 Release Preparation (Lower Priority)
+### Phase 21: 1.0 Release Preparation (Lower Priority)
 
 - [ ] **Documentation Overhaul**
   - [ ] Create comprehensive README with multi-provider examples
