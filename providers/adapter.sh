@@ -113,49 +113,114 @@ dns_sync_app() {
   fi
 
   echo "Syncing domains for app '$app_name' to server IP: $server_ip"
+  echo
 
-  # Read domains and sync each one
-  local domains_synced=0
+  # Phase 1: Analyze current state
+  echo "Analyzing current DNS records..."
+  local -a planned_changes=()
+  local -a domains_to_sync=()
+  local changes_needed=false
   local domain
 
   while IFS= read -r domain || [[ -n "$domain" ]]; do
     [[ -z "$domain" ]] && continue
 
-    echo "Syncing domain: $domain"
+    printf "  Checking %s... " "$domain"
 
     # Get zone ID for this domain
     local zone_id
     if [[ "${MULTI_PROVIDER_MODE:-false}" == "true" ]]; then
-      # Multi-provider mode: route to appropriate provider
-      if ! zone_id=$(multi_get_zone_id "$domain"); then
-        echo "Error: No hosted zone found for $domain" >&2
+      if ! zone_id=$(multi_get_zone_id "$domain" 2>/dev/null); then
+        echo "❌ No hosted zone found"
         continue
       fi
 
-      # Create/update A record using appropriate provider
-      if multi_create_record "$zone_id" "$domain" "A" "$server_ip" "300"; then
-        domains_synced=$((domains_synced + 1))
-      else
-        echo "Error: Failed to sync DNS record for $domain" >&2
-      fi
+      # Check current record
+      current_ip=$(multi_get_record "$zone_id" "$domain" "A" 2>/dev/null || echo "")
     else
-      # Single provider mode
-      if ! zone_id=$(provider_get_zone_id "$domain"); then
-        echo "Error: No hosted zone found for $domain" >&2
+      if ! zone_id=$(provider_get_zone_id "$domain" 2>/dev/null); then
+        echo "❌ No hosted zone found"
         continue
       fi
 
-      # Create/update A record
-      if provider_create_record "$zone_id" "$domain" "A" "$server_ip" "300"; then
-        domains_synced=$((domains_synced + 1))
-      else
-        echo "Error: Failed to sync DNS record for $domain" >&2
-      fi
+      # Check current record
+      current_ip=$(provider_get_record "$zone_id" "$domain" "A" 2>/dev/null || echo "")
+    fi
+
+    if [[ -z "$current_ip" ]]; then
+      echo "➕ Will create A record"
+      planned_changes+=("+ $domain → $server_ip (A record)")
+      domains_to_sync+=("$domain")
+      changes_needed=true
+    elif [[ "$current_ip" != "$server_ip" ]]; then
+      echo "🔄 Will update A record"
+      planned_changes+=("~ $domain → $server_ip [was: $current_ip] (A record)")
+      domains_to_sync+=("$domain")
+      changes_needed=true
+    else
+      echo "✅ Already correct"
     fi
   done <"$domains_file"
 
-  echo "Synced $domains_synced domain(s)"
-  return 0
+  echo
+
+  # Show planned changes
+  if [[ "$changes_needed" == "true" ]]; then
+    echo "Planned Changes:"
+    for change in "${planned_changes[@]}"; do
+      echo "  $change"
+    done
+    echo
+    echo "Plan: 0 to add, 0 to change, ${#planned_changes[@]} to apply"
+    echo
+
+    # Phase 2: Apply changes
+    echo "Applying changes..."
+    local domains_synced=0
+    local domains_failed=0
+
+    for domain in "${domains_to_sync[@]}"; do
+      printf "  %s... " "$domain"
+
+      # Get zone ID again for this domain
+      local zone_id
+      if [[ "${MULTI_PROVIDER_MODE:-false}" == "true" ]]; then
+        zone_id=$(multi_get_zone_id "$domain" 2>/dev/null)
+
+        # Apply the change
+        if multi_create_record "$zone_id" "$domain" "A" "$server_ip" "300" >/dev/null 2>&1; then
+          echo "✅ Applied"
+          domains_synced=$((domains_synced + 1))
+        else
+          echo "❌ Failed"
+          domains_failed=$((domains_failed + 1))
+        fi
+      else
+        zone_id=$(provider_get_zone_id "$domain" 2>/dev/null)
+
+        # Apply the change
+        if provider_create_record "$zone_id" "$domain" "A" "$server_ip" "300" >/dev/null 2>&1; then
+          echo "✅ Applied"
+          domains_synced=$((domains_synced + 1))
+        else
+          echo "❌ Failed"
+          domains_failed=$((domains_failed + 1))
+        fi
+      fi
+    done
+
+    echo
+    echo "Apply complete! Successfully applied $domains_synced of ${#domains_to_sync[@]} planned changes."
+
+    if [[ $domains_failed -gt 0 ]]; then
+      return 1
+    else
+      return 0
+    fi
+  else
+    echo "No changes needed! All DNS records are already correct."
+    return 0
+  fi
 }
 
 # Get DNS status for a domain (high-level plugin operation)
