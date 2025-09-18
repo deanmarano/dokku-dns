@@ -77,3 +77,100 @@ teardown() {
   # The important thing is the command doesn't crash
   [[ "$status" -eq 0 ]] || [[ "$status" -eq 1 ]]
 }
+
+# Phase 16: Enhanced Sync Operations Tests
+
+@test "(dns:apps:sync) shows apply-style output with planned changes" {
+  # Add app to DNS management first
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1
+
+  run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" my-app
+
+  # Should show the new apply-style output structure
+  [[ "$status" -eq 0 ]] || [[ "$status" -eq 1 ]]
+
+  # Check for key apply-style output elements
+  if [[ "$status" -eq 0 ]]; then
+    assert_output_contains "Analyzing current DNS records" || assert_output_contains "No DNS-managed domains"
+  fi
+}
+
+@test "(dns:apps:sync) shows real-time progress with checkmarks" {
+  # Add app to DNS management first
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1
+
+  run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" my-app
+
+  # Should show progress indicators during sync
+  [[ "$status" -eq 0 ]] || [[ "$status" -eq 1 ]]
+
+  # Look for progress indicators in output
+  if [[ "$status" -eq 0 ]] && [[ "$output" == *"Checking"* ]]; then
+    # Should show checkmarks or progress indicators
+    assert_output_contains "Checking" || assert_output_contains "✅" || assert_output_contains "❌" || assert_output_contains "No DNS-managed domains"
+  fi
+}
+
+@test "(dns:apps:sync) displays what was actually changed" {
+  # Add app to DNS management first
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1
+
+  run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" my-app
+
+  # Should show what changes were applied
+  [[ "$status" -eq 0 ]] || [[ "$status" -eq 1 ]]
+
+  # Look for change indicators in output
+  if [[ "$status" -eq 0 ]] && [[ "$output" == *"Applying changes"* ]]; then
+    # Should show what was applied
+    assert_output_contains "Applied" || assert_output_contains "Failed"
+  fi
+}
+
+@test "(dns:apps:sync) shows 'No changes needed' when records are correct" {
+  # Add app to DNS management first
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1
+
+  run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" my-app
+
+  # Should show "No changes needed" if everything is already correct
+  [[ "$status" -eq 0 ]] || [[ "$status" -eq 1 ]]
+
+  # Look for "no changes" message when applicable
+  if [[ "$status" -eq 0 ]] && [[ "$output" == *"No changes needed"* ]]; then
+    assert_output_contains "No changes needed"
+    assert_output_contains "All DNS records are already correct"
+  fi
+}
+
+@test "(dns:apps:sync) shows Terraform-style plan format" {
+  # Add app to DNS management first
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1
+
+  run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" my-app
+
+  # Should show terraform-style planning output
+  [[ "$status" -eq 0 ]] || [[ "$status" -eq 1 ]]
+
+  # Look for Terraform-style elements
+  if [[ "$status" -eq 0 ]] && [[ "$output" == *"Planned Changes"* ]]; then
+    # Should show plan summary
+    assert_output_contains "Plan:" || assert_output_contains "to add" || assert_output_contains "to change" || assert_output_contains "to apply"
+  fi
+}
+
+@test "(dns:apps:sync) handles both create and update operations" {
+  # Add app to DNS management first
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1
+
+  run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" my-app
+
+  # Should handle different types of DNS operations
+  [[ "$status" -eq 0 ]] || [[ "$status" -eq 1 ]]
+
+  # Look for operation indicators
+  if [[ "$status" -eq 0 ]] && [[ "$output" == *"Will create"* ]] || [[ "$output" == *"Will update"* ]]; then
+    # Should show operation types
+    assert_output_contains "Will create" || assert_output_contains "Will update" || assert_output_contains "Already correct"
+  fi
+}

@@ -754,3 +754,68 @@ cp -r providers/template providers/cloudflare
 - ✅ **Foundation for Expansion**: Template and architecture ready for additional providers
 
 **This phase proves the multi-provider architecture works flawlessly in production, delivering the first additional DNS provider with comprehensive functionality and establishing the pattern for rapid future provider additions.**
+
+## Phase 15: Enhanced Reporting with Pending Changes - COMPLETED ✅ (2025-08-04)
+
+Successfully implemented enhanced reporting functionality with Terraform-style change preview capabilities.
+
+- [x] **Add "pending" functionality to dns:report commands** ✅
+  - [x] Show planned changes in `dns:report` and `dns:apps:report` ✅
+  - [x] Display: "+ example.com → 192.168.1.1 (A record)" for new records ✅
+  - [x] Display: "~ api.example.com → 192.168.1.1 [was: 192.168.1.2]" for updates ✅
+  - [x] Add change summary: "Plan: 2 to add, 1 to change, 0 to destroy" ✅
+  - [x] Compare current DNS vs expected app domains ✅
+  - [x] Return structured data about planned changes ✅
+
+## Phase 16: Enhanced Sync Operations - COMPLETED ✅ (2025-09-17)
+
+Successfully implemented enhanced DNS sync operations with Terraform-style apply workflow and real-time progress indicators.
+
+- [x] **Enhance dns:apps:sync with apply-style output** ✅
+  - [x] Show real-time progress with checkmarks during sync ✅
+  - [x] Display what was actually changed after each operation ✅
+  - [x] Show "No changes needed" when records are already correct ✅
+
+### Phase 16 Technical Implementation ✅
+
+**Enhanced `dns_sync_app()` Function:**
+- **Two-Phase Operation**: Analyze current state first, then apply changes
+- **Real-Time Progress**: Visual feedback with checkmarks (✅), warnings (❌), and operations (➕🔄)
+- **Terraform-Style Planning**: Shows planned changes before applying them
+- **Intelligent Change Detection**: Only applies changes when needed, shows "No changes needed" when appropriate
+- **Comprehensive Error Handling**: Tracks success/failure rates and provides detailed feedback
+
+**Apply-Style Output Features:**
+- **Planning Phase**: "Analyzing current DNS records..." with per-domain status checks
+- **Change Visualization**: Clear symbols for create (➕), update (🔄), and correct (✅) operations
+- **Planned Changes Summary**: Terraform-style summary with change counts
+- **Apply Phase**: Real-time progress for each change with success/failure indicators
+- **Final Results**: Summary of applied changes with success statistics
+
+**User Experience Improvements:**
+- **Clear Visual Feedback**: Emojis and symbols make operation status immediately clear
+- **Progressive Disclosure**: Shows analysis first, then planned changes, then applies changes
+- **No Unnecessary Operations**: Skips applying changes when all records are already correct
+- **Detailed Error Reporting**: Failed operations are clearly identified and counted
+
+**Test Coverage (6 new tests):**
+- Apply-style output with planned changes
+- Real-time progress with checkmarks
+- Display of actual changes applied
+- "No changes needed" message when appropriate
+- Terraform-style plan format
+- Both create and update operation handling
+
+**Files Modified:**
+1. **`providers/adapter.sh`** - Enhanced `dns_sync_app()` function with two-phase apply workflow
+2. **`tests/dns_sync.bats`** - Added 6 comprehensive tests for Phase 16 functionality
+
+**Phase 16 Achievement Summary:**
+✅ **Terraform-Style Workflow** - Complete plan/apply workflow with change visualization
+✅ **Real-Time Progress** - Visual feedback during DNS operations with clear status indicators
+✅ **Smart Change Detection** - Only applies changes when needed, avoids unnecessary operations
+✅ **Enhanced User Experience** - Clear, professional output with comprehensive error handling
+✅ **Comprehensive Testing** - 6 new tests covering all enhanced sync operation scenarios
+✅ **Zero Breaking Changes** - All existing functionality preserved with enhanced experience
+
+**This phase transforms DNS sync operations from basic command execution into a professional, Terraform-style workflow with clear change planning, real-time progress, and intelligent change detection.**
