@@ -4,18 +4,6 @@ The DNS plugin is in progress! Many core features have been implemented and test
 
 ## High Priority Tasks
 
-### Phase 15: Enhanced Reporting with Pending Changes (High Priority)
-
-Improve user experience with clear change previews in report commands.
-
-- [ ] **Add "pending" functionality to dns:report commands**
-  - [ ] Show planned changes in `dns:report` and `dns:apps:report`
-  - [ ] Display: "+ example.com → 192.168.1.1 (A record)" for new records
-  - [ ] Display: "~ api.example.com → 192.168.1.1 [was: 192.168.1.2]" for updates
-  - [ ] Add change summary: "Plan: 2 to add, 1 to change, 0 to destroy"
-  - [ ] Compare current DNS vs expected app domains (only as needed for reports)
-  - [ ] Return structured data about planned changes (only as needed for reports)
-
 ### Phase 16: Enhanced Sync Operations (High Priority)
 
 Improve user experience during DNS sync operations with better feedback.
