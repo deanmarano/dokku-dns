@@ -73,19 +73,13 @@ service-sync-all-cmd() {
   # Try to use provider system for optimized batch sync
   dokku_log_info2 "Using provider system for DNS sync (supports multi-provider)"
   
-  # Load generic provider interface
-  local PROVIDER_SCRIPT
-  PROVIDER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/providers/aws.sh"
-  if [[ -f "$PROVIDER_SCRIPT" ]]; then
-    source "$PROVIDER_SCRIPT"
-    
-    # Load adapter for batch operations
-    local PROVIDERS_DIR
-    PROVIDERS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/providers"
-    source "$PROVIDERS_DIR/adapter.sh"
-    
-    # Initialize provider system
-    if init_provider_system; then
+  # Load provider adapter system for batch operations
+  local PROVIDERS_DIR
+  PROVIDERS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/providers"
+  source "$PROVIDERS_DIR/adapter.sh"
+
+  # Initialize provider system
+  if init_provider_system; then
       # Use generic batch sync for all managed apps
       local success_count=0
       local fail_count=0
@@ -113,11 +107,8 @@ service-sync-all-cmd() {
         dokku_log_warn "Batch DNS sync encountered some failures ($fail_count failed)"
         return 1
       fi
-    else
-      dokku_log_fail "Failed to initialize provider system"
-    fi
   else
-    dokku_log_fail "Provider script not found"
+    dokku_log_fail "Failed to initialize provider system"
   fi
   
   # Fallback to individual app sync for other providers or if batch fails
