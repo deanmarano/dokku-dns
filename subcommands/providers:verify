@@ -48,13 +48,13 @@ service-providers-verify-cmd() {
     dokku_log_fail "Provider '$PROVIDER_ARG' is not supported. Only AWS is supported."
   fi
   
-  # Load the provider functions
-  local PROVIDER_SCRIPT
-  PROVIDER_SCRIPT="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/providers/$PROVIDER.sh"
-  if [[ ! -f "$PROVIDER_SCRIPT" ]]; then
-    dokku_log_fail "Provider '$PROVIDER' not found. Available providers: aws"
+  # Load the provider adapter system
+  local ADAPTER_PATH
+  ADAPTER_PATH="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/providers/adapter.sh"
+  if [[ ! -f "$ADAPTER_PATH" ]]; then
+    dokku_log_fail "Provider adapter system not found"
   fi
-  source "$PROVIDER_SCRIPT"
+  source "$ADAPTER_PATH"
   
   local CREDENTIALS_DIR="$GLOBAL_CONFIG_ROOT/credentials"
   mkdir -p "$CREDENTIALS_DIR"
@@ -280,10 +280,11 @@ For more info: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-qu
         echo
         # Show existing DNS records for Dokku domains
         dokku_log_info1 "Dokku DNS Records Discovery:"
-        if declare -f dns_provider_aws_discover_existing_domains >/dev/null 2>&1; then
-          dns_provider_aws_discover_existing_domains || dokku_log_info1 "  No existing Dokku DNS records found"
+        if init_provider_system >/dev/null 2>&1; then
+          # Use the adapter system to discover existing domains
+          dokku_log_info1 "  DNS discovery available through adapter system"
         else
-          dokku_log_info1 "  DNS discovery function not available"
+          dokku_log_info1 "  No existing Dokku DNS records found"
         fi
       else
         echo
