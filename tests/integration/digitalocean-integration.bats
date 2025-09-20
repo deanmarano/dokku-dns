@@ -469,6 +469,8 @@ EOF
 }
 
 @test "(digitalocean integration) provider handles batch operation failures" {
+  export DIGITALOCEAN_ACCESS_TOKEN="test-token-12345"
+
   # Create test records file
   local records_file="/tmp/test_records.txt"
   cat >"$records_file" <<EOF
@@ -476,43 +478,38 @@ test1 A 192.168.1.101 300
 test2 A 192.168.1.102 600
 EOF
 
-  # Track which API call we're on to simulate mixed success/failure
-  echo "0" >/tmp/api_call_count
-
   function curl() {
-    local call_count=$(cat /tmp/api_call_count 2>/dev/null || echo "0")
-    call_count=$((call_count + 1))
-    echo "$call_count" >/tmp/api_call_count
-
     if [[ "$*" == *"GET"* ]]; then
       # GET calls to check existing records - always return empty
       echo '{"domain_records": []}'
-    elif [[ $call_count -eq 2 ]]; then
-      # First POST call (test1) - succeed
+    elif [[ "$*" == *"test1"* ]]; then
+      # First record (test1) - succeed
       echo '{"domain_record": {"id": 12345, "name": "test1"}}'
-    elif [[ $call_count -eq 4 ]]; then
-      # Second POST call (test2) - fail
+    elif [[ "$*" == *"test2"* ]]; then
+      # Second record (test2) - fail with API error
       echo '{"id": "unprocessable_entity", "message": "Record validation failed"}'
     else
-      # Other calls
+      # Default case
       echo '{"domain_records": []}'
     fi
   }
   export -f curl
 
   function jq() {
-    local call_count=$(cat /tmp/api_call_count 2>/dev/null || echo "0")
-
     if [[ "$*" == *".domain_records[]?"* ]] && [[ "$*" == *"select"* ]]; then
       # Looking for existing records - return empty (no existing records)
       echo ""
     elif [[ "$*" == *"-e"* ]] && [[ "$*" == *"'.domain_record.id'"* ]]; then
-      # Checking if record creation succeeded
-      if [[ $call_count -eq 2 ]]; then
-        # First record succeeded
+      # Check if the input contains test1 or test2 data
+      local input
+      read -r input
+      if [[ "$input" == *'"name":"test1"'* ]]; then
+        # First record succeeded - return 0 (success)
         return 0
+      elif [[ "$input" == *'"name":"test2"'* ]] || [[ "$input" == *"unprocessable_entity"* ]]; then
+        # Second record failed - return 1 (failure)
+        return 1
       else
-        # Second record failed
         return 1
       fi
     elif [[ "$*" == *"'.message'"* ]]; then
@@ -533,5 +530,5 @@ EOF
   assert_output --partial "Batch operation completed with 1 failures out of 2 records"
 
   # Cleanup
-  rm -f "$records_file" /tmp/api_call_count
+  rm -f "$records_file"
 }
