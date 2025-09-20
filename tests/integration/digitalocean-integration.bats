@@ -476,43 +476,54 @@ test1 A 192.168.1.101 300
 test2 A 192.168.1.102 600
 EOF
 
-  # Use a more reliable approach - track the specific record being processed
-  echo "test1" >/tmp/current_record
+  # Track which API call we're on to simulate mixed success/failure
+  echo "0" >/tmp/api_call_count
 
   function curl() {
-    local current_record=$(cat /tmp/current_record 2>/dev/null || echo "test1")
+    local call_count=$(cat /tmp/api_call_count 2>/dev/null || echo "0")
+    call_count=$((call_count + 1))
+    echo "$call_count" >/tmp/api_call_count
 
     if [[ "$*" == *"GET"* ]]; then
+      # GET calls to check existing records - always return empty
       echo '{"domain_records": []}'
-    elif [[ "$current_record" == "test1" ]]; then
-      # First record creation succeeds
-      echo "test2" >/tmp/current_record
-      echo '{"domain_record": {"id": 12345}}'
-    else
-      # Second record creation fails
+    elif [[ $call_count -eq 2 ]]; then
+      # First POST call (test1) - succeed
+      echo '{"domain_record": {"id": 12345, "name": "test1"}}'
+    elif [[ $call_count -eq 4 ]]; then
+      # Second POST call (test2) - fail
       echo '{"id": "unprocessable_entity", "message": "Record validation failed"}'
+    else
+      # Other calls
+      echo '{"domain_records": []}'
     fi
   }
   export -f curl
 
   function jq() {
-    local current_record=$(cat /tmp/current_record 2>/dev/null || echo "test1")
+    local call_count=$(cat /tmp/api_call_count 2>/dev/null || echo "0")
 
-    if [[ "$*" == *".domain_records[]?"* ]] && [[ "$*" == *".id"* ]]; then
-      echo "" # No existing record
-    elif [[ "$*" == *"'.domain_record.id'"* ]]; then
-      if [[ "$current_record" == "test1" ]]; then
-        echo "12345"
+    if [[ "$*" == *".domain_records[]?"* ]] && [[ "$*" == *"select"* ]]; then
+      # Looking for existing records - return empty (no existing records)
+      echo ""
+    elif [[ "$*" == *"-e"* ]] && [[ "$*" == *"'.domain_record.id'"* ]]; then
+      # Checking if record creation succeeded
+      if [[ $call_count -eq 2 ]]; then
+        # First record succeeded
         return 0
       else
-        # Second record fails - no ID returned
-        echo ""
+        # Second record failed
         return 1
       fi
     elif [[ "$*" == *"'.message'"* ]]; then
       echo "Record validation failed"
     elif [[ "$*" == *"-n"* ]]; then
-      echo '{"name":"test","type":"A","data":"192.168.1.100","ttl":300}'
+      # Creating JSON data for the record
+      if [[ "$*" == *"test1"* ]]; then
+        echo '{"name":"test1","type":"A","data":"192.168.1.101","ttl":300}'
+      else
+        echo '{"name":"test2","type":"A","data":"192.168.1.102","ttl":600}'
+      fi
     fi
   }
   export -f jq
@@ -522,5 +533,5 @@ EOF
   assert_output --partial "Batch operation completed with 1 failures out of 2 records"
 
   # Cleanup
-  rm -f "$records_file" /tmp/current_record
+  rm -f "$records_file" /tmp/api_call_count
 }
