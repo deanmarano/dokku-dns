@@ -124,9 +124,11 @@ setup() {
 
   function jq() {
     if [[ "$*" == *"-e"* ]] && [[ "$*" == *"'.domain.name'"* ]]; then
-      # jq -e returns 1 when key doesn't exist or is null
+      # jq -e returns 1 when key doesn't exist or is null for domain not found
       return 1
     fi
+    # Don't return the zone name for non-existent domain
+    return 1
   }
   export -f jq
 
@@ -344,9 +346,11 @@ EOF
 
   function jq() {
     if [[ "$*" == *"-e"* ]] && [[ "$*" == *"'.domain.name'"* ]]; then
-      # jq -e returns 1 when key doesn't exist or is null
+      # jq -e returns 1 when key doesn't exist or is null for domain not found
       return 1
     fi
+    # Don't return anything for non-existent domain
+    return 1
   }
   export -f jq
 
@@ -472,41 +476,38 @@ test1 A 192.168.1.101 300
 test2 A 192.168.1.102 600
 EOF
 
-  # Track call count to simulate mixed success/failure
-  # Need to track calls globally since function calls happen in subshells
-  echo "0" >/tmp/call_count
+  # Use a more reliable approach - track the specific record being processed
+  echo "test1" >/tmp/current_record
 
   function curl() {
-    local count=$(cat /tmp/call_count)
-    count=$((count + 1))
-    echo "$count" >/tmp/call_count
+    local current_record=$(cat /tmp/current_record 2>/dev/null || echo "test1")
 
     if [[ "$*" == *"GET"* ]]; then
       echo '{"domain_records": []}'
-    elif [[ $count -eq 2 ]]; then
-      # First POST (creation) succeeds
+    elif [[ "$current_record" == "test1" ]]; then
+      # First record creation succeeds
+      echo "test2" >/tmp/current_record
       echo '{"domain_record": {"id": 12345}}'
-    elif [[ $count -eq 4 ]]; then
-      # Second POST (creation) fails
-      echo '{"id": "unprocessable_entity", "message": "Record validation failed"}'
     else
-      echo '{"domain_record": {"id": 12345}}'
+      # Second record creation fails
+      echo '{"id": "unprocessable_entity", "message": "Record validation failed"}'
     fi
   }
   export -f curl
 
   function jq() {
-    local count=$(cat /tmp/call_count)
+    local current_record=$(cat /tmp/current_record 2>/dev/null || echo "test1")
+
     if [[ "$*" == *".domain_records[]?"* ]] && [[ "$*" == *".id"* ]]; then
       echo "" # No existing record
     elif [[ "$*" == *"'.domain_record.id'"* ]]; then
-      if [[ $count -eq 4 ]]; then
-        # When count is 4, this is the failed creation
-        echo ""
-        return 1
-      else
+      if [[ "$current_record" == "test1" ]]; then
         echo "12345"
         return 0
+      else
+        # Second record fails - no ID returned
+        echo ""
+        return 1
       fi
     elif [[ "$*" == *"'.message'"* ]]; then
       echo "Record validation failed"
@@ -521,5 +522,5 @@ EOF
   assert_output --partial "Batch operation completed with 1 failures out of 2 records"
 
   # Cleanup
-  rm -f "$records_file" /tmp/call_count
+  rm -f "$records_file" /tmp/current_record
 }
