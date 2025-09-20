@@ -499,21 +499,26 @@ EOF
     if [[ "$*" == *".domain_records[]?"* ]] && [[ "$*" == *"select"* ]]; then
       # Looking for existing records - return empty (no existing records)
       echo ""
-    elif [[ "$*" == *"-e"* ]] && [[ "$*" == *"'.domain_record.id'"* ]]; then
-      # Check if the input contains test1 or test2 data
+    elif [[ "$*" == *"-e"* ]] && [[ "$*" == *".domain_record.id"* ]]; then
+      # Check if the input contains domain_record.id (success response)
       local input
       read -r input
-      if [[ "$input" == *'"name":"test1"'* ]]; then
-        # First record succeeded - return 0 (success)
+      if [[ "$input" == *'"domain_record"'* ]] && [[ "$input" == *'"id"'* ]]; then
+        # Input has domain_record.id - return 0 (success)
         return 0
-      elif [[ "$input" == *'"name":"test2"'* ]] || [[ "$input" == *"unprocessable_entity"* ]]; then
-        # Second record failed - return 1 (failure)
-        return 1
       else
+        # Input doesn't have domain_record.id (error response) - return 1 (failure)
         return 1
       fi
-    elif [[ "$*" == *"'.message'"* ]]; then
-      echo "Record validation failed"
+    elif [[ "$*" == *".message"* ]]; then
+      # Extract error message from input
+      local input
+      read -r input
+      if [[ "$input" == *"Record validation failed"* ]]; then
+        echo "Record validation failed"
+      else
+        echo "Unknown error"
+      fi
     elif [[ "$*" == *"-n"* ]]; then
       # Creating JSON data for the record
       if [[ "$*" == *"test1"* ]]; then
