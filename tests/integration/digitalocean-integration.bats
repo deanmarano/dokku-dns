@@ -7,6 +7,8 @@ load bats-common
 # Tests real DigitalOcean API integration with mock fallbacks
 
 # shellcheck disable=SC2154  # status and output are BATS built-in variables
+# shellcheck disable=SC2317  # mock functions appear unreachable but are called by export -f
+# shellcheck disable=SC2030,SC2031  # variable modifications in subshells are expected in BATS
 
 setup() {
   check_dns_plugin_available
@@ -51,11 +53,11 @@ setup() {
   export -f curl
 
   function jq() {
-    if [[ "$*" == *"'.account.uuid'"* ]]; then
-      echo ""
-    elif [[ "$*" == *"'.id'"* ]]; then
+    if [[ "$*" == *"'.account.uuid'"* ]] || [[ "$*" == *".account.uuid"* ]]; then
+      echo "" # No account.uuid in response
+    elif [[ "$*" == *"'.id'"* ]] || [[ "$*" == *".id"* ]]; then
       echo "Unauthorized"
-    elif [[ "$*" == *"'.message'"* ]]; then
+    elif [[ "$*" == *"'.message'"* ]] || [[ "$*" == *".message"* ]]; then
       echo "Unable to authenticate you"
     fi
   }
@@ -98,12 +100,12 @@ setup() {
   export -f curl
 
   function jq() {
-    if [[ "$*" == *"'.domain.name'"* ]] && [[ "$*" == *"example.com"* ]]; then
+    if [[ "$*" == *"-e"* ]] && [[ "$*" == *"'.domain.name'"* ]]; then
+      # jq -e checks for existence and returns 0 if found
+      return 0
+    elif [[ "$*" == *"'.domain.name'"* ]]; then
       echo "example.com"
       return 0
-    else
-      echo "null"
-      return 1
     fi
   }
   export -f jq
@@ -121,8 +123,8 @@ setup() {
   export -f curl
 
   function jq() {
-    if [[ "$*" == *"'.domain.name'"* ]]; then
-      echo "null"
+    if [[ "$*" == *"-e"* ]] && [[ "$*" == *"'.domain.name'"* ]]; then
+      # jq -e returns 1 when key doesn't exist or is null
       return 1
     fi
   }
@@ -341,8 +343,8 @@ EOF
   export -f curl
 
   function jq() {
-    if [[ "$*" == *"'.domain.name'"* ]]; then
-      echo "null"
+    if [[ "$*" == *"-e"* ]] && [[ "$*" == *"'.domain.name'"* ]]; then
+      # jq -e returns 1 when key doesn't exist or is null
       return 1
     fi
   }
@@ -471,32 +473,40 @@ test2 A 192.168.1.102 600
 EOF
 
   # Track call count to simulate mixed success/failure
-  local call_count=0
+  # Need to track calls globally since function calls happen in subshells
+  echo "0" >/tmp/call_count
 
   function curl() {
-    call_count=$((call_count + 1))
+    local count=$(cat /tmp/call_count)
+    count=$((count + 1))
+    echo "$count" >/tmp/call_count
+
     if [[ "$*" == *"GET"* ]]; then
       echo '{"domain_records": []}'
-    elif [[ $call_count -eq 2 ]]; then
-      # First creation succeeds
+    elif [[ $count -eq 2 ]]; then
+      # First POST (creation) succeeds
       echo '{"domain_record": {"id": 12345}}'
-    else
-      # Second creation fails
+    elif [[ $count -eq 4 ]]; then
+      # Second POST (creation) fails
       echo '{"id": "unprocessable_entity", "message": "Record validation failed"}'
+    else
+      echo '{"domain_record": {"id": 12345}}'
     fi
   }
   export -f curl
 
   function jq() {
+    local count=$(cat /tmp/call_count)
     if [[ "$*" == *".domain_records[]?"* ]] && [[ "$*" == *".id"* ]]; then
       echo "" # No existing record
     elif [[ "$*" == *"'.domain_record.id'"* ]]; then
-      if [[ $call_count -eq 2 ]]; then
-        echo "12345"
-        return 0
-      else
+      if [[ $count -eq 4 ]]; then
+        # When count is 4, this is the failed creation
         echo ""
         return 1
+      else
+        echo "12345"
+        return 0
       fi
     elif [[ "$*" == *"'.message'"* ]]; then
       echo "Record validation failed"
@@ -511,5 +521,5 @@ EOF
   assert_output --partial "Batch operation completed with 1 failures out of 2 records"
 
   # Cleanup
-  rm -f "$records_file"
+  rm -f "$records_file" /tmp/call_count
 }
