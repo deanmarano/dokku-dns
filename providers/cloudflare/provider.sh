@@ -92,7 +92,7 @@ provider_get_zone_id() {
   fi
 
   local zone_id
-  zone_id=$(echo "$response" | jq -r ".result[] | select(.name==\"$zone_name\") | .id" 2>/dev/null)
+  zone_id=$(echo "$response" 2>/dev/null | jq -r ".result[] | select(.name==\"$zone_name\") | .id" 2>/dev/null)
 
   if [[ -z "$zone_id" ]] || [[ "$zone_id" == "null" ]]; then
     # Try to find parent zone if exact match not found
