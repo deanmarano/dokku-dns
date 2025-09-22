@@ -6,10 +6,17 @@
 PROVIDERS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$PROVIDERS_DIR/loader.sh"
 
+# Load DNS plugin functions for TTL support
+PLUGIN_DIR="$(dirname "$PROVIDERS_DIR")"
+if [[ -f "$PLUGIN_DIR/functions" ]]; then
+  source "$PLUGIN_DIR/functions"
+fi
+
 # Plugin configuration
 PLUGIN_DATA_ROOT="${DNS_ROOT:-${DOKKU_LIB_ROOT:-/var/lib/dokku}/services/dns}"
 
 # Initialize provider system
+# shellcheck disable=SC2120
 init_provider_system() {
   local provider_name="$1"
 
@@ -187,8 +194,14 @@ dns_sync_app() {
       if [[ "${MULTI_PROVIDER_MODE:-false}" == "true" ]]; then
         zone_id=$(multi_get_zone_id "$domain" 2>/dev/null)
 
-        # Apply the change
-        if multi_create_record "$zone_id" "$domain" "A" "$server_ip" "300" >/dev/null 2>&1; then
+        # Apply the change using global TTL
+        local ttl
+        if declare -f get_global_ttl >/dev/null 2>&1; then
+          ttl=$(get_global_ttl)
+        else
+          ttl="300"
+        fi
+        if multi_create_record "$zone_id" "$domain" "A" "$server_ip" "$ttl" >/dev/null 2>&1; then
           echo "✅ Applied"
           domains_synced=$((domains_synced + 1))
         else
@@ -198,8 +211,14 @@ dns_sync_app() {
       else
         zone_id=$(provider_get_zone_id "$domain" 2>/dev/null)
 
-        # Apply the change
-        if provider_create_record "$zone_id" "$domain" "A" "$server_ip" "300" >/dev/null 2>&1; then
+        # Apply the change using global TTL
+        local ttl
+        if declare -f get_global_ttl >/dev/null 2>&1; then
+          ttl=$(get_global_ttl)
+        else
+          ttl="300"
+        fi
+        if provider_create_record "$zone_id" "$domain" "A" "$server_ip" "$ttl" >/dev/null 2>&1; then
           echo "✅ Applied"
           domains_synced=$((domains_synced + 1))
         else
@@ -416,7 +435,16 @@ dns_create_record() {
   local domain="$1"
   local record_type="$2"
   local record_value="$3"
-  local ttl="${4:-300}"
+  local ttl="$4"
+
+  # If no TTL specified, use global TTL configuration
+  if [[ -z "$ttl" ]]; then
+    if declare -f get_global_ttl >/dev/null 2>&1; then
+      ttl=$(get_global_ttl)
+    else
+      ttl="300" # Fallback default
+    fi
+  fi
 
   if [[ -z "$domain" ]] || [[ -z "$record_type" ]] || [[ -z "$record_value" ]]; then
     echo "Domain, record type, and record value are required" >&2

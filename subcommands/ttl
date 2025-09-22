@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+# Load dokku functions
+if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
+  source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
+fi
+
+# Define missing functions if needed (for testing)
+if ! declare -f dokku_log_info1 >/dev/null 2>&1; then
+  dokku_log_info1() { echo "-----> $*"; }
+fi
+
+if ! declare -f dokku_log_info2 >/dev/null 2>&1; then
+  dokku_log_info2() { echo "=====> $*"; }
+fi
+
+if ! declare -f dokku_log_fail >/dev/null 2>&1; then
+  dokku_log_fail() {
+    echo " !     $*" >&2
+    exit 1
+  }
+fi
+
+dns-ttl-cmd() {
+  declare desc="get or set the global DNS record TTL (time-to-live) in seconds"
+  declare cmd="dns:ttl"
+  [[ "$1" == "$cmd" ]] && shift 1
+
+  local TTL_VALUE="$1"
+  local TTL_CONFIG_FILE="$PLUGIN_DATA_ROOT/GLOBAL_TTL"
+
+  # Ensure plugin data directory exists
+  [[ ! -d "$PLUGIN_DATA_ROOT" ]] && mkdir -p "$PLUGIN_DATA_ROOT"
+
+  if [[ -z "$TTL_VALUE" ]]; then
+    # Get current TTL value
+    if [[ -f "$TTL_CONFIG_FILE" ]]; then
+      local current_ttl
+      current_ttl=$(cat "$TTL_CONFIG_FILE")
+      if [[ -n "$current_ttl" && "$current_ttl" =~ ^[0-9]+$ ]]; then
+        echo "$current_ttl"
+      else
+        echo "300"  # Default fallback
+      fi
+    else
+      echo "300"  # Default TTL
+    fi
+  else
+    # Set TTL value
+    if [[ ! "$TTL_VALUE" =~ ^[0-9]+$ ]]; then
+      dokku_log_fail "TTL value must be a positive integer (seconds)"
+    fi
+
+    if [[ "$TTL_VALUE" -lt 60 ]]; then
+      dokku_log_fail "TTL value must be at least 60 seconds"
+    fi
+
+    if [[ "$TTL_VALUE" -gt 86400 ]]; then
+      dokku_log_fail "TTL value must be no more than 86400 seconds (24 hours)"
+    fi
+
+    echo "$TTL_VALUE" > "$TTL_CONFIG_FILE"
+    dokku_log_info1 "Global DNS TTL set to $TTL_VALUE seconds"
+  fi
+}
+
+dns-ttl-cmd "$@"

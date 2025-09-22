@@ -30,6 +30,7 @@ dns:sync:deletions <zone>                          # remove DNS records that no 
 dns:triggers                                       # show DNS automatic management status
 dns:triggers:disable                               # disable automatic DNS management for app lifecycle events
 dns:triggers:enable                                # enable automatic DNS management for app lifecycle events
+dns:ttl <ttl-value>                                # get or set the global DNS record TTL (time-to-live) in seconds
 dns:version                                        # show DNS plugin version and dependency versions
 dns:zones [<zone>]                                 # list DNS zones and their auto-discovery status
 dns:zones:disable <zone>                           # disable DNS zone and remove managed domains
