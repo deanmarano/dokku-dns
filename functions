@@ -949,3 +949,22 @@ dns_display_global_pending_changes() {
 
   return 0
 }
+
+# Get the global TTL configuration
+# Usage: get_global_ttl
+# Returns: TTL value in seconds (default: 300)
+get_global_ttl() {
+  local TTL_CONFIG_FILE="$PLUGIN_DATA_ROOT/GLOBAL_TTL"
+
+  if [[ -f "$TTL_CONFIG_FILE" ]]; then
+    local ttl_value
+    ttl_value=$(cat "$TTL_CONFIG_FILE" 2>/dev/null)
+    if [[ -n "$ttl_value" && "$ttl_value" =~ ^[0-9]+$ ]]; then
+      echo "$ttl_value"
+      return 0
+    fi
+  fi
+
+  # Default TTL
+  echo "300"
+}
