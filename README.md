@@ -50,14 +50,20 @@ Help for any commands can be displayed by specifying the command as an argument 
 dokku dns:apps:enable <app>
 ```
 
+flags:
+
+- `--ttl`: set custom TTL (time-to-live) in seconds for DNS records (60-86400)
+
 Enable `DNS` management for an application:
 
 ```shell
 dokku dns:apps:enable nextcloud
 dokku dns:apps:enable nextcloud example.com api.example.com
+dokku dns:apps:enable nextcloud --ttl 3600
+dokku dns:apps:enable nextcloud example.com --ttl 1800
 ```
 
-By default, adds all domains configured for the app optionally specify specific domains to add to `DNS` management only domains with hosted zones in the `DNS` provider will be added this registers domains with the `DNS` provider but doesn`t update records yet use `dokku dns:apps:sync` to update `DNS` records:
+By default, adds all domains configured for the app optionally specify specific domains to add to `DNS` management optionally specify --ttl parameter to set custom `TTL` for these domains only domains with hosted zones in the `DNS` provider will be added this registers domains with the `DNS` provider but doesn`t update records yet use `dokku dns:apps:sync` to update `DNS` records:
 
 ### verify DNS provider setup and connectivity
 

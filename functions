@@ -246,7 +246,8 @@ dns_app() {
 
 dns_add_app_domains() {
   local APP="$1"
-  shift
+  local TTL="$2"
+  shift 2
   local DOMAINS=("$@")
 
   # If no domains specified, get all domains for the app
@@ -445,14 +446,25 @@ dns_add_app_domains() {
   fi
 
   # Add valid domains to the app's domains file
+  local APP_TTLS_FILE="$PLUGIN_DATA_ROOT/$APP/DOMAIN_TTLS"
   for DOMAIN in "${VALID_DOMAINS[@]}"; do
     echo "$DOMAIN" >>"$APP_DOMAINS_FILE"
+
+    # Store TTL for this domain if provided
+    if [[ -n "$TTL" ]]; then
+      echo "$DOMAIN:$TTL" >>"$APP_TTLS_FILE"
+    fi
   done
 
   # Remove duplicates from the domains file
   if [[ -f "$APP_DOMAINS_FILE" ]]; then
     sort -u "$APP_DOMAINS_FILE" >"${APP_DOMAINS_FILE}.tmp"
     mv "${APP_DOMAINS_FILE}.tmp" "$APP_DOMAINS_FILE"
+  fi
+  # Remove duplicates from the TTLs file
+  if [[ -f "$APP_TTLS_FILE" ]]; then
+    sort -u "$APP_TTLS_FILE" >"${APP_TTLS_FILE}.tmp"
+    mv "${APP_TTLS_FILE}.tmp" "$APP_TTLS_FILE"
   fi
 
   dokku_log_info1 "${#VALID_DOMAINS[@]} domain(s) with hosted zones have been added to DNS"
@@ -967,4 +979,23 @@ get_global_ttl() {
 
   # Default TTL
   echo "300"
+}
+
+get_domain_ttl() {
+  local app="$1"
+  local domain="$2"
+  local APP_TTLS_FILE="$PLUGIN_DATA_ROOT/$app/DOMAIN_TTLS"
+
+  # Check for domain-specific TTL first
+  if [[ -f "$APP_TTLS_FILE" ]]; then
+    local domain_ttl
+    domain_ttl=$(grep "^$domain:" "$APP_TTLS_FILE" 2>/dev/null | cut -d: -f2)
+    if [[ -n "$domain_ttl" && "$domain_ttl" =~ ^[0-9]+$ ]]; then
+      echo "$domain_ttl"
+      return 0
+    fi
+  fi
+
+  # Fall back to global TTL
+  get_global_ttl
 }

@@ -194,10 +194,10 @@ dns_sync_app() {
       if [[ "${MULTI_PROVIDER_MODE:-false}" == "true" ]]; then
         zone_id=$(multi_get_zone_id "$domain" 2>/dev/null)
 
-        # Apply the change using global TTL
+        # Apply the change using domain-specific TTL
         local ttl
-        if declare -f get_global_ttl >/dev/null 2>&1; then
-          ttl=$(get_global_ttl)
+        if declare -f get_domain_ttl >/dev/null 2>&1; then
+          ttl=$(get_domain_ttl "$app_name" "$domain")
         else
           ttl="300"
         fi
@@ -211,10 +211,10 @@ dns_sync_app() {
       else
         zone_id=$(provider_get_zone_id "$domain" 2>/dev/null)
 
-        # Apply the change using global TTL
+        # Apply the change using domain-specific TTL
         local ttl
-        if declare -f get_global_ttl >/dev/null 2>&1; then
-          ttl=$(get_global_ttl)
+        if declare -f get_domain_ttl >/dev/null 2>&1; then
+          ttl=$(get_domain_ttl "$app_name" "$domain")
         else
           ttl="300"
         fi
