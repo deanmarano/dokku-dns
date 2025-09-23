@@ -989,7 +989,9 @@ get_domain_ttl() {
   # Check for domain-specific TTL first
   if [[ -f "$APP_TTLS_FILE" ]]; then
     local domain_ttl
+    set +e # Temporarily disable exit on error for grep
     domain_ttl=$(grep "^$domain:" "$APP_TTLS_FILE" 2>/dev/null | cut -d: -f2)
+    set -e # Re-enable exit on error
     if [[ -n "$domain_ttl" && "$domain_ttl" =~ ^[0-9]+$ ]]; then
       echo "$domain_ttl"
       return 0
@@ -1001,7 +1003,9 @@ get_domain_ttl() {
   zone=$(get_zone_from_domain "$domain")
   if [[ -n "$zone" ]]; then
     local zone_ttl
-    zone_ttl=$(get_zone_ttl "$zone" 2>/dev/null) || true
+    set +e # Temporarily disable exit on error
+    zone_ttl=$(get_zone_ttl "$zone" 2>/dev/null)
+    set -e # Re-enable exit on error
     if [[ -n "$zone_ttl" && "$zone_ttl" =~ ^[0-9]+$ ]]; then
       echo "$zone_ttl"
       return 0
@@ -1038,7 +1042,9 @@ get_zone_ttl() {
 
   if [[ -f "$ZONE_TTLS_FILE" ]]; then
     local zone_ttl
+    set +e # Temporarily disable exit on error for grep
     zone_ttl=$(grep "^$zone:" "$ZONE_TTLS_FILE" 2>/dev/null | cut -d: -f2)
+    set -e # Re-enable exit on error
     if [[ -n "$zone_ttl" && "$zone_ttl" =~ ^[0-9]+$ ]]; then
       echo "$zone_ttl"
       return 0
