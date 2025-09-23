@@ -45,45 +45,86 @@ service-apps-enable-cmd() {
   #E enable DNS management for an application
   #E dokku $PLUGIN_COMMAND_PREFIX:apps:enable nextcloud
   #E dokku $PLUGIN_COMMAND_PREFIX:apps:enable nextcloud example.com api.example.com
+  #E dokku $PLUGIN_COMMAND_PREFIX:apps:enable nextcloud --ttl 3600
+  #E dokku $PLUGIN_COMMAND_PREFIX:apps:enable nextcloud example.com --ttl 1800
   #E by default, adds all domains configured for the app
   #E optionally specify specific domains to add to DNS management
+  #E optionally specify --ttl parameter to set custom TTL for these domains
   #E only domains with hosted zones in the DNS provider will be added
   #E this registers domains with the DNS provider but doesn't update records yet
   #E use 'dokku $PLUGIN_COMMAND_PREFIX:apps:sync' to update DNS records
   #A app, app to enable DNS management for
   #A domains, specific domains to add (optional, defaults to all app domains)
+  #F --ttl, set custom TTL (time-to-live) in seconds for DNS records (60-86400)
   declare desc="enable DNS management for an application"
   local cmd="$PLUGIN_COMMAND_PREFIX:apps:enable" argv=("$@")
   [[ ${argv[0]} == "$cmd" ]] && shift 1
   declare APP="$1"
   shift 1
-  declare DOMAINS=("$@")
+
+  # Parse arguments for --ttl flag
+  declare TTL=""
+  declare DOMAINS=()
+
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      --ttl)
+        TTL="$2"
+        shift 2
+        ;;
+      *)
+        DOMAINS+=("$1")
+        shift
+        ;;
+    esac
+  done
 
   [[ -z "$APP" ]] && dokku_log_fail "Please specify an app name"
   verify_app_name "$APP"
-  
+
+  # Validate TTL if provided
+  if [[ -n "$TTL" ]]; then
+    if [[ ! "$TTL" =~ ^[0-9]+$ ]]; then
+      dokku_log_fail "TTL value must be a positive integer (seconds)"
+    fi
+    if [[ "$TTL" -lt 60 ]]; then
+      dokku_log_fail "TTL value must be at least 60 seconds"
+    fi
+    if [[ "$TTL" -gt 86400 ]]; then
+      dokku_log_fail "TTL value must be no more than 86400 seconds (24 hours)"
+    fi
+  fi
+
   # Get all app domains if none specified
   if [[ ${#DOMAINS[@]} -eq 0 ]]; then
     # Use more compatible approach for older bash versions
     while IFS= read -r domain; do
       [[ -n "$domain" ]] && DOMAINS+=("$domain")
     done < <(get_app_domains "$APP")
-    
+
     if [[ ${#DOMAINS[@]} -eq 0 ]]; then
       dokku_log_fail "No domains found for app '$APP'. Add domains first with: dokku domains:add $APP <domain>"
     fi
-    dokku_log_info1 "Adding all domains for app '$APP':"
+    if [[ -n "$TTL" ]]; then
+      dokku_log_info1 "Adding all domains for app '$APP' with TTL $TTL seconds:"
+    else
+      dokku_log_info1 "Adding all domains for app '$APP':"
+    fi
     for domain in "${DOMAINS[@]}"; do
       dokku_log_info1 "  • $domain"
     done
   else
-    dokku_log_info1 "Adding specified domains for app '$APP':"
+    if [[ -n "$TTL" ]]; then
+      dokku_log_info1 "Adding specified domains for app '$APP' with TTL $TTL seconds:"
+    else
+      dokku_log_info1 "Adding specified domains for app '$APP':"
+    fi
     for domain in "${DOMAINS[@]}"; do
       dokku_log_info1 "  • $domain"
     done
   fi
-  
-  dns_add_app_domains "$APP" "${DOMAINS[@]}"
+
+  dns_add_app_domains "$APP" "$TTL" "${DOMAINS[@]}"
 }
 
 service-apps-enable-cmd "$@"

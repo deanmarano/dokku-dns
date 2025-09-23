@@ -2,19 +2,26 @@
 
 The DNS plugin is in progress! Many core features have been implemented and tested. See [DONE.md](./DONE.md) for completed work.
 
-### Phase 19a: Global TTL Configuration
+### ✅ Phase 19a: Global TTL Configuration (COMPLETED)
 
-- [ ] **TTL Support**
-  - [ ] Add subcommand for modifying global TTL
-  - [ ] Store global TTL
-  - [ ] Update provider interface to use configured TTL value
+- [x] **TTL Support**
+  - [x] Add subcommand for modifying global TTL
+  - [x] Store global TTL
+  - [x] Update provider interface to use configured TTL value
 
-### Phase 19b: Per domain TTL
+### ✅ Phase 19b: Per domain TTL (COMPLETED)
 
-- [ ] **TTL Support**
-  - [ ] Add `--ttl <seconds>` parameter to relevant commands
-  - [ ] Store TTL configuration per domain
-  - [ ] Update provider interface to use configured TTL values
+- [x] **Per-Domain TTL Support**
+  - [x] Add `--ttl <seconds>` parameter to relevant commands
+  - [x] Store TTL configuration per domain
+  - [x] Update provider interface to use configured TTL values
+
+- [x] **Zone-Level TTL Support** (Enhancement)
+  - [x] Add zone TTL hierarchy between domain and global TTL
+  - [x] Add zone extraction logic from domain names
+  - [x] Add `dns:zones:ttl` subcommand for managing zone TTL
+  - [x] Create comprehensive tests for zone TTL functionality
+  - [x] Fix error handling in TTL hierarchy for strict bash mode
 
 ### Phase 20: Command Output Standardization
 
