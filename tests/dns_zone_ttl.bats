@@ -33,7 +33,7 @@ teardown() {
 @test "(dns:zones:ttl) gets zone TTL when configured" {
   # Manually create ZONE_TTLS file
   mkdir -p "$PLUGIN_DATA_ROOT"
-  echo "example.com:7200" > "$PLUGIN_DATA_ROOT/ZONE_TTLS"
+  echo "example.com:7200" >"$PLUGIN_DATA_ROOT/ZONE_TTLS"
 
   run dns_cmd zones:ttl example.com
   assert_success
@@ -131,7 +131,7 @@ teardown() {
 @test "(get_zone_ttl) retrieves zone TTL when configured" {
   # Set up zone TTL
   mkdir -p "$PLUGIN_DATA_ROOT"
-  echo "example.com:5400" > "$PLUGIN_DATA_ROOT/ZONE_TTLS"
+  echo "example.com:5400" >"$PLUGIN_DATA_ROOT/ZONE_TTLS"
 
   run bash -c "DNS_ROOT='$PLUGIN_DATA_ROOT' source config && source functions && get_zone_ttl example.com"
   assert_success
@@ -149,7 +149,7 @@ teardown() {
   add_test_domains zone-ttl-test-app api.example.com
 
   mkdir -p "$PLUGIN_DATA_ROOT"
-  echo "example.com:4800" > "$PLUGIN_DATA_ROOT/ZONE_TTLS"
+  echo "example.com:4800" >"$PLUGIN_DATA_ROOT/ZONE_TTLS"
 
   # Test get_domain_ttl falls back to zone TTL
   run bash -c "DNS_ROOT='$PLUGIN_DATA_ROOT' source config && source functions && get_domain_ttl zone-ttl-test-app api.example.com"
@@ -166,11 +166,11 @@ teardown() {
 
   # Set domain-specific TTL
   mkdir -p "$PLUGIN_DATA_ROOT/zone-ttl-test-app"
-  echo "api.example.com:1200" > "$PLUGIN_DATA_ROOT/zone-ttl-test-app/DOMAIN_TTLS"
+  echo "api.example.com:1200" >"$PLUGIN_DATA_ROOT/zone-ttl-test-app/DOMAIN_TTLS"
 
   # Set zone TTL
   mkdir -p "$PLUGIN_DATA_ROOT"
-  echo "example.com:4800" > "$PLUGIN_DATA_ROOT/ZONE_TTLS"
+  echo "example.com:4800" >"$PLUGIN_DATA_ROOT/ZONE_TTLS"
 
   # Test get_domain_ttl prioritizes domain TTL
   run bash -c "DNS_ROOT='$PLUGIN_DATA_ROOT' source config && source functions && get_domain_ttl zone-ttl-test-app api.example.com"
@@ -183,7 +183,7 @@ teardown() {
 @test "(get_domain_ttl) falls back to global TTL when no zone TTL" {
   # Set global TTL only
   mkdir -p "$PLUGIN_DATA_ROOT"
-  echo "2400" > "$PLUGIN_DATA_ROOT/GLOBAL_TTL"
+  echo "2400" >"$PLUGIN_DATA_ROOT/GLOBAL_TTL"
 
   # Ensure no zone TTL exists
   rm -f "$PLUGIN_DATA_ROOT/ZONE_TTLS" 2>/dev/null || true
@@ -198,11 +198,11 @@ teardown() {
   # Test the complete TTL hierarchy: domain -> zone -> global -> default
   # Set up TTL hierarchy
   mkdir -p "$PLUGIN_DATA_ROOT/test-app"
-  echo "www.api.example.com:600" > "$PLUGIN_DATA_ROOT/test-app/DOMAIN_TTLS"  # Domain-specific
+  echo "www.api.example.com:600" >"$PLUGIN_DATA_ROOT/test-app/DOMAIN_TTLS" # Domain-specific
 
   mkdir -p "$PLUGIN_DATA_ROOT"
-  echo "example.com:1800" > "$PLUGIN_DATA_ROOT/ZONE_TTLS"                    # Zone TTL
-  echo "3600" > "$PLUGIN_DATA_ROOT/GLOBAL_TTL"                               # Global TTL
+  echo "example.com:1800" >"$PLUGIN_DATA_ROOT/ZONE_TTLS" # Zone TTL
+  echo "3600" >"$PLUGIN_DATA_ROOT/GLOBAL_TTL"            # Global TTL
 
   # Test domain-specific TTL (highest priority)
   run bash -c "DNS_ROOT='$PLUGIN_DATA_ROOT' source config && source functions && get_domain_ttl test-app www.api.example.com"
