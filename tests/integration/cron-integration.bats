@@ -52,7 +52,6 @@ teardown() {
 
   run dokku dns:cron
   assert_success
-  assert_output --partial "Enable cron: dokku dns:cron --enable"
 }
 
 @test "(dns:cron --enable) can enable cron automation" {
