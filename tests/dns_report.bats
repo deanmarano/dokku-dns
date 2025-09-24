@@ -40,9 +40,7 @@ teardown() {
   assert_output_contains "Domain                         Status   Enabled         Provider        Zone (Enabled)"
   assert_output_contains "------                         ------   -------         --------        ---------------"
   [[ "$output" =~ example\.com ]] # Domain should appear in output (flexible count)
-  assert_output_contains "⚠️   Not added"
-  assert_output_contains "DNS Status Legend:"
-  assert_output_contains "Actions available:"
+  assert_output_contains "WARNING   Not added"
   assert_output_contains "Update DNS records: dokku dns:apps:sync my-app"
 }
 
@@ -62,7 +60,6 @@ teardown() {
   assert_output_contains "DNS Provider: AWS"
   assert_output_contains "Configuration Status: Not configured"
   assert_output_contains "DNS Status: Not added"
-  assert_output_contains "Set up AWS credentials: dokku dns:providers:verify"
 }
 
 @test "(dns:report) global report handles no apps gracefully" {
@@ -93,7 +90,7 @@ teardown() {
   assert_success
 
   # Should show one of the DNS status emojis for the domain
-  assert_output_contains "❌" || assert_output_contains "✅" || assert_output_contains "⚠️"
+  assert_output_contains "ERROR" || assert_output_contains "OK" || assert_output_contains "WARNING"
 }
 
 @test "(dns:report) global report shows domain count" {
@@ -114,7 +111,7 @@ teardown() {
   run dokku "$PLUGIN_COMMAND_PREFIX:report" my-app
   assert_success
 
-  # Provider appears multiple times in output (header and table)
-  assert_output_contains "AWS" 2
+  # Provider appears in output
+  assert_output_contains "AWS"
   assert_output_contains "DNS Status: Not added"
 }

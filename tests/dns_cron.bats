@@ -31,7 +31,7 @@ teardown() {
 
   run dns_cmd cron --enable
   assert_success
-  assert_output_contains "DNS cron job enabled successfully"
+  assert_output_contains "DNS cron job enabled"
 }
 
 @test "(dns:cron --enable) creates cron job when provider configured" {
@@ -43,7 +43,7 @@ teardown() {
 
   run dns_cmd cron --enable
   assert_success
-  assert_output_contains "✅ DNS cron job enabled successfully!"
+  assert_output_contains "DNS cron job enabled"
   assert_output_contains "Creating DNS Cron Job"
   assert_output_contains "Daily at 2:00 AM - default"
   assert_output_contains "Next Steps"
@@ -67,7 +67,7 @@ teardown() {
   assert_output_contains "=====> Updating DNS Cron Job"
   assert_output_contains "Previous: 0 2 * * *"
   assert_output_contains "New: 0 2 * * * (Daily at 2:00 AM - default)"
-  assert_output_contains "✅ DNS cron job updated successfully!"
+  assert_output_contains "DNS cron job updated"
 }
 
 @test "(dns:cron --disable) fails when no cron job exists" {
@@ -89,7 +89,7 @@ teardown() {
   assert_success
   assert_output_contains "Disabling DNS Cron Job"
   assert_output_contains "Current: 0 2 * * * (Daily at 2:00 AM - default)"
-  assert_output_contains "✅ DNS cron job disabled successfully!"
+  assert_output_contains "DNS cron job disabled"
   assert_output_contains "Automated DNS synchronization is now inactive"
 
   # Check status was updated
@@ -104,7 +104,7 @@ teardown() {
 
   run dns_cmd cron
   assert_success
-  assert_output_contains "-----> Status: ✅ ENABLED"
+  assert_output_contains "-----> Status: ENABLED"
   assert_output_contains "Schedule: 0 2 * * * (Daily at 2:00 AM - default)"
   assert_output_contains "Command: dokku dns:sync-all"
   assert_output_contains "Enabled At:"
@@ -236,7 +236,7 @@ EOF
 
   run dns_cmd cron --enable --schedule "0 4 * * *"
   assert_success
-  assert_output_contains "✅ DNS cron job enabled successfully!"
+  assert_output_contains "DNS cron job enabled"
   assert_output_contains "Creating DNS Cron Job"
   assert_output_contains "0 4 * * * (custom)"
   assert_output_contains "Next Steps"
@@ -269,7 +269,7 @@ EOF
 
   run dns_cmd cron --schedule "0 4 * * *"
   assert_success
-  assert_output_contains "✅ DNS cron job enabled successfully!"
+  assert_output_contains "DNS cron job enabled"
   assert_output_contains "Schedule: 0 4 * * * (custom)"
 
   # Check metadata files were created with custom schedule
@@ -291,7 +291,7 @@ EOF
 
   run dns_cmd cron
   assert_success
-  assert_output_contains "-----> Status: ✅ ENABLED"
+  assert_output_contains "-----> Status: ENABLED"
   assert_output_contains "*/30 * * * * (custom)"
 }
 
@@ -311,7 +311,7 @@ EOF
   assert_output_contains "=====> Updating DNS Cron Job"
   assert_output_contains "Previous: 0 2 * * *"
   assert_output_contains "New: 0 6 * * * (custom)"
-  assert_output_contains "✅ DNS cron job updated successfully!"
+  assert_output_contains "DNS cron job updated"
 
   # Verify new schedule was saved
   [[ "$(cat "$PLUGIN_DATA_ROOT/cron/schedule")" = "0 6 * * *" ]]

@@ -161,7 +161,7 @@ EOF
   # Mock user input to simulate 'n' (no) response
   run bash -c 'echo "n" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
   assert_success
-  assert_output_contains "Deletion cancelled by user"
+  assert_output_contains "Deletion cancelled"
 }
 
 @test "(dns:sync:deletions) attempts deletion when user confirms" {
@@ -176,8 +176,8 @@ EOF
   assert_success
   assert_output_contains "Deleting DNS records..."
   assert_output_contains "Deleting: record-to-delete.example.com"
-  assert_output_contains "✅ Deleted: record-to-delete.example.com (A record)"
-  assert_output_contains "Successfully deleted 1 of 1 DNS records"
+  assert_output_contains "Deleted: record-to-delete.example.com (A record)"
+  assert_output_contains "Deleted 1 of 1 DNS records"
 }
 
 @test "(dns:sync:deletions) handles AWS API failures gracefully" {
@@ -193,8 +193,8 @@ EOF
   # Mock user input to simulate 'y' (yes) response
   run bash -c 'echo "y" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
   assert_success
-  assert_output_contains "❌ Failed to delete: record-to-delete.example.com"
-  assert_output_contains "Successfully deleted 0 of 1 DNS records"
+  assert_output_contains "Failed to delete: record-to-delete.example.com"
+  assert_output_contains "Deleted 0 of 1 DNS records"
 
   # Clean up environment variable to not affect other tests
   unset AWS_MOCK_FAIL_API
