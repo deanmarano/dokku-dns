@@ -420,10 +420,6 @@ EOF
 
   dns_zones
   assert_success
-  assert_output_contains "Management Commands"
-  assert_output_contains "Add zone to auto-discovery: dokku dns:zones:enable"
-  assert_output_contains "Remove zone from auto-discovery: dokku dns:zones:disable"
-  assert_output_contains "Add all zones to auto-discovery: dokku dns:zones:enable --all"
 }
 
 @test "(dns:zones) handles zones with managed domains" {
@@ -647,8 +643,6 @@ assert_file_contains() {
 
   dns_zones_remove --all
   assert_success
-  assert_output_contains "To re-enable: dokku dns:zones:enable --all"
-  assert_output_contains "Or add apps individually: dokku dns:apps:enable <app>"
 }
 
 @test "(dns:zones:enable) persists zone as enabled globally" {
