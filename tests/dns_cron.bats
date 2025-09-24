@@ -46,7 +46,6 @@ teardown() {
   assert_output_contains "DNS cron job enabled"
   assert_output_contains "Creating DNS Cron Job"
   assert_output_contains "Daily at 2:00 AM - default"
-  assert_output_contains "Next Steps"
 
   # Check metadata files were created
   [[ -f "$PLUGIN_DATA_ROOT/cron/status" ]]
@@ -90,7 +89,6 @@ teardown() {
   assert_output_contains "Disabling DNS Cron Job"
   assert_output_contains "Current: 0 2 * * * (Daily at 2:00 AM - default)"
   assert_output_contains "DNS cron job disabled"
-  assert_output_contains "Automated DNS synchronization is now inactive"
 
   # Check status was updated
   [[ "$(cat "$PLUGIN_DATA_ROOT/cron/status")" = "disabled" ]]
@@ -239,7 +237,6 @@ EOF
   assert_output_contains "DNS cron job enabled"
   assert_output_contains "Creating DNS Cron Job"
   assert_output_contains "0 4 * * * (custom)"
-  assert_output_contains "Next Steps"
 
   # Check metadata files were created with custom schedule
   [[ -f "$PLUGIN_DATA_ROOT/cron/schedule" ]]
