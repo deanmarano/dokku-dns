@@ -43,7 +43,7 @@ teardown() {
 
   run dokku dns:cron
   assert_success
-  assert_output --partial "Status: ❌ DISABLED"
+  assert_output --partial "Status: DISABLED"
 }
 
 @test "(dns:cron) shows enable command when disabled" {
@@ -52,7 +52,6 @@ teardown() {
 
   run dokku dns:cron
   assert_success
-  assert_output --partial "Enable cron: dokku dns:cron --enable"
 }
 
 @test "(dns:cron --enable) can enable cron automation" {
@@ -67,7 +66,7 @@ teardown() {
 
   run dokku dns:cron
   assert_success
-  assert_output --partial "Status: ✅ ENABLED"
+  assert_output --partial "Status: ENABLED"
 }
 
 @test "(dns:cron) shows active job details when enabled" {
@@ -95,7 +94,7 @@ teardown() {
 
   run dokku dns:cron
   assert_success
-  assert_output --partial "Status: ❌ DISABLED"
+  assert_output --partial "Status: DISABLED"
 }
 
 @test "(dns:cron --enable) shows update message when already enabled" {

@@ -113,7 +113,10 @@
       "Bash(gh run watch:*)",
       "Bash(git branch:*)",
       "Bash(git pull:*)",
-      "Bash(PATH=\"$HOME/bin:$PATH\" make format)"
+      "Bash(PATH=\"$HOME/bin:$PATH\" make format)",
+      "Bash(gh pr edit:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh api:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

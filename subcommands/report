@@ -36,7 +36,7 @@ service-report-cmd() {
   #E shows server IP, domains, DNS status with emojis, and hosted zones
   #E without app: shows all apps and their domains
   #E with app: shows detailed report for specific app
-  #E DNS status: ✅ correct, ⚠️ wrong IP, ❌ no record
+  #E DNS status: CORRECT correct, WARNING wrong IP, ERROR no record
   #A app, app to generate DNS report for (optional - shows all apps if omitted)
   declare desc="display DNS status and domain information for app(s)"
   local cmd="$PLUGIN_COMMAND_PREFIX:report" argv=("$@")
@@ -188,7 +188,7 @@ dns_global_report() {
     fi
     
     if [[ -z "$APP_DNS_DOMAINS" ]]; then
-      printf "%-15s %-30s %-8s %-15s %-12s %s\n" "$APP" "(no domains added)" "➖" "Not added" "$PROVIDER" "-"
+      printf "%-15s %-30s %-8s %-15s %-12s %s\n" "$APP" "(no domains added)" "NONE" "Not added" "$PROVIDER" "-"
     else
       local FIRST_DOMAIN=true
       for DOMAIN in $APP_DNS_DOMAINS; do
@@ -198,16 +198,16 @@ dns_global_report() {
         local CURRENT_IP=""
         CURRENT_IP=$(dns_get_record_ip "$DOMAIN" "$PROVIDER" || echo "")
         
-        # Determine DNS status emoji
-        local DNS_EMOJI="❌"
+        # Determine DNS status
+        local DNS_STATUS="ERROR"
         if [[ -n "$CURRENT_IP" ]]; then
           if [[ -n "$SERVER_IP" ]] && [[ "$SERVER_IP" != "Unknown" ]] && [[ "$CURRENT_IP" == "$SERVER_IP" ]]; then
-            DNS_EMOJI="✅"
+            DNS_STATUS="OK"
           elif [[ -n "$SERVER_IP" ]] && [[ "$SERVER_IP" != "Unknown" ]]; then
-            DNS_EMOJI="⚠️"
+            DNS_STATUS="WARNING"
           else
             # Server IP unknown, can't validate
-            DNS_EMOJI="❓"
+            DNS_STATUS="UNKNOWN"
           fi
         fi
         
@@ -230,9 +230,9 @@ dns_global_report() {
               fi
               # Check if this zone is enabled
               if is_zone_enabled "$ZONE_NAME"; then
-                HOSTED_ZONE="$ZONE_NAME ✅"
+                HOSTED_ZONE="$ZONE_NAME (enabled)"
               else
-                HOSTED_ZONE="$ZONE_NAME ❌"
+                HOSTED_ZONE="$ZONE_NAME (disabled)"
               fi
             else
               HOSTED_ZONE="Not found"
@@ -241,9 +241,9 @@ dns_global_report() {
         elif [[ "$PROVIDER" == "aws" ]]; then
           # Provider is AWS but not ready, still check if domain is in enabled zone
           if is_domain_in_enabled_zone "$DOMAIN"; then
-            HOSTED_ZONE="Zone enabled ✅"
+            HOSTED_ZONE="Zone enabled"
           else
-            HOSTED_ZONE="Zone disabled ❌"
+            HOSTED_ZONE="Zone disabled"
           fi
         fi
         
@@ -255,7 +255,7 @@ dns_global_report() {
         FIRST_DOMAIN=false
         
         # Format and display the row
-        printf "%-15s %-30s %-8s %-15s %-12s %s\n" "$APP_DISPLAY" "$DOMAIN" "$DNS_EMOJI" "$APP_DNS_STATUS" "$PROVIDER" "$HOSTED_ZONE"
+        printf "%-15s %-30s %-8s %-15s %-12s %s\n" "$APP_DISPLAY" "$DOMAIN" "$DNS_STATUS" "$APP_DNS_STATUS" "$PROVIDER" "$HOSTED_ZONE"
       done
     fi
   done <<< "$APPS_LIST"
@@ -288,48 +288,6 @@ dns_global_report() {
     dns_display_global_pending_changes
   fi
 
-  echo
-  dokku_log_info2 "DNS Status Legend:"
-  if [[ -n "$SERVER_IP" ]] && [[ "$SERVER_IP" != "Unknown" ]]; then
-    dokku_log_info1 "✅ Points to server IP ($SERVER_IP)"
-    dokku_log_info1 "⚠️  Points to different IP"
-  else
-    dokku_log_info1 "❓ Server IP unknown - cannot validate"
-  fi
-  dokku_log_info1 "❌ No DNS record found"
-  dokku_log_info1 "➖ No domains configured"
-
-  # Show DNS records to be deleted if provider is ready
-  if [[ "$PROVIDER" != "None" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
-    show_records_to_be_deleted_summary
-  fi
-  
-  echo
-  dokku_log_info2 "Actions available:"
-  if [[ "$PROVIDER" == "None" ]]; then
-    dokku_log_info1 "1. Set up AWS credentials: dokku $PLUGIN_COMMAND_PREFIX:providers:verify"
-    dokku_log_info1 "2. Configure credentials: dokku $PLUGIN_COMMAND_PREFIX:providers:verify"
-    dokku_log_info1 "3. Add domains to apps: dokku domains:add <app> <domain>"
-    dokku_log_info1 "4. Update DNS records: dokku $PLUGIN_COMMAND_PREFIX:apps:sync <app>"
-  elif [[ "$SYNC_STATUS" == "Missing auth" ]]; then
-    dokku_log_info1 "Configure credentials: dokku $PLUGIN_COMMAND_PREFIX:providers:verify"
-    dokku_log_info1 "Then update DNS: dokku $PLUGIN_COMMAND_PREFIX:apps:sync <app>"
-  elif [[ "$SYNC_STATUS" == "Ready" ]]; then
-    dokku_log_info1 "Update all apps: for app in \$(dokku apps:list 2>/dev/null | grep -v ====); do dokku $PLUGIN_COMMAND_PREFIX:apps:sync \$app; done"
-    dokku_log_info1 "View app details: dokku $PLUGIN_COMMAND_PREFIX:report <app>"
-    if command -v jq >/dev/null 2>&1; then
-      local records_to_delete_count
-      records_to_delete_count=$(count_records_to_be_deleted 2>/dev/null || echo "0")
-      if [[ "$records_to_delete_count" -gt 0 ]]; then
-        dokku_log_info1 "Clean up records: dokku $PLUGIN_COMMAND_PREFIX:sync:deletions"
-      fi
-    fi
-  else
-    dokku_log_info1 "Fix configuration issues, then update apps individually"
-  fi
-  
-  echo
-  dokku_log_info2 "For detailed app-specific report: dokku $PLUGIN_COMMAND_PREFIX:report <app>"
 }
 
 dns_report() {
@@ -455,16 +413,16 @@ dns_report() {
     local CURRENT_IP
     CURRENT_IP=$(dns_get_record_ip "$DOMAIN" "$PROVIDER" || echo "")
     
-    # Determine DNS status emoji
-    local DNS_EMOJI="❌"
+    # Determine DNS status
+    local DNS_STATUS="ERROR"
     if [[ -n "$CURRENT_IP" ]]; then
       if [[ -n "$SERVER_IP" ]] && [[ "$SERVER_IP" != "Unknown" ]] && [[ "$CURRENT_IP" == "$SERVER_IP" ]]; then
-        DNS_EMOJI="✅"
+        DNS_STATUS="OK"
       elif [[ -n "$SERVER_IP" ]] && [[ "$SERVER_IP" != "Unknown" ]]; then
-        DNS_EMOJI="⚠️"
+        DNS_STATUS="WARNING"
       else
         # Server IP unknown, can't validate
-        DNS_EMOJI="❓"
+        DNS_STATUS="UNKNOWN"
       fi
     fi
     
@@ -507,7 +465,7 @@ dns_report() {
     fi
     
     # Format and display the row
-    printf "%-30s %-8s %-15s %-15s %s\n" "$DOMAIN" "$DNS_EMOJI" "$DOMAIN_STATUS" "$PROVIDER" "$HOSTED_ZONE"
+    printf "%-30s %-8s %-15s %-15s %s\n" "$DOMAIN" "$DNS_STATUS" "$DOMAIN_STATUS" "$PROVIDER" "$HOSTED_ZONE"
   done
 
   # Show pending changes if provider is ready
@@ -515,40 +473,6 @@ dns_report() {
     dns_display_pending_changes "$APP"
   fi
 
-  echo
-  dokku_log_info2 "DNS Status Legend:"
-  if [[ -n "$SERVER_IP" ]] && [[ "$SERVER_IP" != "Unknown" ]]; then
-    dokku_log_info1 "✅ Points to server IP ($SERVER_IP)"
-    dokku_log_info1 "⚠️  Points to different IP"
-  else
-    dokku_log_info1 "❓ Server IP unknown - cannot validate"
-  fi
-  dokku_log_info1 "❌ No DNS record found"
-  
-  # Show DNS records to be deleted if provider is ready
-  if [[ "$PROVIDER" != "None" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
-    show_records_to_be_deleted_summary
-  fi
-  
-  echo
-  dokku_log_info2 "Actions available:"
-  if [[ "$PROVIDER" == "None" ]]; then
-    dokku_log_info1 "1. Set up AWS credentials: dokku $PLUGIN_COMMAND_PREFIX:providers:verify"
-    dokku_log_info1 "2. Configure credentials: dokku $PLUGIN_COMMAND_PREFIX:providers:verify"
-    dokku_log_info1 "3. Update DNS records: dokku $PLUGIN_COMMAND_PREFIX:apps:sync $APP"
-  elif [[ "$SYNC_STATUS" == "Missing auth" ]]; then
-    dokku_log_info1 "Configure credentials: dokku $PLUGIN_COMMAND_PREFIX:providers:verify"
-    dokku_log_info1 "Then update DNS: dokku $PLUGIN_COMMAND_PREFIX:apps:sync $APP"
-  elif [[ "$SYNC_STATUS" == "Ready" ]]; then
-    dokku_log_info1 "Update DNS records: dokku $PLUGIN_COMMAND_PREFIX:apps:sync $APP"
-    local records_to_delete_count
-    records_to_delete_count=$(count_records_to_be_deleted 2>/dev/null || echo "0")
-    if [[ "$records_to_delete_count" -gt 0 ]]; then
-      dokku_log_info1 "Clean up records: dokku $PLUGIN_COMMAND_PREFIX:sync:deletions"
-    fi
-  else
-    dokku_log_info1 "Fix configuration issues, then update: dokku $PLUGIN_COMMAND_PREFIX:apps:sync $APP"
-  fi
 }
 
 # Helper functions for DNS records to be deleted

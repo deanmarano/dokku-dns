@@ -113,13 +113,7 @@ zones_add_zone() {
   # Mark zone as enabled for auto-discovery
   zones_set_enabled "$ZONE"
   
-  dokku_log_info2 "✅ Zone '$ZONE' added to auto-discovery"
-  
-  echo
-  echo "Next steps:"
-  echo "• Add apps to DNS management: dokku $PLUGIN_COMMAND_PREFIX:apps:enable <app>"
-  echo "• Sync DNS records: dokku $PLUGIN_COMMAND_PREFIX:apps:sync <app>"
-  echo "• Check status: dokku $PLUGIN_COMMAND_PREFIX:report"
+  dokku_log_info1 "Zone '$ZONE' added to auto-discovery"
 }
 
 zones_add_all() {
@@ -156,14 +150,7 @@ zones_add_all() {
     echo
   done
   
-  dokku_log_info2 "Add-all complete"
   dokku_log_info1 "Zones added to auto-discovery: $zones_processed"
-  
-  echo
-  echo "Next steps:"
-  echo "• Add apps to DNS management: dokku $PLUGIN_COMMAND_PREFIX:apps:enable <app>"
-  echo "• Sync DNS records: dokku $PLUGIN_COMMAND_PREFIX:apps:sync <app>"
-  echo "• Check status: dokku $PLUGIN_COMMAND_PREFIX:report"
 }
 
 service-zones-enable-cmd "$@"

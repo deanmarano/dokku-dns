@@ -23,7 +23,7 @@ dns-triggers-enable-cmd() {
   local TRIGGERS_ENABLED_FILE="$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED"
   
   if [[ -f "$TRIGGERS_ENABLED_FILE" ]]; then
-    dokku_log_info2 "DNS automatic management is already enabled ✅"
+    dokku_log_info1 "DNS automatic management is already enabled"
     return 0
   fi
   
@@ -31,8 +31,7 @@ dns-triggers-enable-cmd() {
   [[ ! -d "$PLUGIN_DATA_ROOT" ]] && mkdir -p "$PLUGIN_DATA_ROOT"
   
   touch "$TRIGGERS_ENABLED_FILE"
-  dokku_log_info1 "DNS automatic management enabled ✅"
-  dokku_log_info2 "DNS records will now automatically sync when apps are created, deleted, or domains change"
+  dokku_log_info1 "DNS automatic management enabled"
 }
 
 dns-triggers-enable-cmd "$@"

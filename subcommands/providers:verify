@@ -67,7 +67,7 @@ service-providers-verify-cmd() {
       
       # Show current configuration status
       dokku_log_info1 "Current Configuration:"
-      dokku_log_info1 "  ✓ DNS Provider: AWS (only supported provider)"
+      dokku_log_info1 "  DNS Provider: AWS (only supported provider)"
       
       # Check if AWS CLI is installed
       if ! command -v aws >/dev/null 2>&1; then
@@ -91,7 +91,7 @@ service-providers-verify-cmd() {
       else
         local AWS_VERSION
         AWS_VERSION=$(aws --version 2>/dev/null | cut -d' ' -f1 || echo "unknown")
-        dokku_log_info1 "  ✓ AWS CLI: installed ($AWS_VERSION)"
+        dokku_log_info1 "  AWS CLI: installed ($AWS_VERSION)"
       fi
       
       echo
@@ -118,7 +118,7 @@ service-providers-verify-cmd() {
       
       # Check environment variables
       if [[ -n "${AWS_ACCESS_KEY_ID:-}" ]] && [[ -n "${AWS_SECRET_ACCESS_KEY:-}" ]]; then
-        dokku_log_info1 "  ✓ Environment variables: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY"
+        dokku_log_info1 "  Environment variables: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY"
         CREDENTIALS_DETECTED=true
         CREDENTIAL_SOURCE="environment"
       else
@@ -128,7 +128,7 @@ service-providers-verify-cmd() {
       # Check AWS CLI configuration files
       local AWS_CONFIG_STATUS="✗"
       if [[ -f ~/.aws/credentials ]] || [[ -f ~/.aws/config ]]; then
-        AWS_CONFIG_STATUS="✓"
+        AWS_CONFIG_STATUS="YES"
         CREDENTIALS_DETECTED=true
         if [[ -z "$CREDENTIAL_SOURCE" ]]; then
           CREDENTIAL_SOURCE="aws-config"
@@ -138,7 +138,7 @@ service-providers-verify-cmd() {
       
       # Check IAM role (EC2 metadata)
       if curl -s --max-time 2 http://169.254.169.254/latest/meta-data/iam/security-credentials/ >/dev/null 2>&1; then
-        dokku_log_info1 "  ✓ IAM Role: available (EC2 instance)"
+        dokku_log_info1 "  IAM Role: available (EC2 instance)"
         CREDENTIALS_DETECTED=true
         if [[ -z "$CREDENTIAL_SOURCE" ]]; then
           CREDENTIAL_SOURCE="iam-role"
@@ -157,11 +157,11 @@ service-providers-verify-cmd() {
         AWS_CHECK_SUCCESS=true
         # Determine which context is working for user feedback
         if aws sts get-caller-identity >/dev/null 2>&1; then
-          dokku_log_info1 "  ✓ Authentication successful (current context)"
+          dokku_log_info1 "  Authentication successful (current context)"
         elif [[ -n "${SUDO_USER:-}" ]]; then
-          dokku_log_info1 "  ✓ Authentication successful (user: $SUDO_USER)"
+          dokku_log_info1 "  Authentication successful (user: $SUDO_USER)"
         else
-          dokku_log_info1 "  ✓ Authentication successful (dokku user)"
+          dokku_log_info1 "  Authentication successful (dokku user)"
         fi
       else
         dokku_log_info1 "  ✗ Authentication failed"
@@ -215,13 +215,13 @@ For more info: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-qu
         AWS_ACCOUNT=$(echo "$AWS_IDENTITY" | jq -r '.Account' 2>/dev/null || echo "unknown")
         AWS_ARN=$(echo "$AWS_IDENTITY" | jq -r '.Arn' 2>/dev/null || echo "unknown")
         
-        dokku_log_info1 "  ✓ Account ID: $AWS_ACCOUNT"
-        dokku_log_info1 "  ✓ User/Role ARN: $AWS_ARN"
-        dokku_log_info1 "  ✓ User ID: $AWS_USER_ID"
-        dokku_log_info1 "  ✓ Region: $AWS_REGION"
+        dokku_log_info1 "  Account ID: $AWS_ACCOUNT"
+        dokku_log_info1 "  User/Role ARN: $AWS_ARN"
+        dokku_log_info1 "  User ID: $AWS_USER_ID"
+        dokku_log_info1 "  Region: $AWS_REGION"
         
         if [[ "$AWS_REGION" == "not-set" ]]; then
-          dokku_log_warn "  ⚠ No default region set. Consider setting AWS_DEFAULT_REGION"
+          dokku_log_warn "  No default region set. Consider setting AWS_DEFAULT_REGION"
         fi
       else
         dokku_log_info1 "  ✗ Could not retrieve AWS identity"
@@ -235,13 +235,13 @@ For more info: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-qu
       
       # Test list-hosted-zones permission
       if run_aws_command route53 list-hosted-zones >/dev/null 2>&1; then
-        dokku_log_info1 "  ✓ route53:ListHostedZones - can list hosted zones"
+        dokku_log_info1 "  route53:ListHostedZones - can list hosted zones"
         ROUTE53_SUCCESS=true
         
         # Get zone count
         local ZONE_COUNT
         ZONE_COUNT=$(run_aws_command route53 list-hosted-zones --query 'length(HostedZones)' --output text 2>/dev/null || echo "0")
-        dokku_log_info1 "  ✓ Found $ZONE_COUNT hosted zone(s)"
+        dokku_log_info1 "  Found $ZONE_COUNT hosted zone(s)"
         
         # Test record listing if zones exist
         if [[ "$ZONE_COUNT" -gt 0 ]]; then
@@ -249,9 +249,9 @@ For more info: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-qu
           FIRST_ZONE_ID=$(run_aws_command route53 list-hosted-zones --query 'HostedZones[0].Id' --output text 2>/dev/null | sed 's|/hostedzone/||')
           
           if [[ -n "$FIRST_ZONE_ID" ]] && run_aws_command route53 list-resource-record-sets --hosted-zone-id "$FIRST_ZONE_ID" >/dev/null 2>&1; then
-            dokku_log_info1 "  ✓ route53:ListResourceRecordSets - can read DNS records"
+            dokku_log_info1 "  route53:ListResourceRecordSets - can read DNS records"
           else
-            dokku_log_info1 "  ⚠ route53:ListResourceRecordSets - permission test failed"
+            dokku_log_info1 "  route53:ListResourceRecordSets - permission test failed"
           fi
           
           # Note: We can't easily test ChangeResourceRecordSets without making actual changes
@@ -288,7 +288,7 @@ For more info: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-qu
         fi
       else
         echo
-        dokku_log_fail "✗ Route53 access failed. Please ensure your AWS credentials have the following permissions:
+        dokku_log_fail "Route53 access failed. Please ensure your AWS credentials have the following permissions:
 
 Required AWS Route53 Permissions:
   - route53:ListHostedZones        (list available DNS zones)
@@ -323,16 +323,8 @@ Policy JSON example:
   esac
   
   echo
-  dokku_log_info2 "🎉 DNS Provider Verification Complete!"
-  dokku_log_info1 "AWS Route53 is properly configured and ready to use."
-  echo
-  dokku_log_info1 "Next Steps:"
-  dokku_log_info1 "  1. Enable zones for auto-discovery: dokku $PLUGIN_COMMAND_PREFIX:zones:enable <zone>"
-  dokku_log_info1 "  2. Add domains to an app: dokku $PLUGIN_COMMAND_PREFIX:apps:enable <app>"
-  dokku_log_info1 "  3. Sync DNS records: dokku $PLUGIN_COMMAND_PREFIX:apps:sync <app>"
-  dokku_log_info1 "  4. Check DNS status: dokku $PLUGIN_COMMAND_PREFIX:report <app>"
-  echo
-  dokku_log_info1 "Documentation: https://github.com/deanmarano/dokku-dns"
+  dokku_log_info1 "DNS Provider Verification Complete"
+  dokku_log_info1 "AWS Route53 is properly configured and ready to use"
   
   exit 0
 }
