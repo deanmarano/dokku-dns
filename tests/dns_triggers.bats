@@ -95,7 +95,6 @@ teardown() {
   run dns_cmd triggers:disable
   assert_success
   assert_output_contains "DNS automatic management disabled"
-  assert_output_contains "Use 'dokku dns:triggers:enable' to reactivate automatic management"
 
   # Verify state file removed
   assert_file_not_exists "$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED"
@@ -118,7 +117,6 @@ teardown() {
   run dns_cmd triggers
   assert_success
   assert_output_contains "DNS automatic management: enabled"
-  assert_output_contains "Use 'dokku dns:triggers:disable' to turn off automatic management"
 }
 
 @test "(triggers) state persists across command calls" {

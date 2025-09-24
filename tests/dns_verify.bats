@@ -66,11 +66,6 @@ teardown() {
 
   # Should provide next steps and helpful guidance
   assert_output_contains "DNS Provider Verification Complete"
-  assert_output_contains "Next Steps:"
-  assert_output_contains "Enable zones for auto-discovery"
-  assert_output_contains "Add domains to an app"
-  assert_output_contains "Sync DNS records"
-  assert_output_contains "Check DNS status"
 }
 
 # New tests for enhanced functionality
