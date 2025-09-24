@@ -158,9 +158,9 @@ zones_list_aws_zones() {
     fi
     
     # Check if zone is enabled
-    local zone_enabled_status="❌ DISABLED"
+    local zone_enabled_status="DISABLED"
     if is_zone_enabled "$zone_name"; then
-      zone_enabled_status="✅ ENABLED"
+      zone_enabled_status="ENABLED"
     fi
     
     # Display zone info
@@ -177,14 +177,6 @@ zones_list_aws_zones() {
     fi
   done <<< "$zones_data"
   
-  # Show summary and management commands
-  echo
-  dokku_log_info2 "Management Commands"
-  dokku_log_info1 "• Add zone to auto-discovery: dokku $PLUGIN_COMMAND_PREFIX:zones:enable <zone-name>"
-  dokku_log_info1 "• Remove zone from auto-discovery: dokku $PLUGIN_COMMAND_PREFIX:zones:disable <zone-name>"
-  dokku_log_info1 "• Add all zones to auto-discovery: dokku $PLUGIN_COMMAND_PREFIX:zones:enable --all"
-  dokku_log_info1 "• Remove all zones from auto-discovery: dokku $PLUGIN_COMMAND_PREFIX:zones:disable --all"
-  dokku_log_info1 "• Show zone details: dokku $PLUGIN_COMMAND_PREFIX:zones <zone-name>"
 }
 
 zones_list_cloudflare_zones() {
@@ -252,15 +244,15 @@ zones_show_zone() {
   fi
   
   if [[ ${#zone_domains[@]} -gt 0 ]]; then
-    dokku_log_info1 "Managed Domains (${#zone_domains[@]}):"
+    dokku_log_info1 "Managed Domains: ${#zone_domains[@]}"
     local i=0
     for domain in "${zone_domains[@]}"; do
       local app="${zone_apps[$i]}"
-      echo "  ✓ $domain (app: $app)"
+      echo "  - $domain (app: $app)"
       i=$((i + 1))
     done
   else
-    dokku_log_info1 "No domains in this zone are currently managed by Dokku DNS"
+    dokku_log_info1 "No domains managed in this zone"
   fi
   
   # Show potential domains from Dokku apps
@@ -306,10 +298,6 @@ zones_show_zone() {
       local app="${domain_app#*:}"
       echo "  • $domain (app: $app)"
     done
-    echo
-    dokku_log_info1 "To manage these domains:"
-    dokku_log_info1 "• Individual: dokku $PLUGIN_COMMAND_PREFIX:apps:enable <app>"
-    dokku_log_info1 "• All in zone: dokku $PLUGIN_COMMAND_PREFIX:zones:enable $ZONE"
   else
     dokku_log_info1 "All potential domains for this zone are already managed"
   fi
@@ -348,13 +336,6 @@ zones_show_zone() {
     dokku_log_info1 "Name Servers: $nameservers"
   fi
   
-  # Show management commands
-  echo
-  dokku_log_info2 "Management Commands"
-  dokku_log_info1 "• Add zone to auto-discovery: dokku $PLUGIN_COMMAND_PREFIX:zones:enable $ZONE"
-  dokku_log_info1 "• Remove zone from auto-discovery: dokku $PLUGIN_COMMAND_PREFIX:zones:disable $ZONE"
-  dokku_log_info1 "• Sync records: dokku $PLUGIN_COMMAND_PREFIX:sync-all"
-  dokku_log_info1 "• List all zones: dokku $PLUGIN_COMMAND_PREFIX:zones"
 }
 
 service-zones-cmd "$@"

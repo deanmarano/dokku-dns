@@ -314,7 +314,7 @@ service-cron-cmd() {
   
   # Display status
   if [[ "$cron_job_active" == "true" ]]; then
-    dokku_log_info1 "Status: ✅ ENABLED"
+    dokku_log_info1 "Status: ENABLED"
     dokku_log_info1 "Active Job: $current_job"
     
     # Calculate and display next run time
@@ -326,7 +326,7 @@ service-cron-cmd() {
       fi
     fi
   else
-    dokku_log_info1 "Status: ❌ DISABLED"
+    dokku_log_info1 "Status: DISABLED"
   fi
   
   # Display configuration
@@ -376,16 +376,6 @@ service-cron-cmd() {
     dokku_log_info1 "Log File: Not found or not configured"
   fi
   
-  # Display management commands
-  echo
-  dokku_log_info2 "Management Commands"
-  if [[ "$cron_job_active" == "true" ]]; then
-    dokku_log_info1 "• Disable cron: dokku $PLUGIN_COMMAND_PREFIX:cron --disable"
-    dokku_log_info1 "• Manual sync: dokku $PLUGIN_COMMAND_PREFIX:sync-all"
-  else
-    dokku_log_info1 "• Enable cron: dokku $PLUGIN_COMMAND_PREFIX:cron --enable"
-    dokku_log_info1 "• Manual sync: dokku $PLUGIN_COMMAND_PREFIX:sync-all"
-  fi
 }
 
 cron_enable_functionality() {
@@ -451,17 +441,12 @@ cron_enable_functionality() {
     
     # Initialize log file
     echo "$(date): DNS cron job enabled" > "$CRON_LOG_FILE"
-    
+
     if [[ "$is_update" == "true" ]]; then
-      dokku_log_info1 "✅ DNS cron job updated successfully!"
+      dokku_log_info1 "DNS cron job updated"
     else
-      dokku_log_info1 "✅ DNS cron job enabled successfully!"
+      dokku_log_info1 "DNS cron job enabled"
     fi
-    echo
-    dokku_log_info2 "Next Steps"
-    dokku_log_info1 "• Check status: dokku $PLUGIN_COMMAND_PREFIX:cron"
-    dokku_log_info1 "• Manual sync: dokku $PLUGIN_COMMAND_PREFIX:sync-all"
-    dokku_log_info1 "• Disable: dokku $PLUGIN_COMMAND_PREFIX:cron --disable"
   else
     dokku_log_fail "Failed to create DNS cron job. Check system permissions."
   fi
@@ -513,13 +498,7 @@ cron_disable_functionality() {
     fi
   fi
   
-  dokku_log_info1 "✅ DNS cron job disabled successfully!"
-  echo
-  dokku_log_info2 "Automated DNS synchronization is now inactive"
-  dokku_log_info1 "• Cron job removed from system crontab"
-  dokku_log_info1 "• Logs and metadata preserved for reference"
-  dokku_log_info1 "• Check status: dokku $PLUGIN_COMMAND_PREFIX:cron"
-  dokku_log_info1 "• Re-enable: dokku $PLUGIN_COMMAND_PREFIX:cron --enable"
+  dokku_log_info1 "DNS cron job disabled"
 }
 
 service-cron-cmd "$@"

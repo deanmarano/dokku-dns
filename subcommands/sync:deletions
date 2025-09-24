@@ -231,18 +231,17 @@ EOF
       if aws route53 change-resource-record-sets \
         --hosted-zone-id "$zone_id" \
         --change-batch "$change_batch" >/dev/null 2>&1; then
-        echo "  ✅ Deleted: $record (A record)"
+        echo "  Deleted: $record (A record)"
         deleted_count=$((deleted_count + 1))
       else
-        echo "  ❌ Failed to delete: $record"
+        echo "  Failed to delete: $record"
       fi
     done
     
     echo ""
-    dokku_log_info1 "Deletion complete!"
-    dokku_log_info2 "Successfully deleted $deleted_count of ${#records_to_be_deleted[@]} DNS records"
+    dokku_log_info1 "Deleted $deleted_count of ${#records_to_be_deleted[@]} DNS records"
   else
-    dokku_log_info2 "Deletion cancelled by user"
+    dokku_log_info1 "Deletion cancelled"
   fi
 }
 

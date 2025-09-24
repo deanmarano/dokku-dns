@@ -138,11 +138,11 @@ service-sync-all-cmd() {
     # Attempt to sync the app
     if dns_app "$app"; then
       success_count=$((success_count + 1))
-      dokku_log_info1 "✅ Successfully synced DNS for: $app"
+      dokku_log_info1 "Successfully synced DNS for: $app"
     else
       fail_count=$((fail_count + 1))
       failed_apps+=("$app")
-      dokku_log_warn "❌ Failed to sync DNS for: $app"
+      dokku_log_warn "Failed to sync DNS for: $app"
     fi
     echo
   done

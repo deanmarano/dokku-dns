@@ -94,7 +94,7 @@ Display `DNS` status and domain information for app(s):
 dokku dns:report [app]
 ```
 
-Shows server `IP,` domains, `DNS` status with emojis, and hosted zones without app: shows all apps and their domains with app: shows detailed report for specific app `DNS` status: ✅ correct, ⚠️ wrong `IP,` ❌ no record:
+Shows server `IP,` domains, `DNS` status with emojis, and hosted zones without app: shows all apps and their domains with app: shows detailed report for specific app `DNS` status: `CORRECT` correct, `WARNING` wrong `IP,` `ERROR` no record:
 
 ### synchronize DNS records for an application
 

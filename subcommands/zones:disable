@@ -94,7 +94,7 @@ zones_remove_zone() {
   local LINKS_FILE="$PLUGIN_DATA_ROOT/LINKS"
   if [[ ! -f "$LINKS_FILE" ]] || [[ ! -s "$LINKS_FILE" ]]; then
     dokku_log_info1 "No apps are currently managed by DNS"
-    dokku_log_info2 "✅ Zone '$ZONE' removed from auto-discovery"
+    dokku_log_info2 "Zone '$ZONE' removed from auto-discovery"
     return 0
   fi
   
@@ -176,7 +176,7 @@ zones_remove_zone() {
   fi
   
   echo
-  dokku_log_info2 "✅ Zone '$ZONE' removed from auto-discovery"
+  dokku_log_info2 "Zone '$ZONE' removed from auto-discovery"
   
   # Create better summary message
   if [[ $domains_removed -gt 0 ]]; then
@@ -190,18 +190,8 @@ zones_remove_zone() {
     elif [[ ${#apps_to_remove[@]} -gt 0 ]]; then
       summary_msg="$summary_msg (${#apps_to_remove[@]} apps removed from DNS management)"
     fi
-    
+
     dokku_log_info1 "$summary_msg"
-    
-    echo
-    dokku_log_info2 "Note"
-    dokku_log_info1 "DNS records remain in your provider but are no longer managed by Dokku."
-    if [[ ${#apps_to_remove[@]} -eq ${#app_summaries[@]} ]]; then
-      dokku_log_info1 "To clean up: manually delete records in your DNS provider console."
-    else
-      dokku_log_info1 "For remaining apps: dokku $PLUGIN_COMMAND_PREFIX:apps:sync <app>"
-      dokku_log_info1 "For removed records: manually delete in your DNS provider console."
-    fi
   fi
 }
 
@@ -219,7 +209,7 @@ zones_remove_all() {
       rm -f "$ENABLED_ZONES_FILE"
     fi
     
-    dokku_log_info2 "✅ All zones removed from auto-discovery"
+    dokku_log_info2 "All zones removed from auto-discovery"
     return 0
   fi
   
@@ -269,18 +259,11 @@ zones_remove_all() {
   # Clean up temp file
   rm -f "$TEMP_LINKS_FILE"
   
-  dokku_log_info2 "✅ All zones removed from auto-discovery"
+  dokku_log_info2 "All zones removed from auto-discovery"
   dokku_log_info1 "Apps processed: $apps_processed"
   dokku_log_info1 "Apps removed from DNS: $apps_removed"
   dokku_log_info1 "Total domains removed: $total_domains_removed"
   
-  if [[ $total_domains_removed -gt 0 ]]; then
-    echo
-    dokku_log_info2 "Note"
-    dokku_log_info1 "DNS records remain in your provider but are no longer managed by Dokku."
-    dokku_log_info1 "• To re-enable: dokku $PLUGIN_COMMAND_PREFIX:zones:enable --all"
-    dokku_log_info1 "• Or add apps individually: dokku $PLUGIN_COMMAND_PREFIX:apps:enable <app>"
-  fi
 }
 
 service-zones-disable-cmd "$@"
