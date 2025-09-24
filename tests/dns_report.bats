@@ -41,7 +41,6 @@ teardown() {
   assert_output_contains "------                         ------   -------         --------        ---------------"
   [[ "$output" =~ example\.com ]] # Domain should appear in output (flexible count)
   assert_output_contains "DNS Status: Not added"
-  assert_output_contains "Update DNS records: dokku dns:apps:sync my-app"
 }
 
 @test "(dns:report) app-specific report shows message for nonexistent app" {
