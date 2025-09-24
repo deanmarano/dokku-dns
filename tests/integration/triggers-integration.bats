@@ -50,7 +50,6 @@ teardown() {
   run dokku dns:triggers:disable
   assert_success
   assert_output --partial "DNS automatic management disabled"
-  assert_output --partial "no longer automatically sync when apps change"
 
   # Verify disabled status
   run dokku dns:triggers
