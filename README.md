@@ -1,11 +1,80 @@
 # dokku dns [![Build Status](https://img.shields.io/github/actions/workflow/status/deanmarano/dokku-dns/ci.yml?branch=main&style=flat-square "Build Status")](https://github.com/deanmarano/dokku-dns/actions/workflows/ci.yml?query=branch%3Amain) [![IRC Network](https://img.shields.io/badge/irc-libera-blue.svg?style=flat-square "IRC Libera")](https://webchat.libera.chat/?channels=dokku)
 
-A dns plugin for dokku. Manages DNS records with cloud providers like AWS Route53 and Cloudflare.
+**Automated DNS management for Dokku apps with multi-provider support**
+
+Seamlessly manage DNS records for your Dokku applications across multiple cloud providers including AWS Route53 and Cloudflare. Automatically create, update, and synchronize DNS records as you deploy and manage your apps.
+
+## ✨ Key Features
+
+- 🚀 **Multi-Provider Support**: AWS Route53, Cloudflare, and extensible architecture for more providers
+- 🔄 **Automatic Sync**: DNS records update automatically when you add domains or deploy apps
+- 🎯 **Zone-Based Routing**: Intelligent routing of domains to appropriate DNS providers
+- ⚡ **Batch Operations**: Efficient bulk DNS updates across all your apps
+- 🕒 **TTL Management**: Flexible TTL configuration at global, zone, and domain levels
+- 🛡️ **Production Ready**: Comprehensive error handling, retry logic, and extensive testing
+- 📊 **Rich Reporting**: Clear status reports with visual indicators and troubleshooting info
+
+## 🚀 Quick Start (5 minutes)
+
+### 1. Install the Plugin
+
+```shell
+# Install from GitHub
+sudo dokku plugin:install https://github.com/deanmarano/dokku-dns.git --name dns
+```
+
+### 2. Configure Your DNS Provider
+
+**Option A: AWS Route53**
+```shell
+# Configure AWS credentials (choose one method)
+dokku config:set --global AWS_ACCESS_KEY_ID=your_key AWS_SECRET_ACCESS_KEY=your_secret
+# OR use AWS CLI: aws configure
+# OR use IAM roles (recommended for EC2/ECS)
+
+# Verify provider setup
+dokku dns:providers:verify aws
+```
+
+**Option B: Cloudflare**
+```shell
+# Set up Cloudflare API token
+dokku config:set --global CLOUDFLARE_API_TOKEN=your_api_token
+
+# Verify provider setup
+dokku dns:providers:verify cloudflare
+```
+
+### 3. Enable DNS for Your App
+
+```shell
+# Add domains to your app (if not already done)
+dokku domains:add myapp example.com www.example.com
+
+# Enable DNS management
+dokku dns:apps:enable myapp
+
+# Sync DNS records (creates A records pointing to your server)
+dokku dns:apps:sync myapp
+```
+
+### 4. Verify Everything Works
+
+```shell
+# Check DNS status
+dokku dns:report myapp
+
+# Enable automatic management (optional)
+dokku dns:triggers:enable
+```
+
+🎉 **That's it!** Your app's DNS records are now managed automatically. When you add new domains or deploy apps, DNS records will be created and updated automatically.
 
 ## Requirements
 
 - dokku 0.19.x+
 - docker 1.8.x
+- DNS provider credentials (AWS Route53 or Cloudflare)
 
 ## Installation
 
