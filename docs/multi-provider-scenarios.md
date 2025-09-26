@@ -378,8 +378,7 @@ CLOUDFLARE_API_TOKEN=test2 dokku dns:providers:verify cloudflare
 ### Debug Mode
 
 ```shell
-# Enable debug logging for troubleshooting
-dokku config:set --global DNS_DEBUG=true
+# Currently no built-in debug logging - add debugging manually to provider scripts
 
 # Test specific provider operations
 dokku dns:apps:sync myapp 2>&1 | grep -i error

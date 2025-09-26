@@ -9,7 +9,6 @@ This document covers all configuration options, environment variables, and advan
 | Variable | Description | Default | Example |
 |----------|-------------|---------|---------|
 | `DOKKU_DNS_SERVER_IP` | Override server IP detection | Auto-detected | `1.2.3.4` |
-| `DNS_DEBUG` | Enable debug logging | `false` | `true` |
 | `DNS_DISABLE_PULL` | Disable Docker image pulls | `false` | `true` |
 
 **Usage:**
@@ -17,8 +16,6 @@ This document covers all configuration options, environment variables, and advan
 # Set server IP override
 dokku config:set --global DOKKU_DNS_SERVER_IP=203.0.113.10
 
-# Enable debug logging
-dokku config:set --global DNS_DEBUG=true
 ```
 
 ### AWS Route53 Configuration
@@ -301,14 +298,8 @@ export DNS_RETRY_DELAY=3
 ### Debug and Logging Configuration
 
 ```shell
-# Enable comprehensive debug logging
-dokku config:set --global DNS_DEBUG=true
-
-# Custom log levels (if supported in future)
-dokku config:set --global DNS_LOG_LEVEL=DEBUG
-
-# Custom log file location
-dokku config:set --global DNS_LOG_FILE=/var/log/dokku-dns.log
+# Custom configuration for debugging (currently manual)
+# Add debugging statements to provider scripts as needed
 ```
 
 ## Security Configuration
@@ -520,7 +511,6 @@ dokku dns:cron --enable --schedule "*/5 * * * *"
 
 ```shell
 # Development-optimized settings
-dokku config:set --global DNS_DEBUG=true
 dokku dns:ttl 60                      # Quick changes
 dokku dns:zones:enable dev.example.com
 dokku dns:triggers:enable             # Automatic updates

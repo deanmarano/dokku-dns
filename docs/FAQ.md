@@ -215,8 +215,7 @@ dokku dns:apps:sync myapp
 
 **A:** Enable debug logging:
 ```shell
-# Enable debug mode
-dokku config:set --global DNS_DEBUG=true
+# Currently no built-in debug mode - add debugging manually to provider scripts
 
 # Check provider verification
 dokku dns:providers:verify aws 2>&1 | grep -i error
