@@ -64,12 +64,11 @@ dokku config:set --global CLOUDFLARE_EMAIL=user@example.com
 dokku config:set --global CLOUDFLARE_API_KEY=your_global_key
 ```
 
-### DigitalOcean Configuration (Future)
+### DigitalOcean Configuration
 
 | Variable | Description | Default | Example |
 |----------|-------------|---------|---------|
-| `DIGITALOCEAN_TOKEN` | DigitalOcean API token | None | `dop_v1_...` |
-| `DO_API_TOKEN` | Alternative token variable | None | `dop_v1_...` |
+| `DIGITALOCEAN_ACCESS_TOKEN` | DigitalOcean API token | None | `dop_v1_...` |
 | `DIGITALOCEAN_API_URL` | Custom API endpoint | `https://api.digitalocean.com/v2` | Custom URL |
 
 ## TTL Configuration

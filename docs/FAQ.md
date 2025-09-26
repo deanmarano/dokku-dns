@@ -14,7 +14,7 @@ sudo dokku plugin:install https://github.com/deanmarano/dokku-dns.git --name dns
 **A:** Currently supported providers:
 - **AWS Route53** - Enterprise-grade with health checks and failover
 - **Cloudflare** - Global CDN with free tier and DDoS protection
-- **DigitalOcean DNS** - *(Coming soon in future release)*
+- **DigitalOcean DNS** - Simple, reliable DNS with competitive pricing
 
 ### Q: Do I need to use a specific Dokku version?
 
@@ -49,14 +49,23 @@ aws configure  # Then no additional setup needed
 dokku config:set --global CLOUDFLARE_API_TOKEN=your_api_token
 ```
 
+### Q: How do I configure DigitalOcean?
+
+**A:** Create a Personal Access Token with read/write permissions:
+```shell
+dokku config:set --global DIGITALOCEAN_ACCESS_TOKEN=your_api_token
+```
+
 ### Q: Can I use multiple DNS providers simultaneously?
 
 **A:** Yes! The plugin automatically routes domains to the appropriate provider based on which provider manages each zone:
 ```shell
 export AWS_ACCESS_KEY_ID=aws_key
 export CLOUDFLARE_API_TOKEN=cf_token
+export DIGITALOCEAN_ACCESS_TOKEN=do_token
 dokku dns:zones:enable corporate.com    # Uses AWS
 dokku dns:zones:enable personal.dev     # Uses Cloudflare
+dokku dns:zones:enable startup.app      # Uses DigitalOcean
 ```
 
 ## DNS Management

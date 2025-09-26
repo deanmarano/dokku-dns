@@ -2,11 +2,11 @@
 
 **Automated DNS management for Dokku apps with multi-provider support**
 
-Seamlessly manage DNS records for your Dokku applications across multiple cloud providers including AWS Route53 and Cloudflare. Automatically create, update, and synchronize DNS records as you deploy and manage your apps.
+Seamlessly manage DNS records for your Dokku applications across multiple cloud providers including AWS Route53, Cloudflare, and DigitalOcean. Automatically create, update, and synchronize DNS records as you deploy and manage your apps.
 
 ## ✨ Key Features
 
-- 🚀 **Multi-Provider Support**: AWS Route53, Cloudflare, and extensible architecture for more providers
+- 🚀 **Multi-Provider Support**: AWS Route53, Cloudflare, DigitalOcean, and extensible architecture for more providers
 - 🔄 **Automatic Sync**: DNS records update automatically when you add domains or deploy apps
 - 🎯 **Zone-Based Routing**: Intelligent routing of domains to appropriate DNS providers
 - ⚡ **Batch Operations**: Efficient bulk DNS updates across all your apps
@@ -43,6 +43,15 @@ dokku config:set --global CLOUDFLARE_API_TOKEN=your_api_token
 
 # Verify provider setup
 dokku dns:providers:verify cloudflare
+```
+
+**Option C: DigitalOcean**
+```shell
+# Set up DigitalOcean API token
+dokku config:set --global DIGITALOCEAN_ACCESS_TOKEN=your_api_token
+
+# Verify provider setup
+dokku dns:providers:verify digitalocean
 ```
 
 ### 3. Enable DNS for Your App
