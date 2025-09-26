@@ -3,51 +3,6 @@
 The DNS plugin is in progress! Many core features have been implemented and tested. See [DONE.md](./DONE.md) for completed work.
 
 
-### Phase 21: Documentation Overhaul
-
-- [ ] **Comprehensive README Enhancement**
-  - [ ] Create quick start section
-  - [ ] Verify complete command reference with examples for all subcommands
-  - [ ] Include workflow examples: domain, app, zone management
-  - [ ] Document TTL hierarchy (global → zone → domain) with examples
-  - [ ] Add links to provider-specific setup guides
-
-- [ ] **Provider-Specific Documentation**
-  - [ ] Create docs/aws-provider.md with complete AWS Route53 setup:
-    - [ ] AWS credentials configuration (IAM roles, access keys, profiles)
-    - [ ] Required IAM permissions and policy examples
-    - [ ] Hosted zone setup and verification steps
-    - [ ] AWS CLI installation and configuration
-  - [ ] Create docs/cloudflare-provider.md with complete Cloudflare setup:
-    - [ ] API token creation and scoping instructions
-    - [ ] Zone management and DNS record permissions
-    - [ ] Cloudflare-specific features and limitations
-  - [ ] Create docs/digital-ocean-provider.md with complete DigitalOcean setup:
-    - [ ] API token creation and scoping instructions
-    - [ ] Zone management and DNS record permissions
-    - [ ] DigitalOcean-specific features and limitations
-  - [ ] Document advanced multi-provider scenarios:
-    - [ ] Zone delegation between providers
-    - [ ] Provider failover and backup strategies
-    - [ ] Geographic DNS distribution patterns
-    - [ ] Cost optimization across multiple providers
-
-- [ ] **User Experience Documentation**
-  - [ ] Create docs/FAQ.md covering comprehensive questions:
-    - [ ] Installation and setup questions
-    - [ ] Provider configuration and credential issues
-    - [ ] DNS propagation and timing questions
-    - [ ] Multi-provider behavior and zone routing
-    - [ ] TTL configuration and hierarchy questions
-    - [ ] Troubleshooting and error recovery
-    - [ ] Performance and scaling considerations
-  - [ ] Create docs/configuration.md documenting all options:
-    - [ ] Environment variable reference (DNS_LOG_LEVEL, etc.)
-    - [ ] TTL configuration options and hierarchy
-    - [ ] Provider-specific configuration settings
-    - [ ] Zone enablement and management options
-    - [ ] Cron automation and scheduling configuration
-    - [ ] Security considerations and credential storage
 
 ### Phase 22: Testing & Quality Assurance
 
@@ -93,7 +48,19 @@ The DNS plugin is in progress! Many core features have been implemented and test
     - [ ] Docker container deployment testing
     - [ ] Minimal system resource requirement validation
 
-### Phase 23: 1.0 Release Process
+### Phase 23: Dependency Management & Installation Improvements
+
+- [ ] **Add Dependency Checking to Plugin Installation**
+  - [ ] Add jq dependency check to install script with helpful error messages
+  - [ ] Update install script to verify all required dependencies before setup
+  - [ ] Add platform-specific installation instructions for missing dependencies
+  - [ ] Consider adding dependency auto-installation for common package managers
+  - [ ] Update plugin.toml to declare external dependencies
+  - [ ] Add dependency verification to plugin health checks
+  - [ ] Document dependency requirements in installation guide
+  - [ ] Test installation on clean systems without dependencies
+
+### Phase 24: 1.0 Release Process
 
 - [ ] **Release Documentation**
   - [ ] Use DONE.md to create comprehensive CHANGELOG.md with all development phases:
@@ -162,6 +129,7 @@ The DNS plugin is in progress! Many core features have been implemented and test
     - [ ] Community feedback collection and analysis process
     - [ ] Bug triage and priority classification system
     - [ ] Feature request evaluation and roadmap integration
+
 
 ## Future Enhancements
 
