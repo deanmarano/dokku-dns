@@ -1,4 +1,9 @@
 [plugin]
-description = "DNS management plugin for Dokku with multi-cloud provider support (AWS Route53, Cloudflare)"
+description = "DNS management plugin for Dokku with multi-cloud provider support (AWS Route53, Cloudflare, DigitalOcean)"
 version = "0.3.0"
+
+[plugin.dependencies]
+# Required system dependencies
+jq = "JSON processor for provider API responses"
+
 [plugin.config]

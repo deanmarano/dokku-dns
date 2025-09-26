@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# DNS plugin dependencies installer
+# Follows https://dokku.com/docs/development/plugin-creation/#verify-the-existence-of-dependencies
+
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/config"
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+# Install jq if missing (required by all DNS providers)
+if ! command -v jq &>/dev/null; then
+  echo "-----> Installing jq dependency for DNS plugin"
+
+  # Try to install jq using available package managers
+  if command -v apt-get &>/dev/null; then
+    # Ubuntu/Debian
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update &>/dev/null
+    apt-get install -qq -y jq &>/dev/null
+  elif command -v yum &>/dev/null; then
+    # CentOS/RHEL (older)
+    yum install -y jq &>/dev/null
+  elif command -v dnf &>/dev/null; then
+    # CentOS/RHEL/Fedora (newer)
+    dnf install -y jq &>/dev/null
+  elif command -v apk &>/dev/null; then
+    # Alpine Linux
+    apk add --no-cache jq &>/dev/null
+  elif command -v brew &>/dev/null; then
+    # macOS with Homebrew
+    brew install jq &>/dev/null
+  else
+    echo "       Unable to automatically install jq."
+    echo "       Please install jq manually: https://stedolan.github.io/jq/download/"
+    exit 1
+  fi
+
+  # Verify installation
+  if command -v jq &>/dev/null; then
+    echo "       ✓ jq installed successfully ($(jq --version))"
+  else
+    echo "       ✗ jq installation failed"
+    exit 1
+  fi
+else
+  echo "       ✓ jq already available ($(jq --version))"
+fi
