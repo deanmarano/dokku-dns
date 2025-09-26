@@ -50,6 +50,19 @@ The DNS plugin is in progress! Many core features have been implemented and test
 
 ### Phase 23: Dependency Management & Installation Improvements
 
+- [ ] **Standardize jq Usage Across All Providers**
+  - [ ] Migrate AWS provider to use jq consistently like Cloudflare and DigitalOcean providers:
+    - [ ] Replace AWS CLI `--query` expressions with jq for zone listing and ID lookup
+    - [ ] Add structured error handling using jq (similar to `_check_cloudflare_response`)
+    - [ ] Simplify JSON processing in `provider_delete_record` function
+    - [ ] Update batch operations to use consistent jq patterns
+    - [ ] Improve readability of complex JSON extractions
+  - [ ] Benefits of jq standardization:
+    - [ ] Consistent JSON processing approach across all providers
+    - [ ] Better error handling and fallback value capabilities
+    - [ ] Unified debugging patterns for all provider implementations
+    - [ ] Simplified maintenance with common JSON manipulation patterns
+
 - [ ] **Add Dependency Checking to Plugin Installation**
   - [ ] Add jq dependency check to install script with helpful error messages
   - [ ] Update install script to verify all required dependencies before setup
@@ -59,6 +72,19 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - [ ] Add dependency verification to plugin health checks
   - [ ] Document dependency requirements in installation guide
   - [ ] Test installation on clean systems without dependencies
+
+### Phase 23.5: Provider Verification Enhancement
+
+- [ ] **Extend providers:verify command to support all providers**
+  - [ ] Currently `dokku dns:providers:verify` only supports AWS (hardcoded in subcommands/providers:verify:43-49)
+  - [ ] Extend to support Cloudflare and DigitalOcean providers using the adapter system
+  - [ ] Add provider-specific verification logic:
+    - [ ] Cloudflare: Test API token, list zones, verify permissions
+    - [ ] DigitalOcean: Test API token, list domains, verify account access
+    - [ ] AWS: Keep existing comprehensive verification logic
+  - [ ] Update verification command to use the multi-provider loader system
+  - [ ] Add unified error handling and status reporting across all providers
+  - [ ] Update documentation to reflect all supported providers in verification
 
 ### Phase 24: 1.0 Release Process
 
