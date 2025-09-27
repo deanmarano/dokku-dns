@@ -13,32 +13,53 @@ if ! command -v jq &>/dev/null; then
   # Try to install jq using available package managers
   if command -v apt-get &>/dev/null; then
     # Ubuntu/Debian
+    echo "       Installing jq via apt-get..."
     export DEBIAN_FRONTEND=noninteractive
-    apt-get update &>/dev/null
-    apt-get install -qq -y jq &>/dev/null
+    if apt-get update >/dev/null 2>&1 && apt-get install -qq -y jq >/dev/null 2>&1; then
+      echo "       ✓ jq installed successfully via apt-get"
+    else
+      echo "       ✗ Failed to install jq via apt-get"
+      exit 1
+    fi
   elif command -v yum &>/dev/null; then
     # CentOS/RHEL (older)
-    yum install -y jq &>/dev/null
+    echo "       Installing jq via yum..."
+    if yum install -y jq >/dev/null 2>&1; then
+      echo "       ✓ jq installed successfully via yum"
+    else
+      echo "       ✗ Failed to install jq via yum"
+      exit 1
+    fi
   elif command -v dnf &>/dev/null; then
     # CentOS/RHEL/Fedora (newer)
-    dnf install -y jq &>/dev/null
+    echo "       Installing jq via dnf..."
+    if dnf install -y jq >/dev/null 2>&1; then
+      echo "       ✓ jq installed successfully via dnf"
+    else
+      echo "       ✗ Failed to install jq via dnf"
+      exit 1
+    fi
   elif command -v apk &>/dev/null; then
     # Alpine Linux
-    apk add --no-cache jq &>/dev/null
+    echo "       Installing jq via apk..."
+    if apk add --no-cache jq >/dev/null 2>&1; then
+      echo "       ✓ jq installed successfully via apk"
+    else
+      echo "       ✗ Failed to install jq via apk"
+      exit 1
+    fi
   elif command -v brew &>/dev/null; then
     # macOS with Homebrew
-    brew install jq &>/dev/null
+    echo "       Installing jq via brew..."
+    if brew install jq >/dev/null 2>&1; then
+      echo "       ✓ jq installed successfully via brew"
+    else
+      echo "       ✗ Failed to install jq via brew"
+      exit 1
+    fi
   else
     echo "       Unable to automatically install jq."
     echo "       Please install jq manually: https://stedolan.github.io/jq/download/"
-    exit 1
-  fi
-
-  # Verify installation
-  if command -v jq &>/dev/null; then
-    echo "       ✓ jq installed successfully ($(jq --version))"
-  else
-    echo "       ✗ jq installation failed"
     exit 1
   fi
 else
