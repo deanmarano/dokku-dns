@@ -48,30 +48,6 @@ The DNS plugin is in progress! Many core features have been implemented and test
     - [ ] Docker container deployment testing
     - [ ] Minimal system resource requirement validation
 
-### Phase 23: Dependency Management & Installation Improvements
-
-- [ ] **Standardize jq Usage Across All Providers**
-  - [ ] Migrate AWS provider to use jq consistently like Cloudflare and DigitalOcean providers:
-    - [ ] Replace AWS CLI `--query` expressions with jq for zone listing and ID lookup
-    - [ ] Add structured error handling using jq (similar to `_check_cloudflare_response`)
-    - [ ] Simplify JSON processing in `provider_delete_record` function
-    - [ ] Update batch operations to use consistent jq patterns
-    - [ ] Improve readability of complex JSON extractions
-  - [ ] Benefits of jq standardization:
-    - [ ] Consistent JSON processing approach across all providers
-    - [ ] Better error handling and fallback value capabilities
-    - [ ] Unified debugging patterns for all provider implementations
-    - [ ] Simplified maintenance with common JSON manipulation patterns
-
-- [ ] **Add Dependency Checking to Plugin Installation**
-  - [ ] Add jq dependency check to install script with helpful error messages
-  - [ ] Update install script to verify all required dependencies before setup
-  - [ ] Add platform-specific installation instructions for missing dependencies
-  - [ ] Consider adding dependency auto-installation for common package managers
-  - [ ] Update plugin.toml to declare external dependencies
-  - [ ] Add dependency verification to plugin health checks
-  - [ ] Document dependency requirements in installation guide
-  - [ ] Test installation on clean systems without dependencies
 
 ### Phase 23.5: Provider Verification Enhancement
 

@@ -1394,3 +1394,64 @@ Successfully completed a comprehensive documentation transformation that elevate
 - ✅ **User-Focused Content**: Practical guidance without marketing fluff
 
 **This phase transforms the DNS plugin from a tool with basic help text into a professionally documented solution ready for enterprise adoption, with comprehensive guidance covering all aspects of multi-provider DNS management.**
+
+## Phase 23: Dependency Management & Installation Improvements - COMPLETED ✅ (2025-09-27)
+
+- [x] **Standardize jq Usage Across All Providers** ✅
+  - [x] Migrate AWS provider to use jq consistently like Cloudflare and DigitalOcean providers ✅
+    - [x] Replace AWS CLI `--query` expressions with jq for zone listing and ID lookup ✅
+    - [x] Add structured error handling using jq (`_check_aws_response` helper) ✅
+    - [x] Simplify JSON processing in `provider_delete_record` function ✅
+    - [x] Update batch operations to use consistent jq patterns ✅
+    - [x] Improve readability of complex JSON extractions ✅
+  - [x] Benefits of jq standardization achieved ✅
+    - [x] Consistent JSON processing approach across all providers ✅
+    - [x] Better error handling and fallback value capabilities ✅
+    - [x] Unified debugging patterns for all provider implementations ✅
+    - [x] Simplified maintenance with common JSON manipulation patterns ✅
+
+- [x] **Add Dependency Checking to Plugin Installation** ✅
+  - [x] Add jq dependency check to install script with helpful error messages ✅
+  - [x] Update install script to verify all required dependencies before setup ✅
+  - [x] Add platform-specific installation instructions for missing dependencies ✅
+  - [x] Add dependency auto-installation for common package managers ✅
+  - [x] Update plugin.toml to declare external dependencies ✅
+  - [x] Add dependency verification to plugin health checks ✅
+  - [x] Document dependency requirements in installation guide ✅
+  - [x] Test installation on clean systems without dependencies ✅
+
+### Phase 23 Achievements ✅
+
+**Consistent JSON Processing:**
+- **AWS Provider Modernized**: Migrated from AWS CLI `--query` to consistent jq usage
+- **Error Handling Unified**: Added `_check_aws_response()` helper following Cloudflare/DigitalOcean patterns
+- **Code Quality Improved**: Better readability and maintainability across all provider implementations
+- **Debugging Simplified**: Unified patterns make troubleshooting easier across providers
+
+**Robust Dependency Management:**
+- **Automatic Installation**: `dependencies` hook automatically installs jq on Ubuntu/Debian, CentOS/RHEL, Alpine, macOS
+- **Installation Verification**: Install script checks dependencies before proceeding
+- **Clear Error Messages**: Helpful guidance when dependencies are missing
+- **Dokku Compliance**: Follows official Dokku plugin development guidelines
+- **Platform Support**: Installation instructions for all major platforms
+
+**Technical Improvements:**
+- **Plugin Metadata**: Declared jq dependency in plugin.toml
+- **Health Checks**: Dependency verification in providers:verify command
+- **Installation Safety**: Early dependency checking prevents failed installations
+- **Progress Visibility**: Clear status messages during dependency installation
+
+**Files Enhanced:**
+1. **dependencies** - New automatic dependency installer following Dokku guidelines
+2. **install** - Enhanced with dependency checking and helpful error messages
+3. **plugin.toml** - Updated with dependency declarations and DigitalOcean support
+4. **providers/aws/provider.sh** - Migrated to consistent jq usage with error handling
+5. **providers/aws/README.md** - Updated with jq dependency documentation
+6. **subcommands/providers:verify** - Added dependency validation
+
+**Impact:**
+- ✅ **Developer Experience**: Consistent patterns across all providers reduce cognitive load
+- ✅ **User Experience**: Automatic dependency resolution eliminates manual setup steps
+- ✅ **Code Quality**: Unified JSON processing reduces code duplication and improves reliability
+- ✅ **Maintainability**: Structured error handling and consistent patterns simplify debugging
+- ✅ **Standards Compliance**: Follows Dokku plugin development best practices
