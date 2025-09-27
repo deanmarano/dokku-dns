@@ -30,9 +30,9 @@ source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
 service-providers-verify-cmd() {
   #E verify DNS provider setup and connectivity, discover existing DNS records
   #E dokku $PLUGIN_COMMAND_PREFIX:providers:verify [provider]
-  #E verify configured provider or specific provider if specified
-  #E for AWS: checks if AWS CLI is configured, tests Route53 access, shows existing DNS records for Dokku domains
-  #A provider, optional DNS provider to verify (defaults to configured provider)
+  #E verify specific provider or all available providers if none specified
+  #E checks credentials, tests API access, shows available zones/domains for each provider
+  #A provider, optional DNS provider to verify (aws, cloudflare, digitalocean) - defaults to all available providers
   declare desc="verify DNS provider setup and connectivity"
   local cmd="$PLUGIN_COMMAND_PREFIX:providers:verify" argv=("$@")
   [[ ${argv[0]} == "$cmd" ]] && shift 1
@@ -61,27 +61,62 @@ Or download from: https://stedolan.github.io/jq/download/"
 
   echo
 
-  # Always verify AWS (the only supported provider)
-  local PROVIDER="aws"
-  dokku_log_info2 "Verifying AWS Route53 provider"
-  
-  if [[ -n "$PROVIDER_ARG" ]] && [[ "$PROVIDER_ARG" != "aws" ]]; then
-    dokku_log_fail "Provider '$PROVIDER_ARG' is not supported. Only AWS is supported."
+  # Load the provider loader system
+  local LOADER_PATH
+  LOADER_PATH="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/providers/loader.sh"
+  if [[ ! -f "$LOADER_PATH" ]]; then
+    dokku_log_fail "Provider loader system not found"
   fi
-  
-  # Load the provider adapter system
-  local ADAPTER_PATH
-  ADAPTER_PATH="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/providers/adapter.sh"
-  if [[ ! -f "$ADAPTER_PATH" ]]; then
-    dokku_log_fail "Provider adapter system not found"
+  source "$LOADER_PATH"
+
+  # Determine which provider(s) to verify
+  local PROVIDERS_TO_VERIFY=()
+  if [[ -n "$PROVIDER_ARG" ]]; then
+    # Specific provider requested
+    if grep -q "^${PROVIDER_ARG}$" "$(dirname "$LOADER_PATH")/available"; then
+      # Check if it's a test-only provider being requested in normal mode
+      if [[ "$PROVIDER_ARG" =~ ^(template|mock)$ ]] && [[ -z "${DNS_TEST_MODE:-}" ]]; then
+        dokku_log_fail "Provider '$PROVIDER_ARG' is only available in test mode. Available providers: $(grep -v "^#" "$(dirname "$LOADER_PATH")/available" | grep -v -E "^(template|mock)$" | tr '\n' ' ')"
+      fi
+      PROVIDERS_TO_VERIFY=("$PROVIDER_ARG")
+    else
+      dokku_log_fail "Provider '$PROVIDER_ARG' is not available. Available providers: $(grep -v "^#" "$(dirname "$LOADER_PATH")/available" | grep -v -E "^(template|mock)$" | tr '\n' ' ')"
+    fi
+  else
+    # Verify all available providers (excluding template and mock unless in test mode)
+    while IFS= read -r provider; do
+      [[ "$provider" =~ ^#.*$ ]] && continue  # Skip comments
+      [[ -z "$provider" ]] && continue       # Skip empty lines
+      # Skip test-only providers unless in test mode
+      if [[ "$provider" =~ ^(template|mock)$ ]] && [[ -z "${DNS_TEST_MODE:-}" ]]; then
+        continue
+      fi
+      PROVIDERS_TO_VERIFY+=("$provider")
+    done < "$(dirname "$LOADER_PATH")/available"
   fi
-  source "$ADAPTER_PATH"
-  
+
+  # Create credentials directory
   local CREDENTIALS_DIR="$GLOBAL_CONFIG_ROOT/credentials"
   mkdir -p "$CREDENTIALS_DIR"
   chmod 700 "$CREDENTIALS_DIR"
-  
-  case "$PROVIDER" in
+
+  # Function to verify a specific provider
+  verify_provider() {
+    local provider_name="$1"
+
+    dokku_log_info2 "Verifying $provider_name provider"
+    echo
+
+    # Try to load the provider
+    if ! load_specific_provider "$provider_name" >/dev/null 2>&1; then
+      dokku_log_info1 "  ✗ Provider '$provider_name' failed to load"
+      return 1
+    fi
+
+    dokku_log_info1 "Current Configuration:"
+    dokku_log_info1 "  DNS Provider: $provider_name"
+
+    case "$provider_name" in
     aws)
       dokku_log_info2 "Verifying AWS Route53 Setup"
       echo
@@ -337,16 +372,151 @@ Policy JSON example:
 }"
       fi
       ;;
-      
-    *)
-      dokku_log_fail "Unknown provider: $PROVIDER"
+
+    cloudflare)
+      dokku_log_info1 "Cloudflare API Token Detection:"
+
+      # Check for Cloudflare API token
+      if [[ -z "${CLOUDFLARE_API_TOKEN:-}" ]]; then
+        dokku_log_info1 "  ✗ CLOUDFLARE_API_TOKEN: not set"
+        echo
+        dokku_log_fail "Cloudflare API token not found.
+
+Configure your Cloudflare API token:
+
+Method 1 - Using dokku config:set (Recommended):
+  dokku config:set --global CLOUDFLARE_API_TOKEN=your_api_token
+
+Method 2 - Using environment variables:
+  export CLOUDFLARE_API_TOKEN=your_api_token
+
+Get your API token from: https://dash.cloudflare.com/profile/api-tokens
+
+Required permissions:
+  - Zone:Zone:Read
+  - Zone:DNS:Edit"
+      else
+        dokku_log_info1 "  ✓ CLOUDFLARE_API_TOKEN: configured"
+      fi
+
+      echo
+
+      # Test Cloudflare API connectivity
+      dokku_log_info1 "Testing Cloudflare API Access:"
+
+      # Call provider validation function
+      if provider_validate_credentials >/dev/null 2>&1; then
+        dokku_log_info1 "  ✓ API Authentication: successful"
+
+        # Test zone listing
+        if provider_list_zones >/dev/null 2>&1; then
+          local zone_count
+          zone_count=$(provider_list_zones 2>/dev/null | wc -l)
+          dokku_log_info1 "  ✓ Zone Access: can list zones ($zone_count zone(s) available)"
+
+          # Show available zones
+          if [[ $zone_count -gt 0 ]]; then
+            echo
+            dokku_log_info1 "Available Cloudflare Zones:"
+            provider_list_zones 2>/dev/null | sed 's/^/  /'
+          fi
+        else
+          dokku_log_info1 "  ⚠ Zone Access: limited (check token permissions)"
+        fi
+      else
+        dokku_log_info1 "  ✗ API Authentication: failed"
+        echo
+        dokku_log_fail "Cloudflare API authentication failed. Please check your API token.
+
+Troubleshooting:
+1. Verify your API token is correct
+2. Check token permissions include Zone:Zone:Read and Zone:DNS:Edit
+3. Ensure the token hasn't expired
+
+Get a new token from: https://dash.cloudflare.com/profile/api-tokens"
+      fi
       ;;
-  esac
-  
+
+    digitalocean)
+      dokku_log_info1 "DigitalOcean API Token Detection:"
+
+      # Check for DigitalOcean API token
+      if [[ -z "${DIGITALOCEAN_ACCESS_TOKEN:-}" ]]; then
+        dokku_log_info1 "  ✗ DIGITALOCEAN_ACCESS_TOKEN: not set"
+        echo
+        dokku_log_fail "DigitalOcean API token not found.
+
+Configure your DigitalOcean API token:
+
+Method 1 - Using dokku config:set (Recommended):
+  dokku config:set --global DIGITALOCEAN_ACCESS_TOKEN=your_api_token
+
+Method 2 - Using environment variables:
+  export DIGITALOCEAN_ACCESS_TOKEN=your_api_token
+
+Get your API token from: https://cloud.digitalocean.com/account/api/tokens
+
+Required scopes: Read and Write"
+      else
+        dokku_log_info1 "  ✓ DIGITALOCEAN_ACCESS_TOKEN: configured"
+      fi
+
+      echo
+
+      # Test DigitalOcean API connectivity
+      dokku_log_info1 "Testing DigitalOcean API Access:"
+
+      # Call provider validation function
+      if provider_validate_credentials >/dev/null 2>&1; then
+        dokku_log_info1 "  ✓ API Authentication: successful"
+
+        # Test domain listing
+        if provider_list_zones >/dev/null 2>&1; then
+          local domain_count
+          domain_count=$(provider_list_zones 2>/dev/null | wc -l)
+          dokku_log_info1 "  ✓ Domain Access: can list domains ($domain_count domain(s) available)"
+
+          # Show available domains
+          if [[ $domain_count -gt 0 ]]; then
+            echo
+            dokku_log_info1 "Available DigitalOcean Domains:"
+            provider_list_zones 2>/dev/null | sed 's/^/  /'
+          fi
+        else
+          dokku_log_info1 "  ⚠ Domain Access: limited (check token permissions)"
+        fi
+      else
+        dokku_log_info1 "  ✗ API Authentication: failed"
+        echo
+        dokku_log_fail "DigitalOcean API authentication failed. Please check your API token.
+
+Troubleshooting:
+1. Verify your API token is correct
+2. Check token has Read and Write scopes
+3. Ensure the token hasn't been revoked
+
+Get a new token from: https://cloud.digitalocean.com/account/api/tokens"
+      fi
+      ;;
+
+    *)
+      dokku_log_fail "Unknown provider: $provider_name"
+      ;;
+    esac
+
+    echo
+    dokku_log_info1 "$provider_name provider verification complete"
+  }
+
+  # Verify each provider
+  for provider in "${PROVIDERS_TO_VERIFY[@]}"; do
+    verify_provider "$provider"
+    echo
+  done
+
   echo
   dokku_log_info1 "DNS Provider Verification Complete"
-  dokku_log_info1 "AWS Route53 is properly configured and ready to use"
-  
+
   exit 0
 }
 
