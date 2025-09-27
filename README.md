@@ -157,7 +157,7 @@ Verify `DNS` provider setup and connectivity, discover existing `DNS` records:
 dokku dns:providers:verify [provider]
 ```
 
-Verify configured provider or specific provider if specified for `AWS`:` checks if `AWS` `CLI` is configured, tests Route53 access, shows existing `DNS` records for Dokku domains:
+Verify specific provider or all available providers if none specified checks credentials, tests `API` access, shows available zones/domains for each provider:
 
 ### display DNS status and domain information for app(s)
 
