@@ -18,6 +18,27 @@ if ! declare -f fn-plugin-property-setup >/dev/null 2>&1; then
   }
 fi
 
+check_dependencies() {
+  # Check for jq (required by all providers) following Dokku guidelines
+  if ! command -v jq &>/dev/null; then
+    echo "       ⚠ Missing jq, install it"
+    echo ""
+    echo "jq is required for JSON processing by all DNS providers."
+    echo ""
+    echo "Install jq using your system's package manager:"
+    echo "  Ubuntu/Debian:    sudo apt-get install jq"
+    echo "  CentOS/RHEL:      sudo yum install jq"
+    echo "  macOS (Homebrew): brew install jq"
+    echo ""
+    echo "Or download from: https://stedolan.github.io/jq/download/"
+    return 1
+  else
+    echo "       ✓ jq found (required for JSON processing)"
+  fi
+
+  return 0
+}
+
 detect_and_configure_provider() {
   local PROVIDER_FILE="$PLUGIN_DATA_ROOT/PROVIDER"
   local DETECTED_PROVIDERS=()
@@ -80,6 +101,13 @@ detect_and_configure_provider() {
 
 plugin-install() {
   echo "-----> Installing $PLUGIN_SERVICE plugin"
+
+  # Check dependencies first
+  echo "-----> Checking dependencies..."
+  if ! check_dependencies; then
+    echo "-----> Dependency check failed. Please install missing dependencies and retry."
+    exit 1
+  fi
 
   # Set up plugin properties
   fn-plugin-property-setup "$PLUGIN_COMMAND_PREFIX"

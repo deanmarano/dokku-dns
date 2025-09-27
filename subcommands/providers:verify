@@ -39,7 +39,28 @@ service-providers-verify-cmd() {
   
   local PROVIDER_ARG="$1"
   local GLOBAL_CONFIG_ROOT="$PLUGIN_DATA_ROOT"
-  
+
+  # Check dependencies first
+  dokku_log_info2 "Checking Dependencies"
+
+  # Check jq following Dokku guidelines
+  if ! command -v jq &>/dev/null; then
+    dokku_log_fail "Missing jq, install it
+
+jq is required for JSON processing by all DNS providers.
+
+Install jq:
+  Ubuntu/Debian:    sudo apt-get install jq
+  CentOS/RHEL:      sudo yum install jq
+  macOS (Homebrew): brew install jq
+
+Or download from: https://stedolan.github.io/jq/download/"
+  else
+    dokku_log_info1 "  jq: available ($(jq --version))"
+  fi
+
+  echo
+
   # Always verify AWS (the only supported provider)
   local PROVIDER="aws"
   dokku_log_info2 "Verifying AWS Route53 provider"

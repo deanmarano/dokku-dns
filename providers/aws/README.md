@@ -13,20 +13,23 @@ This provider integrates with Amazon Web Services (AWS) Route53 to manage DNS re
 
 ## Setup
 
-### 1. Install AWS CLI
+### 1. Install Dependencies
 
-Install the AWS CLI v2:
+The AWS provider requires both AWS CLI v2 and jq:
 
 ```bash
 # On macOS (Homebrew)
-brew install awscli
+brew install awscli jq
 
 # On Ubuntu/Debian
 sudo apt-get update
-sudo apt-get install awscli
+sudo apt-get install awscli jq
 
 # On Amazon Linux
-sudo yum install awscli
+sudo yum install awscli jq
+
+# On CentOS/RHEL/Rocky Linux
+sudo dnf install awscli jq
 ```
 
 ### 2. Configure AWS Credentials

@@ -5,11 +5,40 @@
 # Load provider configuration
 source "$(dirname "${BASH_SOURCE[0]}")/config.sh"
 
+# Internal helper function to check AWS API responses for errors
+_check_aws_response() {
+  local response="$1"
+  local context="$2"
+
+  if [[ -z "$response" ]]; then
+    echo "AWS API error in $context: empty response" >&2
+    return 1
+  fi
+
+  # Check for common AWS error patterns
+  if echo "$response" | jq -e '.Error' >/dev/null 2>&1; then
+    local error_code error_message
+    error_code=$(echo "$response" | jq -r '.Error.Code // "Unknown"' 2>/dev/null)
+    error_message=$(echo "$response" | jq -r '.Error.Message // "Unknown error"' 2>/dev/null)
+    echo "AWS API error in $context: $error_code - $error_message" >&2
+    return 1
+  fi
+
+  return 0
+}
+
 # REQUIRED: Validate that AWS credentials are properly configured
 provider_validate_credentials() {
   # Check if AWS CLI is available
   if ! command -v aws >/dev/null 2>&1; then
     echo "AWS CLI not installed" >&2
+    return 1
+  fi
+
+  # Validate that jq is available for JSON processing
+  if ! command -v jq >/dev/null 2>&1; then
+    echo "Warning: jq is required for AWS provider but not found" >&2
+    echo "Install jq: https://stedolan.github.io/jq/download/" >&2
     return 1
   fi
 
@@ -28,12 +57,16 @@ provider_list_zones() {
     return 1
   fi
 
-  # List hosted zones and extract zone names
-  aws route53 list-hosted-zones \
-    --query 'HostedZones[].Name' \
-    --output text 2>/dev/null |
-    tr '\t' '\n' |
-    sed 's/\.$//' # Remove trailing dot
+  # List hosted zones and extract zone names using jq
+  local response
+  response=$(aws route53 list-hosted-zones --output json 2>/dev/null)
+
+  if ! _check_aws_response "$response" "zone listing"; then
+    return 1
+  fi
+
+  # Extract zone names using jq, removing trailing dots
+  echo "$response" | jq -r '.HostedZones[]?.Name // empty' 2>/dev/null | sed 's/\.$//'
 }
 
 # REQUIRED: Get the AWS hosted zone ID for a domain
@@ -53,16 +86,18 @@ provider_get_zone_id() {
   local current_domain="$zone_name"
 
   while [[ "$current_domain" == *.* ]]; do
-    # Check if there's a hosted zone for the current domain
-    local zone_id
-    zone_id=$(aws route53 list-hosted-zones \
-      --query "HostedZones[?Name=='${current_domain}.'].Id" \
-      --output text 2>/dev/null)
+    # Check if there's a hosted zone for the current domain using jq
+    local response zone_id
+    response=$(aws route53 list-hosted-zones --output json 2>/dev/null)
 
-    if [[ -n "$zone_id" && "$zone_id" != "None" ]]; then
-      # Found a hosted zone, return the zone ID without the /hostedzone/ prefix
-      echo "${zone_id#/hostedzone/}"
-      return 0
+    if _check_aws_response "$response" "zone ID lookup"; then
+      zone_id=$(echo "$response" | jq -r ".HostedZones[]? | select(.Name==\"${current_domain}.\") | .Id" 2>/dev/null)
+
+      if [[ -n "$zone_id" && "$zone_id" != "null" ]]; then
+        # Found a hosted zone, return the zone ID without the /hostedzone/ prefix
+        echo "${zone_id#/hostedzone/}"
+        return 0
+      fi
     fi
 
     # Remove the leftmost subdomain and try again
@@ -89,14 +124,19 @@ provider_get_record() {
     return 1
   fi
 
-  # Query Route53 for the record
-  local record_value
-  record_value=$(aws route53 list-resource-record-sets \
+  # Query Route53 for the record using jq
+  local response record_value
+  response=$(aws route53 list-resource-record-sets \
     --hosted-zone-id "$zone_id" \
-    --query "ResourceRecordSets[?Name=='${record_name}.' && Type=='${record_type}'].ResourceRecords[0].Value" \
-    --output text 2>/dev/null)
+    --output json 2>/dev/null)
 
-  if [[ -z "$record_value" ]] || [[ "$record_value" == "None" ]]; then
+  if ! _check_aws_response "$response" "record lookup"; then
+    return 1
+  fi
+
+  record_value=$(echo "$response" | jq -r ".ResourceRecordSets[]? | select(.Name==\"${record_name}.\" and .Type==\"${record_type}\") | .ResourceRecords[0]?.Value // empty" 2>/dev/null)
+
+  if [[ -z "$record_value" ]]; then
     echo "Record not found: $record_name ($record_type)" >&2
     return 1
   fi
@@ -162,13 +202,18 @@ provider_delete_record() {
     return 1
   fi
 
-  # First get the current record value (required for DELETE action)
-  local record_value ttl
-  local record_info
-  record_info=$(aws route53 list-resource-record-sets \
+  # First get the current record value (required for DELETE action) using jq
+  local record_value ttl response
+  response=$(aws route53 list-resource-record-sets \
     --hosted-zone-id "$zone_id" \
-    --query "ResourceRecordSets[?Name=='${record_name}.' && Type=='${record_type}'] | [0]" \
     --output json 2>/dev/null)
+
+  if ! _check_aws_response "$response" "record deletion lookup"; then
+    return 1
+  fi
+
+  local record_info
+  record_info=$(echo "$response" | jq ".ResourceRecordSets[]? | select(.Name==\"${record_name}.\" and .Type==\"${record_type}\")" 2>/dev/null)
 
   if [[ -z "$record_info" ]] || [[ "$record_info" == "null" ]]; then
     echo "Record not found for deletion: $record_name ($record_type)" >&2
