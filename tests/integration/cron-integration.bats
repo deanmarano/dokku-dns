@@ -155,8 +155,15 @@ teardown() {
     skip "crontab not available in test environment"
   fi
 
-  # Enable then disable cron
+  # Enable cron and verify it was installed
   dokku dns:cron --enable >/dev/null 2>&1 || skip "cron enable not available in test environment"
+
+  # Verify the cron job was actually installed before trying to disable
+  if ! bash -c "crontab -l 2>/dev/null | grep -q \"dokku dns:sync-all\" || (command -v sudo >/dev/null 2>&1 && sudo -u dokku crontab -l 2>/dev/null | grep -q \"dokku dns:sync-all\" 2>/dev/null)"; then
+    skip "cron job was not properly installed in test environment"
+  fi
+
+  # Now disable cron
   dokku dns:cron --disable >/dev/null 2>&1 || skip "cron disable not available in test environment"
 
   # Check that cron job is removed from system crontab
