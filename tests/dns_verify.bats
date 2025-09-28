@@ -195,3 +195,53 @@ teardown() {
   assert_success
   assert_output_contains "Verifying template provider"
 }
+
+# Command dispatcher tests
+@test "(command dispatcher) colon syntax works for providers:verify" {
+  # Test the standard colon syntax that tests use
+  # Save current environment
+  local SAVED_CLOUDFLARE_TOKEN="${CLOUDFLARE_API_TOKEN:-}"
+  local SAVED_DIGITALOCEAN_TOKEN="${DIGITALOCEAN_ACCESS_TOKEN:-}"
+
+  # Test with clean environment (AWS only)
+  run env -u CLOUDFLARE_API_TOKEN -u DIGITALOCEAN_ACCESS_TOKEN dokku "$PLUGIN_COMMAND_PREFIX:providers:verify"
+
+  # Should succeed and show AWS verification
+  assert_success
+  assert_output_contains "Auto-detected provider: AWS Route53"
+  assert_output_contains "Verifying aws provider"
+
+  # Restore environment
+  if [[ -n "$SAVED_CLOUDFLARE_TOKEN" ]]; then
+    export CLOUDFLARE_API_TOKEN="$SAVED_CLOUDFLARE_TOKEN"
+  fi
+  if [[ -n "$SAVED_DIGITALOCEAN_TOKEN" ]]; then
+    export DIGITALOCEAN_ACCESS_TOKEN="$SAVED_DIGITALOCEAN_TOKEN"
+  fi
+}
+
+@test "(command dispatcher) handles provider arguments in colon syntax" {
+  # Test colon syntax with provider argument
+  run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify" aws
+  assert_success
+  assert_output_contains "Verifying aws provider"
+  # Should not show auto-detection message when specific provider requested
+  # Use assert_output to check that auto-detection message is NOT present
+  [[ "$output" != *"Auto-detected provider"* ]]
+}
+
+@test "(command dispatcher) routing works for providers:verify command" {
+  # Test that the dispatcher properly routes providers:verify commands
+  # This test validates the fix where providers:verify was showing help instead of executing
+
+  run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify" aws
+  assert_success
+
+  # Should execute the command, not show help
+  assert_output_contains "Checking Dependencies"
+  assert_output_contains "Verifying aws provider"
+
+  # Should NOT show help output
+  [[ "$output" != *"usage: dokku dns"* ]]
+  [[ "$output" != *"verify DNS provider setup and connectivity"* ]]
+}
