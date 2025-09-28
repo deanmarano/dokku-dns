@@ -39,24 +39,45 @@ is_implemented_command() {
 
 fn-help() {
   declare CMD="$1"
-  local cmd EXIT_CODE
+  local cmd EXIT_CODE FULL_CMD
 
-  if [[ "$CMD" == "help" ]] || [[ "$CMD" == "$PLUGIN_COMMAND_PREFIX:help" ]] || [[ "$CMD" == "$PLUGIN_COMMAND_PREFIX" ]] || [[ "$CMD" == "$PLUGIN_COMMAND_PREFIX:default" ]]; then
+  # Show help if explicitly requested, or if plugin command is called with no subcommand
+  if [[ "$CMD" == "help" ]] || [[ "$CMD" == "$PLUGIN_COMMAND_PREFIX:help" ]] || [[ "$CMD" == "$PLUGIN_COMMAND_PREFIX:default" ]]; then
+    fn-help-all "$@"
+    exit 0
+  elif [[ "$CMD" == "$PLUGIN_COMMAND_PREFIX" ]] && [[ -z "$2" ]]; then
+    # Only show help if no subcommand is provided
     fn-help-all "$@"
     exit 0
   fi
 
+  # Construct full command from arguments for subcommand matching
+  # Handle both "dns:providers:verify" and "dns providers:verify" patterns
+  if [[ "$CMD" == "$PLUGIN_COMMAND_PREFIX" ]] && [[ -n "$2" ]]; then
+    FULL_CMD="${PLUGIN_COMMAND_PREFIX}:$2"
+  else
+    FULL_CMD="$CMD"
+  fi
+
   pushd "$SUBCOMMAND_ROOT" >/dev/null 2>&1
   for cmd in *; do
-    if [[ "$CMD" == "${PLUGIN_COMMAND_PREFIX}:$cmd" ]]; then
-      "$SUBCOMMAND_ROOT/$cmd" "$@"
+    if [[ "$FULL_CMD" == "${PLUGIN_COMMAND_PREFIX}:$cmd" ]]; then
+      # Adjust arguments for subcommand: if we constructed FULL_CMD from separate args,
+      # we need to pass the constructed command as first arg, then remaining args
+      if [[ "$CMD" == "$PLUGIN_COMMAND_PREFIX" ]] && [[ -n "$2" ]]; then
+        # Called as "dns providers:verify [args...]" - pass as "dns:providers:verify [args...]"
+        "$SUBCOMMAND_ROOT/$cmd" "$FULL_CMD" "${@:3}"
+      else
+        # Called as "dns:providers:verify [args...]" - pass as-is
+        "$SUBCOMMAND_ROOT/$cmd" "$@"
+      fi
       EXIT_CODE="$?"
-      exit "$EXIT_CODE"
+      exit "${EXIT_CODE:-0}"
     fi
   done
   popd >/dev/null 2>&1
 
-  exit "$DOKKU_NOT_IMPLEMENTED_EXIT"
+  exit "${DOKKU_NOT_IMPLEMENTED_EXIT:-10}"
 }
 
 fn-help-all() {

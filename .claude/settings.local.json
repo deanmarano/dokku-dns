@@ -117,7 +117,9 @@
       "Bash(gh pr edit:*)",
       "Bash(gh pr checks:*)",
       "Bash(gh api:*)",
-      "Bash(./commands dns help)"
+      "Bash(./commands dns help)",
+      "Bash(env PLUGIN_DATA_ROOT=\"/tmp/dns-test\" ./commands dns providers:verify)",
+      "Bash(env:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"
