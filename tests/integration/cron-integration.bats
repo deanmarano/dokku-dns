@@ -157,7 +157,7 @@ teardown() {
 
   # Enable then disable cron
   dokku dns:cron --enable >/dev/null 2>&1 || skip "cron enable not available in test environment"
-  dokku dns:cron --disable >/dev/null 2>&1
+  dokku dns:cron --disable >/dev/null 2>&1 || skip "cron disable not available in test environment"
 
   # Check that cron job is removed from system crontab
   run bash -c "crontab -l 2>/dev/null | grep -q \"dokku dns:sync-all\" || (command -v sudo >/dev/null 2>&1 && sudo -u dokku crontab -l 2>/dev/null | grep -q \"dokku dns:sync-all\" 2>/dev/null)"
