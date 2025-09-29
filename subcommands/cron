@@ -457,12 +457,6 @@ cron_disable_functionality() {
   
   # Check if cron job exists
   if ! list_cron_jobs | grep -q "dokku dns:sync-all"; then
-    # In debug mode, show what cron jobs exist for troubleshooting
-    if [[ -n "${DNS_DEBUG:-}" ]]; then
-      echo "DEBUG: Current crontab command: $(get_crontab_cmd)" >&2
-      echo "DEBUG: Current cron jobs:" >&2
-      list_cron_jobs >&2 || echo "DEBUG: No crontab or failed to list" >&2
-    fi
     dokku_log_fail "No DNS cron job found. Enable with: dokku $PLUGIN_COMMAND_PREFIX:cron --enable"
   fi
   
