@@ -82,7 +82,7 @@ if [[ "${SKIP_TESTS:-}" == "1" ]]; then
 fi
 
 # Check if this is a documentation-only change (excluding README.md since it's generated)
-if git diff --cached --name-only | grep -qv -E '^(TODO\.md|CHANGELOG\.md|.*\.txt|.*\.rst)$'; then
+if git diff --cached --name-only | grep -qv -E '^(TODO\.md|CHANGELOG\.md|DONE\.md|.*\.txt|.*\.rst)$'; then
   CODE_CHANGES=true
 else
   CODE_CHANGES=false
@@ -90,7 +90,7 @@ fi
 
 # Skip tests for documentation-only changes
 if [[ "$CODE_CHANGES" == "false" ]]; then
-  log "INFO" "Documentation-only change detected (TODO.md, CHANGELOG.md), skipping tests but running basic checks"
+  log "INFO" "Documentation-only change detected (TODO.md, CHANGELOG.md, DONE.md), skipping tests but running basic checks"
 fi
 
 # Run linting for code changes

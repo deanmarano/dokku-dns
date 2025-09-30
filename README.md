@@ -32,7 +32,7 @@ dokku config:set --global AWS_ACCESS_KEY_ID=your_key AWS_SECRET_ACCESS_KEY=your_
 # OR use AWS CLI: aws configure
 # OR use IAM roles (recommended for EC2/ECS)
 
-# Verify provider setup
+# Verify provider setup and discover zones
 dokku dns:providers:verify aws
 ```
 
@@ -41,7 +41,7 @@ dokku dns:providers:verify aws
 # Set up Cloudflare API token
 dokku config:set --global CLOUDFLARE_API_TOKEN=your_api_token
 
-# Verify provider setup
+# Verify provider setup and discover zones
 dokku dns:providers:verify cloudflare
 ```
 
@@ -50,34 +50,47 @@ dokku dns:providers:verify cloudflare
 # Set up DigitalOcean API token
 dokku config:set --global DIGITALOCEAN_ACCESS_TOKEN=your_api_token
 
-# Verify provider setup
+# Verify provider setup and discover zones
 dokku dns:providers:verify digitalocean
 ```
 
-### 3. Enable DNS for Your App
+### 3. Enable DNS Zones
+
+```shell
+# List available zones discovered from your provider
+dokku dns:zones
+
+# Enable zones you want to manage (e.g., example.com)
+dokku dns:zones:enable example.com
+
+# Enable automatic triggers for seamless management
+dokku dns:triggers:enable
+```
+
+### 4. Add Your App Domains
 
 ```shell
 # Add domains to your app (if not already done)
 dokku domains:add myapp example.com www.example.com
 
-# Enable DNS management
+# Enable DNS management for the app
 dokku dns:apps:enable myapp
 
 # Sync DNS records (creates A records pointing to your server)
 dokku dns:apps:sync myapp
 ```
 
-### 4. Verify Everything Works
+### 5. Verify Everything Works
 
 ```shell
-# Check DNS status
+# Check DNS status for your app
 dokku dns:report myapp
 
-# Enable automatic management (optional)
-dokku dns:triggers:enable
+# View zone status
+dokku dns:zones
 ```
 
-🎉 **That's it!** Your app's DNS records are now managed automatically. When you add new domains or deploy apps, DNS records will be created and updated automatically.
+🎉 **That's it!** Your DNS zones and app records are now managed automatically. When you add new domains to apps in managed zones, DNS records will be created and updated automatically.
 
 ## Requirements
 
@@ -204,8 +217,3 @@ dokku dns:sync-all
 
 This will iterate through all apps that have `DNS` management enabled and sync their `DNS` records using the configured provider. `AWS` Route53 uses efficient batch `API` calls grouped by hosted zone. Other providers sync each app individually for compatibility.
 
-### Disabling `docker image pull` calls
-
-If you wish to disable the `docker image pull` calls that the plugin triggers, you may set the `DNS_DISABLE_PULL` environment variable to `true`. Once disabled, you will need to pull the service image you wish to deploy as shown in the `stderr` output.
-
-Please ensure the proper images are in place when `docker image pull` is disabled.
