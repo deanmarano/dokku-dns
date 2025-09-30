@@ -4,21 +4,29 @@ The DNS plugin is in progress! Many core features have been implemented and test
 
 
 
-### Phase 26: Manual Provider Testing
+### Phase 26: Pre-Release Testing & Validation
 
-- [ ] **Create Manual Testing Guide**
-  - [ ] Generate markdown document with manual test procedures for all providers
-  - [ ] Include checkboxes for each test step (CRUD operations per provider)
-  - [ ] Add sections for logging test results and observations
-  - [ ] Cover all supported providers (AWS Route53, Cloudflare, DigitalOcean)
-  - [ ] Include setup prerequisites and credential configuration steps
-  - [ ] Document expected outcomes for each operation
+- [ ] **Create Testing Documentation**
+  - [ ] Create TESTING.md with manual test procedures for all providers
+  - [ ] Document CRUD operations test checklist for AWS Route53
+  - [ ] Document CRUD operations test checklist for Cloudflare
+  - [ ] Document CRUD operations test checklist for DigitalOcean
+  - [ ] Include test result logging template with pass/fail criteria
+  - [ ] Document common troubleshooting scenarios and solutions
 
-- [ ] **Release Testing**
-  - [ ] Test fresh Dokku installation on multiple platforms
-  - [ ] Validate plugin installation from GitHub releases
-  - [ ] Test provider setup and configuration
-  - [ ] Validate multi-provider scenarios
+- [ ] **Provider Integration Testing**
+  - [ ] Execute AWS Route53 CRUD operations on production server
+  - [ ] Execute Cloudflare CRUD operations on production server
+  - [ ] Execute DigitalOcean CRUD operations on production server
+  - [ ] Test multi-provider zone routing (domains in different providers)
+  - [ ] Validate provider failover and error handling
+
+- [ ] **Installation & Deployment Testing**
+  - [ ] Test plugin installation from GitHub on fresh Dokku instance
+  - [ ] Validate provider setup workflow for each provider
+  - [ ] Test automatic zone discovery after provider configuration
+  - [ ] Verify trigger system integration with app lifecycle events
+  - [ ] Test sync-all command with multiple apps and providers
 
 
 ### Phase 27: 1.0 Release
