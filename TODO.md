@@ -6,18 +6,12 @@ The DNS plugin is in progress! Many core features have been implemented and test
 
 ### Phase 25: Pre-Release Preparation
 
-- [ ] **Update README Documentation**
-  - [ ] Focus on zone management over app management
-  - [ ] Remove docker pull image disabling instructions (not relevant)
+- [x] **Update README Documentation**
+  - [x] Focus on zone management over app management
+  - [x] Remove docker pull image disabling instructions (not relevant)
 
-- [ ] **Update Pre-Commit Hook**
-  - [ ] Add DONE.md to documentation-only file pattern in pre-commit hook
-
-- [ ] **Release Testing**
-  - [ ] Test fresh Dokku installation on multiple platforms
-  - [ ] Validate plugin installation from GitHub releases
-  - [ ] Test provider setup and configuration
-  - [ ] Validate multi-provider scenarios
+- [x] **Update Pre-Commit Hook**
+  - [x] Add DONE.md to documentation-only file pattern in pre-commit hook
 
 
 ### Phase 26: Manual Provider Testing
@@ -29,6 +23,12 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - [ ] Cover all supported providers (AWS Route53, Cloudflare, DigitalOcean)
   - [ ] Include setup prerequisites and credential configuration steps
   - [ ] Document expected outcomes for each operation
+
+- [ ] **Release Testing**
+  - [ ] Test fresh Dokku installation on multiple platforms
+  - [ ] Validate plugin installation from GitHub releases
+  - [ ] Test provider setup and configuration
+  - [ ] Validate multi-provider scenarios
 
 
 ### Phase 27: 1.0 Release
