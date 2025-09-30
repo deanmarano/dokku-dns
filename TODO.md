@@ -1,6 +1,6 @@
 # TODO
 
-The DNS plugin is in progress! Many core features have been implemented and tested. See [DONE.md](./DONE.md) for completed work.
+The DNS plugin is in progress! Many core features have been implemented and tested. See [CHANGELOG.md](./CHANGELOG.md) for completed work.
 
 
 
@@ -49,27 +49,10 @@ The DNS plugin is in progress! Many core features have been implemented and test
     - [ ] Minimal system resource requirement validation
 
 
-### Phase 24: Provider Verification Enhancement (COMPLETED)
-
-- [x] **Extend providers:verify command to support all providers**
-  - [x] Extended from AWS-only to support Cloudflare and DigitalOcean providers
-  - [x] Implemented smart single-provider optimization for most common use case
-  - [x] Added provider-specific verification logic:
-    - [x] Cloudflare: API token validation, zone listing, permissions testing
-    - [x] DigitalOcean: API token validation, domain listing, account verification
-    - [x] AWS: Enhanced existing comprehensive verification logic
-  - [x] Updated verification command to use multi-provider loader system
-  - [x] Added unified error handling and graceful degradation
-  - [x] Implemented auto-detection based on configured credentials
-  - [x] Added comprehensive test coverage (17 unit tests)
-  - [x] Fixed command dispatcher routing issues
-  - [x] Validated in real environment with production credentials
-  - [x] Updated documentation to reflect all supported providers
-
 ### Phase 25: 1.0 Release Process
 
 - [ ] **Release Documentation**
-  - [ ] Use DONE.md to create comprehensive CHANGELOG.md with all development phases:
+  - [ ] Use CHANGELOG.md to create comprehensive release notes with all development phases:
     - [ ] Document all 20+ completed phases with technical details
     - [ ] List all new features, enhancements, and bug fixes
     - [ ] Include performance improvements and optimizations
