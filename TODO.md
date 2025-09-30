@@ -4,16 +4,6 @@ The DNS plugin is in progress! Many core features have been implemented and test
 
 
 
-### Phase 25: Pre-Release Preparation
-
-- [x] **Update README Documentation**
-  - [x] Focus on zone management over app management
-  - [x] Remove docker pull image disabling instructions (not relevant)
-
-- [x] **Update Pre-Commit Hook**
-  - [x] Add DONE.md to documentation-only file pattern in pre-commit hook
-
-
 ### Phase 26: Manual Provider Testing
 
 - [ ] **Create Manual Testing Guide**
