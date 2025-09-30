@@ -4,31 +4,6 @@ The DNS plugin is in progress! Many core features have been implemented and test
 
 
 
-### Phase 26: Pre-Release Testing & Validation
-
-- [ ] **Create Testing Documentation**
-  - [ ] Create TESTING.md with manual test procedures for all providers
-  - [ ] Document CRUD operations test checklist for AWS Route53
-  - [ ] Document CRUD operations test checklist for Cloudflare
-  - [ ] Document CRUD operations test checklist for DigitalOcean
-  - [ ] Include test result logging template with pass/fail criteria
-  - [ ] Document common troubleshooting scenarios and solutions
-
-- [ ] **Provider Integration Testing**
-  - [ ] Execute AWS Route53 CRUD operations on production server
-  - [ ] Execute Cloudflare CRUD operations on production server
-  - [ ] Execute DigitalOcean CRUD operations on production server
-  - [ ] Test multi-provider zone routing (domains in different providers)
-  - [ ] Validate provider failover and error handling
-
-- [ ] **Installation & Deployment Testing**
-  - [ ] Test plugin installation from GitHub on fresh Dokku instance
-  - [ ] Validate provider setup workflow for each provider
-  - [ ] Test automatic zone discovery after provider configuration
-  - [ ] Verify trigger system integration with app lifecycle events
-  - [ ] Test sync-all command with multiple apps and providers
-
-
 ### Phase 27: 1.0 Release
 
 - [ ] **GitHub Release Infrastructure**
