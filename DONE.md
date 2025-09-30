@@ -1483,12 +1483,33 @@ Successfully completed a comprehensive documentation transformation that elevate
 
 **Files Enhanced:**
 1. **subcommands/providers:verify** - Enhanced with smart multi-provider support
-2. **help-functions** - Fixed command dispatcher routing
-3. **config** - Added environment variable override support
-4. **tests/dns_verify.bats** - Comprehensive test coverage (17 tests)
-5. **tests/bin/dokku** - Fixed argument passing to subcommands
+
+---
+
+## Phase 25: Pre-Release Preparation - COMPLETED ✅ (2025-09-30)
+
+**Objective**: Refocus documentation on zone management workflow and prepare project for 1.0 release.
+
+**Major Achievements:**
+- 📚 **Documentation Refactoring**: Restructured Quick Start guide to emphasize zone-centric workflow
+- 🗑️ **Documentation Cleanup**: Removed irrelevant docker pull instructions
+- 🔧 **Pre-Commit Enhancement**: Added DONE.md to documentation-only file pattern
+- 📋 **TODO Restructure**: Organized remaining work into focused release phases (26-28)
+
+**Technical Implementation:**
+- **README Quick Start Reordered**: Zone enablement now precedes app configuration
+  - Step 3: Enable DNS Zones (new emphasis)
+  - Step 4: Add Your App Domains (moved from step 3)
+  - Step 5: Verify Everything Works (expanded)
+- **Generator Updates**: Modified `bin/generate` to remove docker pull documentation section
+- **Pre-commit Hook**: Updated `scripts/pre-commit` to recognize DONE.md as documentation-only
+- **Project Roadmap**: Restructured TODO.md into Phases 25-28 for clearer release planning
+
+**Files Modified:**
+1. **README.md** - Zone-centric Quick Start workflow
+2. **bin/generate** - Removed docker pull documentation generation
+3. **scripts/pre-commit** - Added DONE.md to documentation-only pattern
+4. **TODO.md** - Restructured into focused release phases
 
 **Impact:**
-- ✅ **Optimized User Experience**: 90% of users (single AWS provider) get clean, focused output
-- ✅ **Developer Experience**: Unified verification command across all providers with consistent setup
-- ✅ **System Architecture**: Completes multi-provider verification capabilities while maintaining backward compatibility
+Users now see the correct mental model: zones must be enabled before domain management works, which aligns with the plugin's actual architecture and multi-provider routing logic.

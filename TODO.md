@@ -1,123 +1,71 @@
 # TODO
 
-The DNS plugin is in progress! Many core features have been implemented and tested. See [CHANGELOG.md](./CHANGELOG.md) for completed work.
+The DNS plugin is in progress! Many core features have been implemented and tested. See [DONE.md](./DONE.md) for completed work.
 
 
 
-### Phase 22: Testing & Quality Assurance
+### Phase 26: Pre-Release Testing & Validation
 
-- [ ] **Test Coverage Enhancement**
-  - [ ] Audit current test coverage across all 238 existing tests
-  - [ ] Identify and fill gaps to achieve 90%+ code coverage
-  - [ ] Add comprehensive edge case testing for all provider functions:
-    - [ ] Invalid credentials and authentication edge cases
-    - [ ] Malformed DNS records and zone names
-    - [ ] Network timeouts and connection failures
-    - [ ] API rate limiting and quota exhaustion scenarios
-    - [ ] Large-scale operations (100+ domains per app)
-  - [ ] Enhance error condition testing:
-    - [ ] DNS provider service outages and degradation
-    - [ ] Partial API failures and inconsistent responses
-    - [ ] Concurrent operation conflicts and race conditions
-    - [ ] File system permission and storage issues
-    - [ ] Memory and resource exhaustion scenarios
-  - [ ] Add performance benchmarking tests:
-    - [ ] DNS operation timing benchmarks (single vs multi-provider)
-    - [ ] Bulk operation performance testing (sync-all command)
-    - [ ] Provider comparison performance metrics
-    - [ ] Memory usage profiling during large operations
-    - [ ] Load testing with multiple concurrent apps
+- [ ] **Create Testing Documentation**
+  - [ ] Create TESTING.md with manual test procedures for all providers
+  - [ ] Document CRUD operations test checklist for AWS Route53
+  - [ ] Document CRUD operations test checklist for Cloudflare
+  - [ ] Document CRUD operations test checklist for DigitalOcean
+  - [ ] Include test result logging template with pass/fail criteria
+  - [ ] Document common troubleshooting scenarios and solutions
 
-- [ ] **Multi-Provider Integration Tests (using Mock Provider for stubbing)**
-  - [ ] Enhance mock provider for comprehensive testing scenarios:
-    - [ ] Add configurable failure modes and API error simulation
-    - [ ] Implement rate limiting and timeout simulation capabilities
-    - [ ] Add zone delegation and cross-provider routing simulation
-    - [ ] Create mock provider state persistence for multi-step tests
-  - [ ] Test provider failure and recovery scenarios using mock provider:
-    - [ ] Single provider failure with mock provider fallback simulation
-    - [ ] Partial provider functionality degradation using mock error modes
-    - [ ] Network partition simulation using mock provider timeouts
-    - [ ] Provider credential expiration testing with mock authentication failures
+- [ ] **Provider Integration Testing**
+  - [ ] Execute AWS Route53 CRUD operations on production server
+  - [ ] Execute Cloudflare CRUD operations on production server
+  - [ ] Execute DigitalOcean CRUD operations on production server
+  - [ ] Test multi-provider zone routing (domains in different providers)
+  - [ ] Validate provider failover and error handling
 
-- [ ] **Security & Reliability Testing**
-  - [ ] Test installation on fresh systems:
-    - [ ] Ubuntu 20.04 LTS and 22.04 LTS installation testing
-    - [ ] CentOS 7 and Rocky Linux 8 installation verification
-    - [ ] Debian 10 and 11 compatibility testing
-    - [ ] Docker container deployment testing
-    - [ ] Minimal system resource requirement validation
+- [ ] **Installation & Deployment Testing**
+  - [ ] Test plugin installation from GitHub on fresh Dokku instance
+  - [ ] Validate provider setup workflow for each provider
+  - [ ] Test automatic zone discovery after provider configuration
+  - [ ] Verify trigger system integration with app lifecycle events
+  - [ ] Test sync-all command with multiple apps and providers
 
 
-### Phase 25: 1.0 Release Process
+### Phase 27: 1.0 Release
 
-- [ ] **Release Documentation**
-  - [ ] Use CHANGELOG.md to create comprehensive release notes with all development phases:
-    - [ ] Document all 20+ completed phases with technical details
-    - [ ] List all new features, enhancements, and bug fixes
-    - [ ] Include performance improvements and optimizations
-    - [ ] Document architectural changes and multi-provider additions
-    - [ ] Add migration instructions for each major version change
-  - [ ] Prepare comprehensive 1.0 release notes:
-    - [ ] Executive summary highlighting multi-provider support
-    - [ ] Feature showcase with before/after comparisons
-    - [ ] Performance benchmarks and reliability improvements
-    - [ ] User testimonials and success stories (if available)
-    - [ ] Technical architecture overview and design decisions
-  - [ ] Document breaking changes and migration paths:
-    - [ ] API changes and deprecated command mappings
-    - [ ] Configuration file format changes
-    - [ ] Provider configuration migration requirements
-    - [ ] Data migration scripts and procedures
-    - [ ] Rollback procedures for failed upgrades
-  - [ ] Create upgrade guide from previous versions:
-    - [ ] Version compatibility matrix
-    - [ ] Step-by-step upgrade procedures
-    - [ ] Pre-upgrade checklist and backup procedures
-    - [ ] Post-upgrade validation and testing steps
-    - [ ] Troubleshooting common upgrade issues
+- [ ] **GitHub Release Infrastructure**
+  - [ ] Create semantic version tagging strategy (v1.0.0)
+  - [ ] Set up release branch protection and approval workflows
 
-- [ ] **Release Packaging**
-  - [ ] Prepare GitHub release infrastructure:
-    - [ ] Create semantic version tagging strategy (v1.0.0)
-    - [ ] Set up release branch protection and approval workflows
-    - [ ] Configure automated release notes generation
-    - [ ] Set up release artifact generation and signing
-  - [ ] Generate comprehensive release artifacts:
-    - [ ] Source code archives with proper exclusions
-    - [ ] Documentation bundle with all guides and references
-    - [ ] Installation scripts for multiple platforms
-    - [ ] Provider setup automation scripts
-    - [ ] Test suite and validation tools package
-  - [ ] Test release installation process:
-    - [ ] Fresh Dokku installation testing on multiple platforms
-    - [ ] Plugin installation from GitHub releases
-    - [ ] Provider setup and configuration testing
-    - [ ] Multi-provider scenario validation
-    - [ ] Rollback and downgrade procedure testing
-  - [ ] Create post-release validation checklist:
-    - [ ] GitHub release visibility and download verification
-    - [ ] Documentation link validation and accessibility
-    - [ ] Community notification and announcement coordination
-    - [ ] Issue tracking and support channel preparation
-    - [ ] Performance monitoring and error tracking setup
+- [ ] **Release Artifacts**
+  - [ ] Generate documentation bundle with all guides and references
+  - [ ] Create installation scripts for multiple platforms
 
-- [ ] **Community and Marketing**
-  - [ ] Prepare community announcements:
-    - [ ] Dokku community forum announcement
-    - [ ] GitHub repository announcement and pinned issue
-    - [ ] Social media announcement strategy
-    - [ ] Technical blog post highlighting key features
-  - [ ] Set up release support infrastructure:
-    - [ ] Issue templates for bug reports and feature requests
-    - [ ] Discussion templates for community support
-    - [ ] Contributing guidelines for community contributors
-    - [ ] Code of conduct and community standards
-  - [ ] Plan post-release maintenance:
-    - [ ] Patch release strategy and versioning scheme
-    - [ ] Community feedback collection and analysis process
-    - [ ] Bug triage and priority classification system
-    - [ ] Feature request evaluation and roadmap integration
+- [ ] **Post-Release Validation**
+  - [ ] Verify GitHub release visibility and downloads
+  - [ ] Validate documentation link accessibility
+  - [ ] Coordinate community notifications and announcements
+  - [ ] Prepare issue tracking and support channels
+  - [ ] Set up performance monitoring and error tracking
+
+
+### Phase 28: Community & Support
+
+- [ ] **Community Announcements**
+  - [ ] Post to Dokku community forum
+  - [ ] Create GitHub repository announcement and pinned issue
+  - [ ] Execute social media announcement strategy
+  - [ ] Publish technical blog post highlighting key features
+
+- [ ] **Support Infrastructure**
+  - [ ] Create issue templates for bug reports and feature requests
+  - [ ] Create discussion templates for community support
+  - [ ] Write contributing guidelines for community contributors
+  - [ ] Establish code of conduct and community standards
+
+- [ ] **Post-Release Maintenance Planning**
+  - [ ] Define patch release strategy and versioning scheme
+  - [ ] Set up community feedback collection and analysis process
+  - [ ] Create bug triage and priority classification system
+  - [ ] Design feature request evaluation and roadmap integration
 
 
 ## Future Enhancements
