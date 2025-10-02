@@ -1,0 +1,55 @@
+~$ dokku dns:providers:verify
+=====> Checking Dependencies
+----->   jq: available (jq-1.7)
+
+=====> Auto-detected provider: AWS Route53
+
+-----> To add additional providers, configure their credentials:
+----->   Cloudflare: dokku config:set --global CLOUDFLARE_API_TOKEN=your_token
+----->   DigitalOcean: dokku config:set --global DIGITALOCEAN_ACCESS_TOKEN=your_token
+
+=====> Verifying aws provider
+
+-----> Current Configuration:
+----->   DNS Provider: aws
+=====> AWS Route53 Setup
+
+----->   AWS CLI: installed (aws-cli/2.27.58)
+
+-----> Credential Detection:
+----->   ✗ Environment variables: not set
+----->   YES AWS config files: ~/.aws/credentials, ~/.aws/config
+----->   ✗ IAM Role: not available
+
+-----> Testing AWS Authentication:
+----->   Authentication successful (current context)
+
+-----> AWS Account Details:
+----->   Account ID: 780741804266
+----->   User/Role ARN: arn:aws:iam::780741804266:user/dean
+----->   User ID: AIDAJQEQZBPEQFM3MHQLY
+----->   Region: us-east-1
+
+-----> Testing Route53 API Access:
+----->   route53:ListHostedZones - can list hosted zones
+----->   Found 2 hosted zone(s)
+----->   route53:ListResourceRecordSets - can read DNS records
+----->   ? route53:ChangeResourceRecordSets - will be tested during actual sync operations
+
+-----> Hosted Zones Discovery:
+-----------------------------------------------------------------------------
+|                              ListHostedZones                              |
++-----------------------------------+----------+--------+-------------------+
+|                ID                 | Records  | Type   |       Zone        |
++-----------------------------------+----------+--------+-------------------+
+|  /hostedzone/ZZ36BKMR6SB53        |  10      |  False |  dean.is.         |
+|  /hostedzone/Z0444961AB4Z3I5DF5NH |  29      |  False |  deanoftech.com.  |
++-----------------------------------+----------+--------+-------------------+
+
+-----> Dokku DNS Records Discovery:
+----->   No existing Dokku DNS records found
+
+-----> aws provider verification complete
+
+
+-----> DNS Provider Verification Complete

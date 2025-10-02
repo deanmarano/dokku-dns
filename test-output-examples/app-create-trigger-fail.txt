@@ -1,0 +1,12 @@
+~$ dokku apps:create my-test-app
+-----> Creating my-test-app...
+-----> DNS: Checking if app 'my-test-app' should be added to DNS management...
+-----> DNS: No domains configured for 'my-test-app' yet. DNS will be available when domains are added.
+-----> Creating new app virtual host file...
+~$ dokku domains:report my-test-app
+=====> my-test-app domains information
+       Domains app enabled:           true
+       Domains app vhosts:            my-test-app.deanoftech.com
+       Domains global enabled:        true
+       Domains global vhosts:         deanoftech.com
+~$

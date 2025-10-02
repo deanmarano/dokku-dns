@@ -1,0 +1,39 @@
+$ dokku dns:apps:sync recipes
+Syncing domains for app 'recipes' to server IP: 68.55.81.191
+
+Analyzing current DNS records...
+  Checking recipes.deanoftech.com... ❌ No hosted zone found
+
+No changes needed! All DNS records are already correct.
+~$ dokku dns:zones deanoftech.com
+
+=====> DNS Zone Details: deanoftech.com
+
+=====> Dokku Integration
+-----> Managed Domains: 1
+  - recipes.deanoftech.com (app: recipes)
+
+=====> Potential Dokku Domains
+-----> Unmanaged domains that could be added:
+  • ddclient.deanoftech.com (app: ddclient)
+  • dean-is.deanoftech.com (app: dean-is)
+  • headless-chrome.deanoftech.com (app: headless-chrome)
+  • homeassistant.deanoftech.com (app: homeassistant)
+  • my-app.deanoftech.com (app: my-app)
+  • nextcloud.deanoftech.com (app: nextcloud)
+  • nextcloud-data.deanoftech.com (app: nextcloud-data)
+  • penpot.deanoftech.com (app: penpot)
+  • recipe-book.deanoftech.com (app: recipe-book)
+  • recipebook.deanoftech.com (app: recipebook)
+  • recipes-api.deanoftech.com (app: recipes-api)
+  • savepage-server.deanoftech.com (app: savepage-server)
+  • transmission.deanoftech.com (app: transmission)
+  • uptime-kuma.deanoftech.com (app: uptime-kuma)
+
+=====> AWS Route53 Information
+-----> Zone ID: Z0444961AB4Z3I5DF5NH
+-----> Zone Name: deanoftech.com
+-----> Record Count: 29
+-----> Type: Public Zone
+-----> Name Servers: ns-1264.awsdns-30.org      ns-56.awsdns-07.com     ns-1964.awsdns-53.co.uk    ns-689.awsdns-22.net
+~$
