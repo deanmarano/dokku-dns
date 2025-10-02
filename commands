@@ -9,7 +9,7 @@ fi
 
 # Define missing functions if needed
 if ! declare -f dokku_log_fail >/dev/null 2>&1; then
-  # shellcheck disable=SC2329
+  # shellcheck disable=SC2329,SC2317
   dokku_log_fail() {
     echo " !     $*" >&2
     exit 1
