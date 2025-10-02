@@ -34,6 +34,13 @@ See `test-output-examples/` folder for actual command outputs showing these issu
   - [ ] Fix is_domain_in_enabled_zone function or post-create timing
   - [ ] Test: my-test-app.deanoftech.com should be detected in enabled deanoftech.com zone
 
+- [ ] **Fix destroy-trigger.txt Issues**
+  - [ ] App destroy queues domains for deletion but sync:deletions fails
+  - [ ] sync:deletions says "No enabled zones found" despite zones being enabled
+  - [ ] Orphaned DNS records are never deleted from Route53
+  - [ ] Fix sync:deletions to use same zone detection as other commands
+  - [ ] Test: my-test-app.deanoftech.com should be deleted after app destroy
+
 
 ### Phase 27: Code Quality - Critical Fixes (Pre-Release)
 
