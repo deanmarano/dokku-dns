@@ -138,7 +138,7 @@ dns_sync_app() {
     local zone_id
     if [[ "${MULTI_PROVIDER_MODE:-false}" == "true" ]]; then
       if ! zone_id=$(multi_get_zone_id "$domain"); then
-        echo "❌ No hosted zone found (multi-provider mode)"
+        echo "❌ No hosted zone found"
         continue
       fi
 
