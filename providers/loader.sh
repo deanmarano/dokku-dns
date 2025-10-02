@@ -68,11 +68,6 @@ validate_provider() {
 load_provider() {
   local provider_name="$1"
 
-  # Skip if already loaded
-  if [[ " ${LOADED_PROVIDERS[*]} " =~ \ ${provider_name}\  ]]; then
-    return 0
-  fi
-
   # Validate provider first
   if ! validate_provider "$provider_name"; then
     return 1
@@ -91,8 +86,10 @@ load_provider() {
     provider_setup_env
   fi
 
-  # Add to loaded providers list
-  LOADED_PROVIDERS+=("$provider_name")
+  # Add to loaded providers list if not already there
+  if ! [[ " ${LOADED_PROVIDERS[*]} " =~ \ ${provider_name}\  ]]; then
+    LOADED_PROVIDERS+=("$provider_name")
+  fi
 
   echo "Loaded provider: $provider_name" >&2
   return 0
