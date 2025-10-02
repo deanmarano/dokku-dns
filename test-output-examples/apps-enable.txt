@@ -1,0 +1,27 @@
+$ dokku dns:apps:enable recipes
+-----> Adding all domains for app 'recipes':
+----->   • recipes.deanoftech.com
+-----> Processing 1 new domain(s) for app 'recipes':
+----->   • recipes.deanoftech.com
+
+-----> Filtering domains - Using provider system, New domains: 1
+-----> Provider system ready - checking zones for new domains...
+-----> Checking domain: recipes.deanoftech.com
+-----> ✓ recipes.deanoftech.com can be managed (zone enabled)
+-----> Finished checking domain: recipes.deanoftech.com
+-----> Completed zone checks for all domains
+
+
+=====> Domain Status Table for app 'recipes':
+Domain                         Status   Enabled         Provider        Zone (Enabled)
+------                         ------   -------         --------        ---------------
+recipes.deanoftech.com         ✅      No (no hosted zone) AWS             Not found
+
+=====> Status Legend:
+-----> ✅ Points to server IP (68.55.81.191)
+-----> ⚠️  Points to different IP
+-----> ❌ No DNS record found
+=====> Adding domains for app 'recipes' to DNS (1 domains)
+-----> App 'recipes' added to DNS
+-----> 1 domain(s) with hosted zones have been added to DNS
+-----> Next step: dokku dns:apps:sync recipes
