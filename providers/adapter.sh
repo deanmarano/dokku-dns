@@ -137,7 +137,7 @@ dns_sync_app() {
     # Get zone ID for this domain
     local zone_id
     if [[ "${MULTI_PROVIDER_MODE:-false}" == "true" ]]; then
-      if ! zone_id=$(multi_get_zone_id "$domain" 2>/dev/null); then
+      if ! zone_id=$(multi_get_zone_id "$domain"); then
         echo "❌ No hosted zone found"
         continue
       fi
@@ -145,7 +145,7 @@ dns_sync_app() {
       # Check current record
       current_ip=$(multi_get_record "$zone_id" "$domain" "A" 2>/dev/null || echo "")
     else
-      if ! zone_id=$(provider_get_zone_id "$domain" 2>/dev/null); then
+      if ! zone_id=$(provider_get_zone_id "$domain"); then
         echo "❌ No hosted zone found"
         continue
       fi

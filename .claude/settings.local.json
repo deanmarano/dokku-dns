@@ -119,7 +119,10 @@
       "Bash(gh api:*)",
       "Bash(./commands dns help)",
       "Bash(env PLUGIN_DATA_ROOT=\"/tmp/dns-test\" ./commands dns providers:verify)",
-      "Bash(env:*)"
+      "Bash(env:*)",
+      "Bash(SKIP_TESTS=1 git commit -m \"docs: reorder phases around 1.0 release\n\nReorganize phases to make logical sense:\n- Phases 26-27: Code quality fixes (critical and high priority) BEFORE release\n- Phase 28: Pre-release testing and validation\n- Phase 29: 1.0 Release\n- Phase 30: Community & Support (post-release activities)\n- Phases 31-32: Medium and low priority cleanup (post-1.0)\n\nThis ensures critical fixes happen before release, not after.\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
+      "Bash(SKIP_TESTS=1 git commit -m \"docs: add installation issues to Phase 26\n\nAdd todos for fixing installation detection:\n- Remove deprecated ''default DNS provider'' concept\n- Add DigitalOcean detection to install script\n- Report multi-provider mode properly during installation\n- Remove PROVIDER file creation (no longer needed)\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
+      "Bash(gh pr list:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

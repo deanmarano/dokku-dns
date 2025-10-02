@@ -1,0 +1,62 @@
+$ dokku apps:destroy my-test-app
+ !     WARNING: Potentially Destructive Action
+ !     This command will destroy app my-test-app.
+ !     To proceed, type "my-test-app"
+> my-test-app
+-----> Destroying my-test-app (including all add-ons)
+       Unlinking from nextcloud-memcached
+       Unlinking from controlcopypasta
+       Unlinking from core_db
+       Unlinking from ddclient_db
+       Unlinking from dot_db
+       Unlinking from mealie-db
+       Unlinking from myapp_db
+       Unlinking from nextcloud_postgres
+       Unlinking from postgres-dokku-ui
+       Unlinking from railsdatabase
+       Unlinking from readeck-db
+       Unlinking from recipe-book
+       Unlinking from recipebook
+       Unlinking from recipes-db
+       Unlinking from nextcloud-redis
+=====> DNS: Cleaning up DNS management for app 'my-test-app'
+-----> DNS: Removing DNS management for domains:
+----->   • my-test-app.deanoftech.com
+-----> DNS: App 'my-test-app' removed from DNS management
+-----> DNS: Domains queued for cleanup: my-test-app.deanoftech.com
+-----> DNS: Run 'dokku dns:sync:deletions' to clean up orphaned DNS records
+-----> Updated schedule file
+-----> Cleaning up...
+-----> Retiring old containers and images
+~$ dokku dns:sync-all
+[2025-10-02 14:57:50 EDT] Starting DNS sync-all operation
+=====> Using provider system for DNS sync (supports multi-provider)
+Initializing multi-provider DNS system...
+Discovering zones from all providers...
+  Checking provider: mock
+    ✗ mock: invalid credentials
+  Checking provider: aws
+    ✓ aws credentials valid
+    ✓ aws manages 2 zone(s)
+  Checking provider: cloudflare
+    ✗ cloudflare: invalid credentials
+  Checking provider: digitalocean
+    ✗ digitalocean: invalid credentials
+Zone discovery complete: 1 working provider(s)
+Multi-provider system ready: 1 provider(s) active
+Multi-provider mode activated
+-----> Syncing DNS records for app: recipes
+Syncing domains for app 'recipes' to server IP: 68.55.81.191
+
+Analyzing current DNS records...
+  Checking recipes.deanoftech.com... ✅ Already correct
+
+No changes needed! All DNS records are already correct.
+-----> Successfully synced DNS for: recipes
+[2025-10-02 14:58:02 EDT] DNS sync-all operation completed
+-----> Batch DNS sync completed
+~$ dokku dns:sync:deletions
+-----> DNS Record Cleanup
+=====> Found 27 domains across controlcopypasta ddclient dean-is headless-chrome homeassistant my-app nextcloud nextcloud-data penpot recipe-book recipebook recipes recipes-api savepage-server transmission uptime-kuma  apps
+ !     No enabled zones found. Use 'dokku dns:zones:enable <zone>' to enable zones first.
+~$

@@ -117,12 +117,10 @@ multi_get_zone_id() {
     return 1
   fi
 
-  # Load the provider if not already loaded
-  if ! is_provider_loaded "$provider"; then
-    if ! load_provider "$provider"; then
-      echo "Failed to load provider: $provider" >&2
-      return 1
-    fi
+  # Load the provider to ensure its functions are active
+  if ! load_provider "$provider" 2>/dev/null; then
+    echo "Failed to load provider: $provider" >&2
+    return 1
   fi
 
   # Get zone ID from the provider
@@ -150,9 +148,10 @@ multi_get_record() {
     return 1
   fi
 
-  # Load provider and execute
-  if ! is_provider_loaded "$provider"; then
-    load_provider "$provider" >/dev/null
+  # Load provider to ensure its functions are active
+  if ! load_provider "$provider" 2>/dev/null; then
+    echo "Failed to load provider: $provider" >&2
+    return 1
   fi
 
   provider_get_record "$zone_id" "$record_name" "$record_type"
@@ -181,9 +180,10 @@ multi_create_record() {
     return 1
   fi
 
-  # Load provider and execute
-  if ! is_provider_loaded "$provider"; then
-    load_provider "$provider" >/dev/null
+  # Load provider to ensure its functions are active
+  if ! load_provider "$provider" 2>/dev/null; then
+    echo "Failed to load provider: $provider" >&2
+    return 1
   fi
 
   provider_create_record "$zone_id" "$record_name" "$record_type" "$record_value" "$ttl"
@@ -210,9 +210,10 @@ multi_delete_record() {
     return 1
   fi
 
-  # Load provider and execute
-  if ! is_provider_loaded "$provider"; then
-    load_provider "$provider" >/dev/null
+  # Load provider to ensure its functions are active
+  if ! load_provider "$provider" 2>/dev/null; then
+    echo "Failed to load provider: $provider" >&2
+    return 1
   fi
 
   provider_delete_record "$zone_id" "$record_name" "$record_type"
