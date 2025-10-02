@@ -176,6 +176,14 @@ See `test-output-examples/` folder for actual command outputs showing these issu
   - [ ] Replace hardcoded TTL values in adapter.sh:202, 218 with constants
   - [ ] Update all TTL validation to use constants
 
+- [ ] **Remove MULTI_PROVIDER_MODE Flag**
+  - [ ] Remove MULTI_PROVIDER_MODE environment variable (always true, legacy code)
+  - [ ] Remove all `if [[ "${MULTI_PROVIDER_MODE:-false}" == "true" ]]` conditionals in adapter.sh
+  - [ ] Always call multi_* functions (multi_get_zone_id, multi_get_record, etc.)
+  - [ ] Delete dead code branches that call provider_* directly (lines 147-155 in adapter.sh)
+  - [ ] Update init_provider_system to always use multi-provider routing
+  - [ ] Remove "Multi-provider mode activated" messages (it's the only mode)
+
 
 ### Phase 28: Code Quality - High Priority Refactoring (Pre-Release)
 
