@@ -45,8 +45,6 @@ main() {
   # Skip if no app provided
   [[ -z "$APP" ]] && return 0
 
-  dokku_log_info1 "DNS: Checking if app '$APP' should be added to DNS management..."
-
   # Predict the default domain from global vhost
   local PREDICTED_DOMAIN=""
   if command -v dokku >/dev/null 2>&1; then
@@ -55,7 +53,6 @@ main() {
 
     if [[ -n "$GLOBAL_VHOST" ]]; then
       PREDICTED_DOMAIN="${APP}.${GLOBAL_VHOST}"
-      dokku_log_info1 "DNS: Predicted default domain: $PREDICTED_DOMAIN"
     fi
   fi
 
@@ -78,9 +75,7 @@ main() {
     return 0
   fi
 
-  # Auto-add app to DNS management
-  dokku_log_info1 "DNS: Predicted domain is in an enabled zone. Adding '$APP' to DNS management"
-
+  # Auto-add app to DNS management and create records
   # First, enable the app for DNS management (creates service directory)
   if command -v dokku >/dev/null 2>&1; then
     # Pass the predicted domain explicitly since Dokku hasn't assigned domains yet
@@ -90,14 +85,11 @@ main() {
 
     # Verify the app was actually added by checking if service directory exists
     if [[ -d "$PLUGIN_DATA_ROOT/$APP" ]]; then
-      dokku_log_info1 "DNS: App '$APP' enabled for DNS management"
-
       # Now sync to create DNS records
-      dokku_log_info1 "DNS: Syncing DNS records for '$APP'..."
       if dokku "$PLUGIN_COMMAND_PREFIX:sync" "$APP" >/dev/null 2>&1; then
-        dokku_log_info1 "DNS: Domain '$PREDICTED_DOMAIN' synced successfully"
+        dokku_log_info1 "DNS: Record for '$PREDICTED_DOMAIN' created successfully"
       else
-        dokku_log_warn "DNS: Failed to sync DNS records automatically"
+        dokku_log_warn "DNS: Failed to create DNS record automatically"
         dokku_log_info1 "DNS: Manual sync with: dokku $PLUGIN_COMMAND_PREFIX:sync $APP"
       fi
     else
