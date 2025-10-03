@@ -83,7 +83,12 @@ main() {
 
   # First, enable the app for DNS management (creates service directory)
   if command -v dokku >/dev/null 2>&1; then
-    if dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" "$APP" >/dev/null 2>&1; then
+    # Don't suppress output or check exit code - dns:apps:enable may return non-zero
+    # even when it successfully adds the app (e.g., if zone lookup has issues)
+    dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" "$APP" >/dev/null 2>&1 || true
+
+    # Verify the app was actually added by checking if service directory exists
+    if [[ -d "$PLUGIN_DATA_ROOT/$APP" ]]; then
       dokku_log_info1 "DNS: App '$APP' enabled for DNS management"
 
       # Now sync to create DNS records
