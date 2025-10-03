@@ -150,9 +150,31 @@ teardown() {
   mkdir -p "$PLUGIN_DATA_ROOT"
   touch "$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED"
 
+  # Mock dokku command to provide global vhost
+  cat >"$TEST_TMP_DIR/bin/dokku" <<'EOF'
+#!/usr/bin/env bash
+if [[ "$1" == "domains:report" && "$2" == "--global" ]]; then
+  echo "example.com"
+elif [[ "$1" == "dns:apps:enable" ]]; then
+  # Simulate successful enable
+  mkdir -p "/tmp/dns-test/test-app"
+  echo "$3" > "/tmp/dns-test/test-app/DOMAINS"
+  exit 0
+elif [[ "$1" == "dns:sync" ]]; then
+  exit 0
+fi
+EOF
+  chmod +x "$TEST_TMP_DIR/bin/dokku"
+
+  # Set up environment for trigger
+  export PLUGIN_DATA_ROOT="/tmp/dns-test"
+  mkdir -p "$PLUGIN_DATA_ROOT"
+  echo "example.com" >"$PLUGIN_DATA_ROOT/ENABLED_ZONES"
+  touch "$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED"
+
   run "$PLUGIN_ROOT/post-create" "test-app"
   assert_success
-  assert_output_contains "DNS: Checking if app 'test-app' should be added to DNS management"
+  assert_output_contains "DNS: Record for 'test-app.example.com' created successfully"
 }
 
 @test "(triggers) post-delete works with app not in DNS management" {
