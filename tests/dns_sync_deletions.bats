@@ -222,5 +222,5 @@ EOF
   run dokku "$PLUGIN_COMMAND_PREFIX:sync:deletions"
   assert_success
   # Should handle gracefully and show warning about hosted zone
-  assert_output_contains "Could not find AWS hosted zone for: example.com"
+  assert_output_contains "Could not find hosted zone for: example.com"
 }
