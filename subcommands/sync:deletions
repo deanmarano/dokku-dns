@@ -55,7 +55,10 @@ service-sync-deletions-cmd() {
   dokku_log_info1 "DNS Record Cleanup"
 
   # Initialize provider system (optional - will show warnings if fails)
-  init_provider_system >/dev/null 2>&1 || true
+  # Skip if provider functions are already defined (e.g., in tests)
+  if ! declare -f provider_get_zone_id >/dev/null 2>&1; then
+    init_provider_system >/dev/null 2>&1 || true
+  fi
 
   # Get list of all current Dokku apps and their domains
   local current_domains=()
