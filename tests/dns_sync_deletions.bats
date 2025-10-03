@@ -6,8 +6,8 @@ setup() {
   setup_dns_provider aws
   mkdir -p "$PLUGIN_DATA_ROOT"
 
-  # Mock the AWS provider function for sync:deletions tests
-  dns_provider_aws_get_hosted_zone_id() {
+  # Mock the provider adapter functions for sync:deletions tests
+  provider_get_zone_id() {
     local DOMAIN="$1"
 
     # Check for credential failure simulation
@@ -30,6 +30,18 @@ setup() {
         ;;
     esac
   }
+  export -f provider_get_zone_id
+
+  # Also mock multi_get_zone_id for multi-provider mode
+  multi_get_zone_id() {
+    provider_get_zone_id "$@"
+  }
+  export -f multi_get_zone_id
+
+  # Keep the old function for backward compatibility with other parts of the code
+  dns_provider_aws_get_hosted_zone_id() {
+    provider_get_zone_id "$@"
+  }
   export -f dns_provider_aws_get_hosted_zone_id
 }
 
@@ -46,8 +58,8 @@ teardown() {
 }
 
 @test "(dns:sync:deletions) error with invalid zone argument" {
-  # Create a mock ZONES_ENABLED file
-  echo "example.com" >"$PLUGIN_DATA_ROOT/ZONES_ENABLED"
+  # Create a mock ENABLED_ZONES file
+  echo "example.com" >"$PLUGIN_DATA_ROOT/ENABLED_ZONES"
 
   run dokku "$PLUGIN_COMMAND_PREFIX:sync:deletions" nonexistent-zone.com
 
@@ -57,7 +69,7 @@ teardown() {
 
 @test "(dns:sync:deletions) shows message when no enabled zones" {
   # Ensure no enabled zones
-  rm -f "$PLUGIN_DATA_ROOT/ZONES_ENABLED"
+  rm -f "$PLUGIN_DATA_ROOT/ENABLED_ZONES"
 
   # Use writable bin directory for CI compatibility
   WRITABLE_BIN=$(setup_writable_test_bin)
@@ -70,7 +82,7 @@ teardown() {
 
 @test "(dns:sync:deletions) shows message when no records to be deleted found" {
   # Create enabled zones but no records to be deleted
-  echo "example.com" >"$PLUGIN_DATA_ROOT/ZONES_ENABLED"
+  echo "example.com" >"$PLUGIN_DATA_ROOT/ENABLED_ZONES"
 
   # Set AWS mock to return 0 records
   set_aws_mock_record_count 0
@@ -83,7 +95,7 @@ teardown() {
 
 @test "(dns:sync:deletions) displays Terraform-style plan output for records to be deleted" {
   # Create enabled zones
-  echo "example.com" >"$PLUGIN_DATA_ROOT/ZONES_ENABLED"
+  echo "example.com" >"$PLUGIN_DATA_ROOT/ENABLED_ZONES"
 
   # Set AWS mock to return 2 records that will be considered for deletion
   set_aws_mock_record_count 2 "old-app"
@@ -112,7 +124,7 @@ EOF
 
 @test "(dns:sync:deletions) handles zone-specific cleanup" {
   # Create multiple enabled zones
-  echo -e "example.com\ntest.org" >"$PLUGIN_DATA_ROOT/ZONES_ENABLED"
+  echo -e "example.com\ntest.org" >"$PLUGIN_DATA_ROOT/ENABLED_ZONES"
 
   # Set AWS mock to return 1 record for example.com zone only
   set_aws_mock_record_count 1 "old-app"
@@ -134,7 +146,7 @@ EOF
   dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" current-app >/dev/null 2>&1
 
   # Create enabled zones
-  echo "example.com" >"$PLUGIN_DATA_ROOT/ZONES_ENABLED"
+  echo "example.com" >"$PLUGIN_DATA_ROOT/ENABLED_ZONES"
 
   # Set AWS mock to return both current and records to be deleted
   # The mock will return record-to-delete.example.com as a DNS record that should be filtered
@@ -153,7 +165,7 @@ EOF
 
 @test "(dns:sync:deletions) handles user cancellation gracefully" {
   # Create enabled zones with records to be deleted
-  echo "example.com" >"$PLUGIN_DATA_ROOT/ZONES_ENABLED"
+  echo "example.com" >"$PLUGIN_DATA_ROOT/ENABLED_ZONES"
 
   # Set AWS mock to return 1 record to be deleted
   set_aws_mock_record_count 1 "record-to-delete"
@@ -166,7 +178,7 @@ EOF
 
 @test "(dns:sync:deletions) attempts deletion when user confirms" {
   # Create enabled zones with records to be deleted
-  echo "example.com" >"$PLUGIN_DATA_ROOT/ZONES_ENABLED"
+  echo "example.com" >"$PLUGIN_DATA_ROOT/ENABLED_ZONES"
 
   # Set AWS mock to return 1 record to be deleted
   set_aws_mock_record_count 1 "record-to-delete"
@@ -182,7 +194,7 @@ EOF
 
 @test "(dns:sync:deletions) handles AWS API failures gracefully" {
   # Create enabled zones
-  echo "example.com" >"$PLUGIN_DATA_ROOT/ZONES_ENABLED"
+  echo "example.com" >"$PLUGIN_DATA_ROOT/ENABLED_ZONES"
 
   # Set AWS mock to return 1 record to be deleted
   set_aws_mock_record_count 1 "record-to-delete"
@@ -202,7 +214,7 @@ EOF
 
 @test "(dns:sync:deletions) handles missing AWS credentials" {
   # Create enabled zones
-  echo "example.com" >"$PLUGIN_DATA_ROOT/ZONES_ENABLED"
+  echo "example.com" >"$PLUGIN_DATA_ROOT/ENABLED_ZONES"
 
   # Set environment variable to simulate credential failure
   export AWS_MOCK_FAIL_CREDENTIALS=true
