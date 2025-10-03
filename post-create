@@ -83,9 +83,10 @@ main() {
 
   # First, enable the app for DNS management (creates service directory)
   if command -v dokku >/dev/null 2>&1; then
+    # Pass the predicted domain explicitly since Dokku hasn't assigned domains yet
     # Don't suppress output or check exit code - dns:apps:enable may return non-zero
     # even when it successfully adds the app (e.g., if zone lookup has issues)
-    dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" "$APP" >/dev/null 2>&1 || true
+    dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" "$APP" "$PREDICTED_DOMAIN" >/dev/null 2>&1 || true
 
     # Verify the app was actually added by checking if service directory exists
     if [[ -d "$PLUGIN_DATA_ROOT/$APP" ]]; then
