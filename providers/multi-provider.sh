@@ -18,11 +18,6 @@ init_multi_data() {
   mkdir -p "$MULTI_PROVIDER_DATA/zones"
 }
 
-# Clean up data directory (not currently used - data is persistent)
-cleanup_multi_data() {
-  rm -rf "$MULTI_PROVIDER_DATA"
-}
-
 # Load all available providers and discover their zones
 discover_all_providers() {
   init_multi_data
