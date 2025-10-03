@@ -12,6 +12,9 @@ teardown() {
 }
 
 @test "(dns:sync:deletions integration) error with no enabled zones" {
+  # Ensure no zones are enabled by removing the ENABLED_ZONES file
+  dokku "$PLUGIN_COMMAND_PREFIX:zones:disable" --all >/dev/null 2>&1 || true
+
   run dokku "$PLUGIN_COMMAND_PREFIX:sync:deletions"
   assert_success
   assert_output_contains "No enabled zones found"
