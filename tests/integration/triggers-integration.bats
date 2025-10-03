@@ -255,8 +255,8 @@ teardown() {
   # Enable triggers
   dokku dns:triggers:enable >/dev/null 2>&1
 
-  # Enable a zone (assuming example.com zone exists in mock)
-  dokku dns:zones:enable example.com >/dev/null 2>&1 || true
+  # Enable localhost zone (Dokku's default domain in CI)
+  dokku dns:zones:enable localhost >/dev/null 2>&1 || true
 
   # Create app - should trigger DNS record creation
   run dokku apps:create "$TEST_APP"
@@ -272,8 +272,8 @@ teardown() {
   # Enable triggers
   dokku dns:triggers:enable >/dev/null 2>&1
 
-  # Enable a zone
-  dokku dns:zones:enable example.com >/dev/null 2>&1 || true
+  # Enable localhost zone (Dokku's default domain in CI)
+  dokku dns:zones:enable localhost >/dev/null 2>&1 || true
 
   # Create app - check for clean output
   run dokku apps:create "$TEST_APP"
@@ -285,7 +285,7 @@ teardown() {
 @test "(triggers) post-create handles zone not enabled gracefully" {
   # Enable triggers but don't enable any zones
   dokku dns:triggers:enable >/dev/null 2>&1
-  dokku dns:zones:disable example.com >/dev/null 2>&1 || true
+  dokku dns:zones:disable localhost >/dev/null 2>&1 || true
 
   # Create app - should not fail
   run dokku apps:create "$TEST_APP"
