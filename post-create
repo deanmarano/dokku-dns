@@ -78,14 +78,16 @@ main() {
     return 0
   fi
 
-  # Auto-add app to DNS management with predicted domain
+  # Auto-add app to DNS management
   dokku_log_info1 "DNS: Predicted domain is in an enabled zone. Adding '$APP' to DNS management"
-  if dns_add_app_domains "$APP" "$PREDICTED_DOMAIN"; then
-    dokku_log_info1 "DNS: App '$APP' added to DNS management successfully"
 
-    # Automatically sync the app to make DNS records active
-    dokku_log_info1 "DNS: Syncing DNS records for '$APP'..."
-    if command -v dokku >/dev/null 2>&1; then
+  # First, enable the app for DNS management (creates service directory)
+  if command -v dokku >/dev/null 2>&1; then
+    if dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" "$APP" >/dev/null 2>&1; then
+      dokku_log_info1 "DNS: App '$APP' enabled for DNS management"
+
+      # Now sync to create DNS records
+      dokku_log_info1 "DNS: Syncing DNS records for '$APP'..."
       if dokku "$PLUGIN_COMMAND_PREFIX:sync" "$APP" >/dev/null 2>&1; then
         dokku_log_info1 "DNS: Domain '$PREDICTED_DOMAIN' synced successfully"
       else
@@ -93,10 +95,10 @@ main() {
         dokku_log_info1 "DNS: Manual sync with: dokku $PLUGIN_COMMAND_PREFIX:sync $APP"
       fi
     else
-      dokku_log_info1 "DNS: Manual sync with: dokku $PLUGIN_COMMAND_PREFIX:sync $APP"
+      dokku_log_warn "DNS: Failed to enable app '$APP' for DNS management"
     fi
   else
-    dokku_log_warn "DNS: Failed to add app '$APP' to DNS management"
+    dokku_log_warn "DNS: dokku command not available"
   fi
 }
 
