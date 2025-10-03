@@ -250,3 +250,49 @@ teardown() {
   assert_success
   assert_output --partial "disable automatic DNS management for app lifecycle events"
 }
+
+@test "(triggers) post-create creates DNS record when zone is enabled" {
+  # Enable triggers
+  dokku dns:triggers:enable >/dev/null 2>&1
+
+  # Enable a zone (assuming example.com zone exists in mock)
+  dokku dns:zones:enable example.com >/dev/null 2>&1 || true
+
+  # Create app - should trigger DNS record creation
+  run dokku apps:create "$TEST_APP"
+  assert_success
+
+  # Verify app is in DNS management
+  run dokku dns:apps
+  assert_success
+  assert_output --partial "$TEST_APP"
+}
+
+@test "(triggers) post-create shows clean success message" {
+  # Enable triggers
+  dokku dns:triggers:enable >/dev/null 2>&1
+
+  # Enable a zone
+  dokku dns:zones:enable example.com >/dev/null 2>&1 || true
+
+  # Create app - check for clean output
+  run dokku apps:create "$TEST_APP"
+  assert_success
+  assert_output --partial "DNS: Record for"
+  assert_output --partial "created successfully"
+}
+
+@test "(triggers) post-create handles zone not enabled gracefully" {
+  # Enable triggers but don't enable any zones
+  dokku dns:triggers:enable >/dev/null 2>&1
+  dokku dns:zones:disable example.com >/dev/null 2>&1 || true
+
+  # Create app - should not fail
+  run dokku apps:create "$TEST_APP"
+  assert_success
+
+  # App should NOT be in DNS management
+  run dokku dns:apps
+  assert_success
+  ! [[ "$output" =~ $TEST_APP ]]
+}

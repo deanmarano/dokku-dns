@@ -278,15 +278,6 @@ assert_output_contains() {
   assert_equal "$count" "$found"
 }
 
-# ShellCheck doesn't know about $output from Bats
-# shellcheck disable=SC2154
-refute_output() {
-  local unexpected="$1"
-  if [[ "$output" == *"$unexpected"* ]]; then
-    flunk "Output should not contain: $unexpected"
-  fi
-}
-
 # File assertion helpers
 assert_file_exists() {
   local file="$1"
