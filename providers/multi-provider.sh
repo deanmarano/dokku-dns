@@ -279,6 +279,3 @@ init_multi_provider_system() {
   echo "Multi-provider system ready: $provider_count provider(s) active" >&2
   return 0
 }
-
-# Cleanup on exit
-trap cleanup_multi_data EXIT
