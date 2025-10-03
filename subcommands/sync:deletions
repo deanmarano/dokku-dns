@@ -54,11 +54,9 @@ service-sync-deletions-cmd() {
 
   dokku_log_info1 "DNS Record Cleanup"
 
-  # Initialize provider system
-  if ! init_provider_system >/dev/null 2>&1; then
-    dokku_log_fail "Failed to initialize DNS provider system"
-  fi
-  
+  # Initialize provider system (optional - will show warnings if fails)
+  init_provider_system >/dev/null 2>&1 || true
+
   # Get list of all current Dokku apps and their domains
   local current_domains=()
   local apps
