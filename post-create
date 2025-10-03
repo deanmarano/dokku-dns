@@ -45,63 +45,8 @@ main() {
   # Skip if no app provided
   [[ -z "$APP" ]] && return 0
 
-  # AWS is always the provider now - no configuration check needed
-
-  dokku_log_info1 "DNS: Checking if app '$APP' should be added to DNS management..."
-
-  # Get app domains (may be empty for new apps)
-  local APP_DOMAINS=""
-  if command -v dokku >/dev/null 2>&1; then
-    APP_DOMAINS=$(dokku domains:report "$APP" --domains-app-vhosts 2>/dev/null || echo "")
-  fi
-
-  if [[ -z "$APP_DOMAINS" ]]; then
-    dokku_log_info1 "DNS: No domains configured for '$APP' yet. DNS will be available when domains are added."
-    return 0
-  fi
-
-  # Check if app is already managed by DNS
-  if is_app_dns_managed "$APP"; then
-    dokku_log_info1 "DNS: App '$APP' is already managed by DNS"
-    return 0
-  fi
-
-  # Check if any domains are in enabled zones
-  local domains_in_enabled_zones=()
-
-  # Parse domains and check if they are in enabled zones
-  for domain in $APP_DOMAINS; do
-    if is_domain_in_enabled_zone "$domain"; then
-      domains_in_enabled_zones+=("$domain")
-    fi
-  done
-
-  if [[ ${#domains_in_enabled_zones[@]} -eq 0 ]]; then
-    dokku_log_info1 "DNS: No domains for '$APP' are in enabled zones. Skipping automatic DNS setup."
-    dokku_log_info1 "DNS: Use 'dokku dns:zones:enable <zone>' to enable zones or manually add with 'dokku dns:apps:enable $APP'"
-    return 0
-  fi
-
-  # Auto-add app to DNS management if it has domains in enabled zones
-  dokku_log_info1 "DNS: Found ${#domains_in_enabled_zones[@]} domain(s) in enabled zones. Adding '$APP' to DNS management"
-  if dns_add_app_domains "$APP"; then
-    dokku_log_info1 "DNS: App '$APP' added to DNS management successfully"
-
-    # Automatically sync the app to make DNS records active
-    dokku_log_info1 "DNS: Syncing DNS records for '$APP'..."
-    if command -v dokku >/dev/null 2>&1; then
-      if dokku "$PLUGIN_COMMAND_PREFIX:sync" "$APP" >/dev/null 2>&1; then
-        dokku_log_info1 "DNS: All domains for '$APP' synced successfully"
-      else
-        dokku_log_warn "DNS: Failed to sync DNS records automatically"
-        dokku_log_info1 "DNS: Manual sync with: dokku $PLUGIN_COMMAND_PREFIX:sync $APP"
-      fi
-    else
-      dokku_log_info1 "DNS: Manual sync with: dokku $PLUGIN_COMMAND_PREFIX:sync $APP"
-    fi
-  else
-    dokku_log_warn "DNS: Failed to add app '$APP' to DNS management"
-  fi
+  # Inform user that DNS management is available
+  dokku_log_info1 "DNS: App '$APP' created. DNS records will be managed automatically when domains are added."
 }
 
 # Run if called directly (not sourced)
