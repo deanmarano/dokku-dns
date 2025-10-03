@@ -4,16 +4,40 @@ The DNS plugin is in progress! Many core features have been implemented and test
 
 
 
-### Phase 26: Fix Test Output Issues (Critical - Pre-Release)
+### Phase 26: Fix Zone Lookup and Deletion Issues (Critical - Pre-Release) ✅
 
 See `test-output-examples/` folder for actual command outputs showing these issues.
 
-- [ ] **Fix provider-verify-output.txt Issues**
-  - [ ] Reduce excessive verbosity (multiple heading levels, redundant messages)
-  - [ ] Condense zone listing (don't show every zone detail in table)
-  - [ ] Remove redundant "checking" messages
-  - [ ] Show summary counts instead of full credential detection lists
-  - [ ] Add --verbose flag for detailed output if needed
+- [x] **Fix no-zones-found.txt Issues** ✅
+  - [x] apps:sync fails with "No hosted zone found" despite zone being enabled
+  - [x] Zone lookup logic broken in sync operation
+  - [x] Ensure sync uses same zone detection as apps:enable
+  - [x] Test: recipes.deanoftech.com should find deanoftech.com zone (Z0444961AB4Z3I5DF5NH)
+  - Fixed in PR #54: Remove template from provider loading, always reload providers before use
+
+- [x] **Fix destroy-trigger.txt Issues** ✅
+  - [x] App destroy queues domains for deletion but sync:deletions fails
+  - [x] sync:deletions says "No enabled zones found" despite zones being enabled
+  - [x] Orphaned DNS records are never deleted from Route53
+  - [x] Fix sync:deletions to use same zone detection as other commands
+  - [x] Test: my-test-app.deanoftech.com should be deleted after app destroy
+  - Fixed in PR #55: Correct ENABLED_ZONES file path, use provider adapter system
+
+
+### Phase 26a: Fix Post-Create Trigger Domain Detection (Critical - Pre-Release)
+
+See `test-output-examples/app-create-trigger-fail.txt` for actual command output.
+
+- [ ] **Fix app-create-trigger-fail.txt Issues**
+  - [ ] post-create trigger says "No domains configured" but domain exists
+  - [ ] Trigger doesn't detect auto-added domain from global vhost
+  - [ ] Fix is_domain_in_enabled_zone function or post-create timing
+  - [ ] Test: my-test-app.deanoftech.com should be detected in enabled deanoftech.com zone
+
+
+### Phase 26b: Fix Apps:Enable Status Table (Critical - Pre-Release)
+
+See `test-output-examples/apps-enable.txt` for actual command output.
 
 - [ ] **Fix apps-enable.txt Issues**
   - [ ] Fix contradictory "zone enabled" vs "No (no hosted zone)" messages
@@ -22,24 +46,17 @@ See `test-output-examples/` folder for actual command outputs showing these issu
   - [ ] Clarify difference between "zone exists" vs "zone enabled for auto-discovery"
   - [ ] Fix Domain Status Table showing wrong information
 
-- [ ] **Fix no-zones-found.txt Issues**
-  - [ ] apps:sync fails with "No hosted zone found" despite zone being enabled
-  - [ ] Zone lookup logic broken in sync operation
-  - [ ] Ensure sync uses same zone detection as apps:enable
-  - [ ] Test: recipes.deanoftech.com should find deanoftech.com zone (Z0444961AB4Z3I5DF5NH)
 
-- [ ] **Fix app-create-trigger-fail.txt Issues**
-  - [ ] post-create trigger says "No domains configured" but domain exists
-  - [ ] Trigger doesn't detect auto-added domain from global vhost
-  - [ ] Fix is_domain_in_enabled_zone function or post-create timing
-  - [ ] Test: my-test-app.deanoftech.com should be detected in enabled deanoftech.com zone
+### Phase 26c: Fix Provider Verify Verbosity (Critical - Pre-Release)
 
-- [ ] **Fix destroy-trigger.txt Issues**
-  - [ ] App destroy queues domains for deletion but sync:deletions fails
-  - [ ] sync:deletions says "No enabled zones found" despite zones being enabled
-  - [ ] Orphaned DNS records are never deleted from Route53
-  - [ ] Fix sync:deletions to use same zone detection as other commands
-  - [ ] Test: my-test-app.deanoftech.com should be deleted after app destroy
+See `test-output-examples/provider-verify-output.txt` for actual command output.
+
+- [ ] **Fix provider-verify-output.txt Issues**
+  - [ ] Reduce excessive verbosity (multiple heading levels, redundant messages)
+  - [ ] Condense zone listing (don't show every zone detail in table)
+  - [ ] Remove redundant "checking" messages
+  - [ ] Show summary counts instead of full credential detection lists
+  - [ ] Add --verbose flag for detailed output if needed
 
 
 ### Phase 27: Code Quality - Critical Fixes (Pre-Release)
