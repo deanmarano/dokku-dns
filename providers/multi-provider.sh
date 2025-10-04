@@ -6,18 +6,16 @@
 PROVIDERS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$PROVIDERS_DIR/loader.sh"
 
-# Directory to store provider/zone mappings
-MULTI_PROVIDER_DATA="/tmp/dokku-dns-multi-$$"
+# Get plugin data root
+PLUGIN_DATA_ROOT="${DNS_ROOT:-${DOKKU_LIB_ROOT:-/var/lib/dokku}/services/dns}"
+
+# Directory to store provider/zone mappings (persistent across invocations)
+MULTI_PROVIDER_DATA="$PLUGIN_DATA_ROOT/.multi-provider"
 
 # Initialize data directory
 init_multi_data() {
   mkdir -p "$MULTI_PROVIDER_DATA/providers"
   mkdir -p "$MULTI_PROVIDER_DATA/zones"
-}
-
-# Clean up data directory
-cleanup_multi_data() {
-  rm -rf "$MULTI_PROVIDER_DATA"
 }
 
 # Load all available providers and discover their zones
@@ -276,6 +274,3 @@ init_multi_provider_system() {
   echo "Multi-provider system ready: $provider_count provider(s) active" >&2
   return 0
 }
-
-# Cleanup on exit
-trap cleanup_multi_data EXIT

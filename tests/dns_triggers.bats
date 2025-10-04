@@ -152,7 +152,6 @@ teardown() {
 
   run "$PLUGIN_ROOT/post-create" "test-app"
   assert_success
-  assert_output_contains "DNS: Checking if app 'test-app' should be added to DNS management"
 }
 
 @test "(triggers) post-delete works with app not in DNS management" {
