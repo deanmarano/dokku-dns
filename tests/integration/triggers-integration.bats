@@ -252,6 +252,9 @@ teardown() {
 }
 
 @test "(triggers) post-create creates DNS record when zone is enabled" {
+  # Force zone rediscovery by clearing cache (localhost zone was added to mock)
+  sudo rm -rf /var/lib/dokku/services/dns/.multi-provider 2>/dev/null || true
+
   # Enable triggers
   dokku dns:triggers:enable >/dev/null 2>&1
 
@@ -269,6 +272,9 @@ teardown() {
 }
 
 @test "(triggers) post-create shows clean success message" {
+  # Force zone rediscovery by clearing cache (localhost zone was added to mock)
+  sudo rm -rf /var/lib/dokku/services/dns/.multi-provider 2>/dev/null || true
+
   # Enable triggers
   dokku dns:triggers:enable >/dev/null 2>&1
 
