@@ -16,6 +16,7 @@ _init_mock_data() {
   echo "zone123456" >"$MOCK_DATA_DIR/zones/example.com"
   echo "zone789012" >"$MOCK_DATA_DIR/zones/test.org"
   echo "zone345678" >"$MOCK_DATA_DIR/zones/demo.net"
+  echo "zonelocalhost" >"$MOCK_DATA_DIR/zones/localhost"
 
   # Add some test records
   echo "192.168.1.100:300" >"$MOCK_DATA_DIR/records/zone123456:www.example.com:A"
