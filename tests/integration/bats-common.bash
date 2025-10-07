@@ -29,9 +29,6 @@ setup_mock_provider() {
     # Export mock API key to enable mock provider
     export MOCK_API_KEY="test-key"
 
-    # Export server IP for DNS sync (CI environment can't detect public IP)
-    export DOKKU_DNS_SERVER_IP="192.0.2.1"
-
     # Clear any existing provider cache to force re-detection
     unset CURRENT_PROVIDER 2>/dev/null || true
 

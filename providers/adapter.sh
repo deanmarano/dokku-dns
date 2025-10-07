@@ -15,11 +15,6 @@ fi
 # Plugin configuration
 PLUGIN_DATA_ROOT="${DNS_ROOT:-${DOKKU_LIB_ROOT:-/var/lib/dokku}/services/dns}"
 
-# Source test environment if it exists (for CI/testing)
-if [[ -f "$PLUGIN_DATA_ROOT/ENV" ]]; then
-  source "$PLUGIN_DATA_ROOT/ENV"
-fi
-
 # Initialize provider system
 # shellcheck disable=SC2120
 init_provider_system() {

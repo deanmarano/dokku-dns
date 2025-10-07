@@ -9,11 +9,6 @@ set -eo pipefail
 PLUGIN_BASE_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$PLUGIN_BASE_PATH/config"
 
-# Source test environment if it exists (for CI/testing)
-if [[ -f "$PLUGIN_DATA_ROOT/ENV" ]]; then
-  source "$PLUGIN_DATA_ROOT/ENV"
-fi
-
 # Load functions if available
 if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
   source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"

@@ -14,11 +14,6 @@ setup() {
   TEST_APP="trigger-test-app-$(date +%s)"
   TEST_DOMAIN="trigger.example.com"
   TEST_DOMAIN2="api.trigger.example.com"
-
-  # Set server IP for DNS sync (CI environment can't detect public IP)
-  # Write to plugin data directory ENV file
-  sudo mkdir -p /var/lib/dokku/services/dns
-  echo "export DOKKU_DNS_SERVER_IP=192.0.2.1" | sudo tee /var/lib/dokku/services/dns/ENV >/dev/null
 }
 
 teardown() {
