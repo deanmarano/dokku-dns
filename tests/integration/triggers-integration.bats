@@ -262,11 +262,9 @@ teardown() {
   sudo mkdir -p /var/lib/dokku/services/dns
   echo "localhost" | sudo tee /var/lib/dokku/services/dns/ENABLED_ZONES >/dev/null
 
-  # Set server IP for DNS sync (CI environment can't detect public IP)
-  export DOKKU_DNS_SERVER_IP="192.0.2.1"
-
-  # Create app - should trigger DNS record creation
-  run dokku apps:create "$TEST_APP"
+  # Create app with server IP set (CI environment can't detect public IP)
+  # Set as part of run command to ensure it propagates to all subprocesses
+  run env DOKKU_DNS_SERVER_IP=192.0.2.1 dokku apps:create "$TEST_APP"
   assert_success
 
   # Verify app is in DNS management
@@ -286,12 +284,9 @@ teardown() {
   sudo mkdir -p /var/lib/dokku/services/dns
   echo "localhost" | sudo tee /var/lib/dokku/services/dns/ENABLED_ZONES >/dev/null
 
-  # Set server IP for DNS sync (CI environment can't detect public IP)
-  # Use a TEST-NET IP address (192.0.2.0/24 reserved for documentation)
-  export DOKKU_DNS_SERVER_IP="192.0.2.1"
-
-  # Create app - check for clean output
-  run dokku apps:create "$TEST_APP"
+  # Create app with server IP set (CI environment can't detect public IP)
+  # Set as part of run command to ensure it propagates to all subprocesses
+  run env DOKKU_DNS_SERVER_IP=192.0.2.1 dokku apps:create "$TEST_APP"
   assert_success
   assert_output --partial "DNS: Record for"
   assert_output --partial "created successfully"
