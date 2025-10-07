@@ -4,6 +4,11 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/config"
 set -eo pipefail
 [[ $DOKKU_TRACE ]] && set -x
 
+# Source test environment if it exists (for CI/testing)
+if [[ -f "$PLUGIN_DATA_ROOT/ENV" ]]; then
+  source "$PLUGIN_DATA_ROOT/ENV"
+fi
+
 # Load dokku functions if available
 if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
   source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
