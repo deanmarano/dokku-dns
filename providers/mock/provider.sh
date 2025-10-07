@@ -5,15 +5,8 @@
 # Load provider configuration
 source "$(dirname "${BASH_SOURCE[0]}")/config.sh"
 
-# Mock data storage (simple approach for compatibility)
-# Use fixed directory for tests to avoid PID-based directory issues
-if [[ -n "${MOCK_API_KEY:-}" ]]; then
-  # In test mode, use consistent directory
-  MOCK_DATA_DIR="/tmp/mock-dns-test"
-else
-  # In production mode, use PID-based directory for isolation
-  MOCK_DATA_DIR="/tmp/mock-dns-$$"
-fi
+# Mock data storage - use fixed directory so all processes share same mock data
+MOCK_DATA_DIR="/tmp/mock-dns-test"
 
 # Initialize mock data
 _init_mock_data() {
