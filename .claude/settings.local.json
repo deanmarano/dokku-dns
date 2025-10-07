@@ -122,7 +122,11 @@
       "Bash(env:*)",
       "Bash(SKIP_TESTS=1 git commit -m \"docs: reorder phases around 1.0 release\n\nReorganize phases to make logical sense:\n- Phases 26-27: Code quality fixes (critical and high priority) BEFORE release\n- Phase 28: Pre-release testing and validation\n- Phase 29: 1.0 Release\n- Phase 30: Community & Support (post-release activities)\n- Phases 31-32: Medium and low priority cleanup (post-1.0)\n\nThis ensures critical fixes happen before release, not after.\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
       "Bash(SKIP_TESTS=1 git commit -m \"docs: add installation issues to Phase 26\n\nAdd todos for fixing installation detection:\n- Remove deprecated ''default DNS provider'' concept\n- Add DigitalOcean detection to install script\n- Report multi-provider mode properly during installation\n- Remove PROVIDER file creation (no longer needed)\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
-      "Bash(gh pr list:*)"
+      "Bash(gh pr list:*)",
+      "Bash(tee:*)",
+      "Bash(docker ps:*)",
+      "Bash(xargs -r docker stop)",
+      "Bash(SKIP_TESTS=1 git commit -am \"fix: source test ENV file in post-create hook\n\nWrite DOKKU_DNS_SERVER_IP to /var/lib/dokku/services/dns/ENV in test\nsetup and source it in post-create hook. This ensures the environment\nvariable is available when the post-create trigger runs during app\ncreation.\n\nPrevious attempts failed because:\n1. export in BATS doesn''t propagate to Dokku subprocesses\n2. /var/lib/dokku/ENV isn''t automatically sourced by plugin hooks\n3. Plugin config shouldn''t be modified at runtime\n\nSolution: Use dedicated ENV file in plugin data directory that the\npost-create hook explicitly sources.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

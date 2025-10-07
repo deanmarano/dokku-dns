@@ -15,9 +15,10 @@ setup() {
   TEST_DOMAIN="trigger.example.com"
   TEST_DOMAIN2="api.trigger.example.com"
 
-  # Set server IP for DNS sync globally (CI environment can't detect public IP)
-  # Write to Dokku's global ENV so it's available to all hooks and subprocesses
-  echo "export DOKKU_DNS_SERVER_IP=192.0.2.1" | sudo tee /var/lib/dokku/ENV >/dev/null
+  # Set server IP for DNS sync (CI environment can't detect public IP)
+  # Write to plugin data directory ENV file
+  sudo mkdir -p /var/lib/dokku/services/dns
+  echo "export DOKKU_DNS_SERVER_IP=192.0.2.1" | sudo tee /var/lib/dokku/services/dns/ENV >/dev/null
 }
 
 teardown() {
