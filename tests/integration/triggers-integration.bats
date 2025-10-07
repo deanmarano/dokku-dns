@@ -14,6 +14,10 @@ setup() {
   TEST_APP="trigger-test-app-$(date +%s)"
   TEST_DOMAIN="trigger.example.com"
   TEST_DOMAIN2="api.trigger.example.com"
+
+  # Set server IP for DNS sync globally (CI environment can't detect public IP)
+  # Write to Dokku's global ENV so it's available to all hooks and subprocesses
+  echo "export DOKKU_DNS_SERVER_IP=192.0.2.1" | sudo tee /var/lib/dokku/ENV >/dev/null
 }
 
 teardown() {
@@ -262,9 +266,8 @@ teardown() {
   sudo mkdir -p /var/lib/dokku/services/dns
   echo "localhost" | sudo tee /var/lib/dokku/services/dns/ENABLED_ZONES >/dev/null
 
-  # Create app with server IP set (CI environment can't detect public IP)
-  # Set as part of run command to ensure it propagates to all subprocesses
-  run env DOKKU_DNS_SERVER_IP=192.0.2.1 dokku apps:create "$TEST_APP"
+  # Create app - should trigger DNS record creation
+  run dokku apps:create "$TEST_APP"
   assert_success
 
   # Verify app is in DNS management
@@ -284,9 +287,8 @@ teardown() {
   sudo mkdir -p /var/lib/dokku/services/dns
   echo "localhost" | sudo tee /var/lib/dokku/services/dns/ENABLED_ZONES >/dev/null
 
-  # Create app with server IP set (CI environment can't detect public IP)
-  # Set as part of run command to ensure it propagates to all subprocesses
-  run env DOKKU_DNS_SERVER_IP=192.0.2.1 dokku apps:create "$TEST_APP"
+  # Create app - check for clean output
+  run dokku apps:create "$TEST_APP"
   assert_success
   assert_output --partial "DNS: Record for"
   assert_output --partial "created successfully"
