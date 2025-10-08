@@ -2,10 +2,11 @@
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "allow": [
-      "Bash(SKIP_TESTS=1 git commit -am \"debug: show sync output in post-create to see actual error\n\nRemoved output suppression from dns:sync call so we can see DEBUG messages\nand actual error.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")"
+      "Bash(SKIP_TESTS=1 git commit -am \"debug: show sync output in post-create to see actual error\n\nRemoved output suppression from dns:sync call so we can see DEBUG messages\nand actual error.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
+      "Bash(SKIP_TESTS=1 git commit -m \"fix: use correct command dns:apps:sync in post-create hook\n\nThe post-create hook was calling ''dokku dns:sync'' which doesn''t exist.\nThe correct command is ''dokku dns:apps:sync''.\n\nThis was the root cause of test 165 failing - the sync command never\nran because the command name was wrong.\n\nAlso removed debug output from get_server_ip() since we found the issue.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")"
     ],
     "deny": [],
-    "defaultMode": "acceptEdits",
-    "ask": []
+    "ask": [],
+    "defaultMode": "acceptEdits"
   }
 }

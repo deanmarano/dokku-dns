@@ -67,12 +67,9 @@ get_server_ip() {
 
   # Method 1: In test/mock mode, use a test IP (192.0.2.0/24 is TEST-NET-1)
   if [[ -n "${MOCK_API_KEY:-}" ]]; then
-    echo "DEBUG: MOCK_API_KEY is set, returning test IP 192.0.2.1" >&2
     echo "192.0.2.1"
     return 0
   fi
-
-  echo "DEBUG: MOCK_API_KEY not set (value: '${MOCK_API_KEY:-}'), trying other methods" >&2
 
   # Method 2: Check if IP is set in environment
   if [[ -n "${DOKKU_DNS_SERVER_IP:-}" ]]; then

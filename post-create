@@ -86,11 +86,11 @@ main() {
     # Verify the app was actually added by checking if service directory exists
     if [[ -d "$PLUGIN_DATA_ROOT/$APP" ]]; then
       # Now sync to create DNS records
-      if dokku "$PLUGIN_COMMAND_PREFIX:sync" "$APP" 2>&1; then
+      if dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" "$APP" >/dev/null 2>&1; then
         dokku_log_info1 "DNS: Record for '$PREDICTED_DOMAIN' created successfully"
       else
         dokku_log_warn "DNS: Failed to create DNS record automatically"
-        dokku_log_info1 "DNS: Manual sync with: dokku $PLUGIN_COMMAND_PREFIX:sync $APP"
+        dokku_log_info1 "DNS: Manual sync with: dokku $PLUGIN_COMMAND_PREFIX:apps:sync $APP"
       fi
     else
       dokku_log_warn "DNS: Failed to enable app '$APP' for DNS management"
