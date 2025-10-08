@@ -28,10 +28,10 @@ skip_if_no_aws_credentials() {
 setup_mock_provider() {
     # Export mock API key to enable mock provider
     export MOCK_API_KEY="test-key"
-    
+
     # Clear any existing provider cache to force re-detection
     unset CURRENT_PROVIDER 2>/dev/null || true
-    
+
     # Enable example.com zone for integration tests by directly creating the file
     local PLUGIN_DATA_ROOT="${DNS_ROOT:-${DOKKU_LIB_ROOT:-/var/lib/dokku}/services/dns}"
     mkdir -p "$PLUGIN_DATA_ROOT"

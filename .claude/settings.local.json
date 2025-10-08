@@ -29,7 +29,6 @@
       "Bash(../commands dns:help)",
       "Bash(../commands dns:help report)",
       "Bash(../commands dns:help nonexistent-command)",
-      "Bash(RUN_DOCKER_TESTS=0 git commit --amend -m \"$(cat <<''EOF''\nFix Docker testing: add plugin installation and permissions handling\n\n- Add automatic DNS plugin installation in Docker test orchestrator\n- Fix permissions on DNS data directory after plugin installation\n- Update test assertion to match improved AWS CLI error message\n- Ensure plugin is ready before running integration tests\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
       "Bash(docker system prune:*)",
       "Bash(docker container prune:*)",
       "Bash(true)",
@@ -71,7 +70,6 @@
       "Bash(bash -c \"source tests/test_helper.bash && dns_cmd cron --enable\")",
       "Bash(bash -c \"source tests/test_helper.bash && dns_cmd cron --enable && dns_cmd cron --enable\")",
       "Bash(bash -c \"source tests/test_helper.bash && dns_cmd cron --enable >/dev/null && dns_cmd cron\")",
-      "Bash(SKIP_TESTS=1 git commit -m \"fix: handle read-only Docker volume in CI workflow\n\nCopy integration test script to writable location before execution to avoid\n''chmod: Read-only file system'' error in CI. The Docker volume is mounted \nread-only but we need to make the script executable.\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
       "Bash(bash -c \"source tests/test_helper.bash && cleanup_dns_data && setup_dns_provider ''aws'' && rm -f ''$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED'' && ./post-create test-app\")",
       "Bash(bash -c \"source tests/test_helper.bash && cleanup_dns_data && ./subcommands/triggers\")",
       "Bash(bash -c \"source tests/test_helper.bash && cleanup_dns_data && mkdir -p \"\"$PLUGIN_DATA_ROOT\"\" && touch \"\"$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED\"\" && ./subcommands/triggers\")",
@@ -120,11 +118,10 @@
       "Bash(./commands dns help)",
       "Bash(env PLUGIN_DATA_ROOT=\"/tmp/dns-test\" ./commands dns providers:verify)",
       "Bash(env:*)",
-      "Bash(SKIP_TESTS=1 git commit -m \"docs: reorder phases around 1.0 release\n\nReorganize phases to make logical sense:\n- Phases 26-27: Code quality fixes (critical and high priority) BEFORE release\n- Phase 28: Pre-release testing and validation\n- Phase 29: 1.0 Release\n- Phase 30: Community & Support (post-release activities)\n- Phases 31-32: Medium and low priority cleanup (post-1.0)\n\nThis ensures critical fixes happen before release, not after.\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
-      "Bash(SKIP_TESTS=1 git commit -m \"docs: add installation issues to Phase 26\n\nAdd todos for fixing installation detection:\n- Remove deprecated ''default DNS provider'' concept\n- Add DigitalOcean detection to install script\n- Report multi-provider mode properly during installation\n- Remove PROVIDER file creation (no longer needed)\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
       "Bash(gh pr list:*)"
     ],
     "deny": [],
+    "ask": [],
     "defaultMode": "acceptEdits"
   }
 }
