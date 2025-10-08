@@ -210,7 +210,6 @@ jobs:
             ls -la *.bats &&
             echo '🔧 Setting up mock provider for testing...' &&
             export MOCK_API_KEY='test-key' &&
-            export DOKKU_DNS_SERVER_IP='192.0.2.1' &&
             echo '🔧 Temporarily removing AWS CLI for mock provider tests...' &&
             mv /usr/bin/aws /usr/bin/aws.bak 2>/dev/null || true &&
             bats *.bats

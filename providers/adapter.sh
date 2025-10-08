@@ -65,19 +65,25 @@ get_server_ip() {
   # Try various methods to detect server IP
   local server_ip
 
-  # Method 1: Check if IP is set in environment
+  # Method 1: In test/mock mode, use a test IP (192.0.2.0/24 is TEST-NET-1)
+  if [[ -n "${MOCK_API_KEY:-}" ]]; then
+    echo "192.0.2.1"
+    return 0
+  fi
+
+  # Method 2: Check if IP is set in environment
   if [[ -n "${DOKKU_DNS_SERVER_IP:-}" ]]; then
     echo "$DOKKU_DNS_SERVER_IP"
     return 0
   fi
 
-  # Method 2: Try to get public IP from metadata service (AWS/GCP/etc)
+  # Method 3: Try to get public IP from metadata service (AWS/GCP/etc)
   if server_ip=$(curl -s --max-time 5 http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null) && [[ -n "$server_ip" ]]; then
     echo "$server_ip"
     return 0
   fi
 
-  # Method 3: Try external IP detection services
+  # Method 4: Try external IP detection services
   local ip_services=(
     "http://ipv4.icanhazip.com"
     "http://checkip.amazonaws.com"
@@ -91,7 +97,7 @@ get_server_ip() {
     fi
   done
 
-  # Method 4: Get IP from default route interface
+  # Method 5: Get IP from default route interface
   if server_ip=$(ip route get 8.8.8.8 2>/dev/null | awk '{print $7; exit}') && [[ -n "$server_ip" ]]; then
     echo "$server_ip"
     return 0
