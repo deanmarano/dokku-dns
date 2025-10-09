@@ -59,6 +59,20 @@ See `test-output-examples/provider-verify-output.txt` for actual command output.
   - [ ] Add --verbose flag for detailed output if needed
 
 
+### Phase 26d: Remove MULTI_PROVIDER_MODE Flag (Pre-Release Cleanup)
+
+This is legacy code from when single-provider mode existed. Now that multi-provider is the only mode, remove the flag entirely.
+
+- [ ] **Remove MULTI_PROVIDER_MODE Flag**
+  - [ ] Remove MULTI_PROVIDER_MODE environment variable (always true, legacy code)
+  - [ ] Remove all `if [[ "${MULTI_PROVIDER_MODE:-false}" == "true" ]]` conditionals in adapter.sh
+  - [ ] Always call multi_* functions (multi_get_zone_id, multi_get_record, etc.)
+  - [ ] Delete dead code branches that call provider_* directly
+  - [ ] Update init_provider_system to always use multi-provider routing
+  - [ ] Remove "Multi-provider mode activated" messages (it's the only mode)
+  - [ ] Update tests that reference MULTI_PROVIDER_MODE
+
+
 ### Phase 27: Code Quality - Critical Fixes (Pre-Release)
 
 - [ ] **Fix Installation Issues**
@@ -192,14 +206,6 @@ See `test-output-examples/provider-verify-output.txt` for actual command output.
   - [ ] Replace hardcoded "300" in functions:981 with constant
   - [ ] Replace hardcoded TTL values in adapter.sh:202, 218 with constants
   - [ ] Update all TTL validation to use constants
-
-- [ ] **Remove MULTI_PROVIDER_MODE Flag**
-  - [ ] Remove MULTI_PROVIDER_MODE environment variable (always true, legacy code)
-  - [ ] Remove all `if [[ "${MULTI_PROVIDER_MODE:-false}" == "true" ]]` conditionals in adapter.sh
-  - [ ] Always call multi_* functions (multi_get_zone_id, multi_get_record, etc.)
-  - [ ] Delete dead code branches that call provider_* directly (lines 147-155 in adapter.sh)
-  - [ ] Update init_provider_system to always use multi-provider routing
-  - [ ] Remove "Multi-provider mode activated" messages (it's the only mode)
 
 
 ### Phase 28: Code Quality - High Priority Refactoring (Pre-Release)

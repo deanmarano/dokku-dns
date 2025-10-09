@@ -105,11 +105,7 @@ service-sync-deletions-cmd() {
     
     # Get hosted zone ID for this zone using provider adapter
     local zone_id
-    if [[ "${MULTI_PROVIDER_MODE:-false}" == "true" ]]; then
-      zone_id=$(multi_get_zone_id "$zone" 2>/dev/null || echo "")
-    else
-      zone_id=$(provider_get_zone_id "$zone" 2>/dev/null || echo "")
-    fi
+    zone_id=$(multi_get_zone_id "$zone" 2>/dev/null || echo "")
 
     if [[ -z "$zone_id" ]]; then
       dokku_log_warn "Could not find hosted zone for: $zone"
@@ -196,11 +192,7 @@ service-sync-deletions-cmd() {
       
       # Get hosted zone ID using provider adapter
       local zone_id
-      if [[ "${MULTI_PROVIDER_MODE:-false}" == "true" ]]; then
-        zone_id=$(multi_get_zone_id "$record_zone" 2>/dev/null || echo "")
-      else
-        zone_id=$(provider_get_zone_id "$record_zone" 2>/dev/null || echo "")
-      fi
+      zone_id=$(multi_get_zone_id "$record_zone" 2>/dev/null || echo "")
 
       if [[ -z "$zone_id" ]]; then
         dokku_log_warn "Could not find hosted zone ID for: $record_zone"
