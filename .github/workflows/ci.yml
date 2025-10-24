@@ -69,7 +69,7 @@ jobs:
             fi
           fi
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: failure()
         with:
           name: lint-results
@@ -102,7 +102,7 @@ jobs:
       - name: Run unit tests
         run: make unit-tests
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: failure()
         with:
           name: unit-test-results
@@ -228,7 +228,7 @@ jobs:
         
     - name: Upload test logs on failure
       if: failure()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: docker-test-logs
         path: |
