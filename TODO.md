@@ -37,11 +37,11 @@ The DNS plugin is in progress! Many core features have been implemented and test
 - User sees "❌ Failed" but no indication why
 
 **Tasks:**
-- [ ] Remove `2>/dev/null` from zone lookup calls in apply phase
-- [ ] Capture stderr from provider calls and display on failure
-- [ ] Add DNS_VERBOSE environment variable for detailed debugging
-- [ ] Show actual error messages from AWS/provider APIs
-- [ ] Format: "❌ Failed: [actual error message]"
+- [x] Remove `2>/dev/null` from zone lookup calls in apply phase
+- [x] Capture stderr from provider calls and display on failure
+- [ ] Add DNS_VERBOSE environment variable for detailed debugging (future enhancement)
+- [x] Show actual error messages from AWS/provider APIs
+- [x] Format: "❌ Failed" with error details on next line
 
 
 ### Phase 26c: Fix Zone Lookup Inconsistency in Report/Status (MEDIUM - DISPLAY)
