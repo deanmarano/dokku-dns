@@ -12,10 +12,10 @@ setup() {
   mkdir -p "$PLUGIN_DATA_ROOT/.multi-provider/providers"
 
   # Create some test zone mappings
-  echo "aws" > "$PLUGIN_DATA_ROOT/.multi-provider/zones/example.com"
-  echo "aws" > "$PLUGIN_DATA_ROOT/.multi-provider/zones/test.io"
-  echo "aws" > "$PLUGIN_DATA_ROOT/.multi-provider/zones/subdomain.example.org"
-  echo "aws" > "$PLUGIN_DATA_ROOT/.multi-provider/zones/dean.is"
+  echo "aws" >"$PLUGIN_DATA_ROOT/.multi-provider/zones/example.com"
+  echo "aws" >"$PLUGIN_DATA_ROOT/.multi-provider/zones/test.io"
+  echo "aws" >"$PLUGIN_DATA_ROOT/.multi-provider/zones/subdomain.example.org"
+  echo "aws" >"$PLUGIN_DATA_ROOT/.multi-provider/zones/dean.is"
 
   # Source the multi-provider functions
   source "$PLUGIN_ROOT/providers/multi-provider.sh"
@@ -199,9 +199,9 @@ teardown() {
 
 @test "(regression) any second-level domain works correctly" {
   # Test various second-level domains
-  echo "aws" > "$PLUGIN_DATA_ROOT/.multi-provider/zones/example.co.uk"
-  echo "aws" > "$PLUGIN_DATA_ROOT/.multi-provider/zones/test.me"
-  echo "aws" > "$PLUGIN_DATA_ROOT/.multi-provider/zones/app.dev"
+  echo "aws" >"$PLUGIN_DATA_ROOT/.multi-provider/zones/example.co.uk"
+  echo "aws" >"$PLUGIN_DATA_ROOT/.multi-provider/zones/test.me"
+  echo "aws" >"$PLUGIN_DATA_ROOT/.multi-provider/zones/app.dev"
 
   run find_provider_for_zone "example.co.uk"
   assert_success
