@@ -192,7 +192,11 @@ dns_sync_app() {
       # Get zone ID again for this domain
       local zone_id
       if [[ "${MULTI_PROVIDER_MODE:-false}" == "true" ]]; then
-        zone_id=$(multi_get_zone_id "$domain" 2>/dev/null)
+        if ! zone_id=$(multi_get_zone_id "$domain" 2>&1); then
+          echo "❌ Failed (no hosted zone found)"
+          domains_failed=$((domains_failed + 1))
+          continue
+        fi
 
         # Apply the change using domain-specific TTL
         local ttl
@@ -209,7 +213,11 @@ dns_sync_app() {
           domains_failed=$((domains_failed + 1))
         fi
       else
-        zone_id=$(provider_get_zone_id "$domain" 2>/dev/null)
+        if ! zone_id=$(provider_get_zone_id "$domain" 2>&1); then
+          echo "❌ Failed (no hosted zone found)"
+          domains_failed=$((domains_failed + 1))
+          continue
+        fi
 
         # Apply the change using domain-specific TTL
         local ttl

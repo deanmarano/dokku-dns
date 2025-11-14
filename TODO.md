@@ -3,8 +3,68 @@
 The DNS plugin is in progress! Many core features have been implemented and tested. See [DONE.md](./DONE.md) for completed work.
 
 
+### Phase 26a: Fix Missing Error Checking in Sync Apply Phase (CRITICAL - BLOCKING)
 
-### Phase 26: Fix Test Output Issues (Critical - Pre-Release)
+**Problem:** `dns:apps:sync` fails silently when trying to update DNS records. The apply phase doesn't check if zone lookup succeeds, leading to attempts to create records with empty zone IDs.
+
+**Location:** `providers/adapter.sh:dns_sync_app()` lines 194-210
+
+**Root Cause:**
+- Phase 1 (analyze) checks zone_id lookup: `if ! zone_id=$(multi_get_zone_id "$domain"); then`
+- Phase 2 (apply) doesn't check: `zone_id=$(multi_get_zone_id "$domain" 2>/dev/null)`
+- If zone lookup fails in apply phase, continues with empty zone_id
+- `multi_create_record` called with empty zone_id → fails silently
+
+**Tasks:**
+- [x] Add error checking in apply phase (lines 194-195 and 212-213)
+- [x] Skip domain if zone_id lookup fails, similar to analyze phase
+- [x] Show error message when zone lookup fails in apply phase
+- [ ] Test with dean.is domain that has existing A records
+
+**Example:** User sees "❌ Failed" with no indication why (zone not found? permissions? API error?)
+
+
+### Phase 26b: Improve Provider Error Reporting (HIGH - DEBUGGING)
+
+**Problem:** Provider errors are silenced, making it impossible to debug why operations fail.
+
+**Location:** `providers/adapter.sh` and various subcommands
+
+**Root Cause:**
+- Errors redirected to `/dev/null 2>&1` in many places
+- Line 204, 221: `multi_create_record` failures are silent
+- Line 195, 212: `multi_get_zone_id` failures redirected to /dev/null
+- User sees "❌ Failed" but no indication why
+
+**Tasks:**
+- [ ] Remove `2>/dev/null` from zone lookup calls in apply phase
+- [ ] Capture stderr from provider calls and display on failure
+- [ ] Add DNS_VERBOSE environment variable for detailed debugging
+- [ ] Show actual error messages from AWS/provider APIs
+- [ ] Format: "❌ Failed: [actual error message]"
+
+
+### Phase 26c: Fix Zone Lookup Inconsistency in Report/Status (MEDIUM - DISPLAY)
+
+**Problem:** Report and status commands show "No hosted zone" even when zones exist and are enabled.
+
+**Location:** `subcommands/report`, `functions:dns_add_app_domains()` status table
+
+**Examples:**
+- `dns:report website` shows "No hosted zone" for dean.is (zone ZZ36BKMR6SB53 exists)
+- `dns:report website` shows "No hosted zone" for website.deanoftech.com (zone Z0444961AB4Z3I5DF5NH exists)
+- `dns:apps:enable` shows "✓ dean.is can be managed (zone enabled)" but table shows "⚠️ No (no hosted zone)"
+- "Zone (Enabled)" column shows "-" instead of actual zone status
+
+**Tasks:**
+- [ ] Fix zone lookup in report subcommand to use same logic as apps:enable
+- [ ] Update Domain Status Table to reflect actual zone detection results
+- [ ] Ensure consistency between "checking" phase and status table
+- [ ] Show actual zone ID or provider in table when zone is found
+- [ ] Clarify difference between "zone exists" vs "zone enabled for auto-discovery"
+
+
+### Phase 26d: Fix Test Output Issues (Pre-Release)
 
 See `test-output-examples/` folder for actual command outputs showing these issues.
 
@@ -14,19 +74,6 @@ See `test-output-examples/` folder for actual command outputs showing these issu
   - [ ] Remove redundant "checking" messages
   - [ ] Show summary counts instead of full credential detection lists
   - [ ] Add --verbose flag for detailed output if needed
-
-- [ ] **Fix apps-enable.txt Issues**
-  - [ ] Fix contradictory "zone enabled" vs "No (no hosted zone)" messages
-  - [ ] Ensure status indicators (✅/❌) match actual enablement state
-  - [ ] Remove confusing "Provider" column showing "AWS" when zones aren't enabled
-  - [ ] Clarify difference between "zone exists" vs "zone enabled for auto-discovery"
-  - [ ] Fix Domain Status Table showing wrong information
-
-- [ ] **Fix no-zones-found.txt Issues**
-  - [ ] apps:sync fails with "No hosted zone found" despite zone being enabled
-  - [ ] Zone lookup logic broken in sync operation
-  - [ ] Ensure sync uses same zone detection as apps:enable
-  - [ ] Test: recipes.deanoftech.com should find deanoftech.com zone (Z0444961AB4Z3I5DF5NH)
 
 - [ ] **Fix app-create-trigger-fail.txt Issues**
   - [ ] post-create trigger says "No domains configured" but domain exists
