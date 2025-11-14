@@ -131,18 +131,11 @@ multi_get_record() {
   local record_name="$2"
   local record_type="$3"
 
-  # Determine zone from record name (remove first subdomain)
-  local zone_name
-  if [[ "$record_name" == *.* ]]; then
-    zone_name="${record_name#*.}"
-  else
-    zone_name="$record_name"
-  fi
-
   # Find provider for this zone
+  # find_provider_for_zone will check for exact match first, then walk up domain hierarchy
   local provider
-  if ! provider=$(find_provider_for_zone "$zone_name"); then
-    echo "No provider found for zone: $zone_name" >&2
+  if ! provider=$(find_provider_for_zone "$record_name"); then
+    echo "No provider found for zone: $record_name" >&2
     return 1
   fi
 
@@ -163,18 +156,11 @@ multi_create_record() {
   local record_value="$4"
   local ttl="$5"
 
-  # Determine zone from record name
-  local zone_name
-  if [[ "$record_name" == *.* ]]; then
-    zone_name="${record_name#*.}"
-  else
-    zone_name="$record_name"
-  fi
-
   # Find provider for this zone
+  # find_provider_for_zone will check for exact match first, then walk up domain hierarchy
   local provider
-  if ! provider=$(find_provider_for_zone "$zone_name"); then
-    echo "No provider found for zone: $zone_name" >&2
+  if ! provider=$(find_provider_for_zone "$record_name"); then
+    echo "No provider found for zone: $record_name" >&2
     return 1
   fi
 
@@ -193,18 +179,11 @@ multi_delete_record() {
   local record_name="$2"
   local record_type="$3"
 
-  # Determine zone from record name
-  local zone_name
-  if [[ "$record_name" == *.* ]]; then
-    zone_name="${record_name#*.}"
-  else
-    zone_name="$record_name"
-  fi
-
   # Find provider for this zone
+  # find_provider_for_zone will check for exact match first, then walk up domain hierarchy
   local provider
-  if ! provider=$(find_provider_for_zone "$zone_name"); then
-    echo "No provider found for zone: $zone_name" >&2
+  if ! provider=$(find_provider_for_zone "$record_name"); then
+    echo "No provider found for zone: $record_name" >&2
     return 1
   fi
 
