@@ -205,11 +205,18 @@ dns_sync_app() {
         else
           ttl="300"
         fi
-        if multi_create_record "$zone_id" "$domain" "A" "$server_ip" "$ttl" >/dev/null 2>&1; then
+
+        # Capture error output for debugging
+        local error_output
+        error_output=$(multi_create_record "$zone_id" "$domain" "A" "$server_ip" "$ttl" 2>&1)
+        if [[ $? -eq 0 ]]; then
           echo "✅ Applied"
           domains_synced=$((domains_synced + 1))
         else
           echo "❌ Failed"
+          if [[ -n "$error_output" ]]; then
+            echo "       Error: $error_output" >&2
+          fi
           domains_failed=$((domains_failed + 1))
         fi
       else
@@ -226,11 +233,18 @@ dns_sync_app() {
         else
           ttl="300"
         fi
-        if provider_create_record "$zone_id" "$domain" "A" "$server_ip" "$ttl" >/dev/null 2>&1; then
+
+        # Capture error output for debugging
+        local error_output
+        error_output=$(provider_create_record "$zone_id" "$domain" "A" "$server_ip" "$ttl" 2>&1)
+        if [[ $? -eq 0 ]]; then
           echo "✅ Applied"
           domains_synced=$((domains_synced + 1))
         else
           echo "❌ Failed"
+          if [[ -n "$error_output" ]]; then
+            echo "       Error: $error_output" >&2
+          fi
           domains_failed=$((domains_failed + 1))
         fi
       fi
