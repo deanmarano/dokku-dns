@@ -57,7 +57,9 @@ service-apps-report-cmd() {
     exit 1
   fi
   verify_app_name "$APP"
-  dns_report "$APP"
+
+  # Call the main report command with the app parameter
+  "$(dirname "${BASH_SOURCE[0]}")/report" "$PLUGIN_COMMAND_PREFIX:report" "$APP"
 }
 
 service-apps-report-cmd "$@"
