@@ -207,9 +207,10 @@ dns_sync_app() {
         fi
 
         # Capture error output for debugging
-        local error_output
+        local error_output exit_code
         error_output=$(multi_create_record "$zone_id" "$domain" "A" "$server_ip" "$ttl" 2>&1)
-        if [[ $? -eq 0 ]]; then
+        exit_code=$?
+        if [[ $exit_code -eq 0 ]]; then
           echo "✅ Applied"
           domains_synced=$((domains_synced + 1))
         else
@@ -235,9 +236,10 @@ dns_sync_app() {
         fi
 
         # Capture error output for debugging
-        local error_output
+        local error_output exit_code
         error_output=$(provider_create_record "$zone_id" "$domain" "A" "$server_ip" "$ttl" 2>&1)
-        if [[ $? -eq 0 ]]; then
+        exit_code=$?
+        if [[ $exit_code -eq 0 ]]; then
           echo "✅ Applied"
           domains_synced=$((domains_synced + 1))
         else
