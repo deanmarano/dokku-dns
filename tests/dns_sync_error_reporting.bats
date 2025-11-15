@@ -7,6 +7,7 @@ load test_helper
 setup() {
   cleanup_dns_data
   setup_dns_provider aws
+  export DNS_TEST_SERVER_IP="192.0.2.1"
 }
 
 teardown() {

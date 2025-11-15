@@ -627,6 +627,12 @@ get_server_ip() {
   local SERVER_IP=""
   local GLOBAL_DOMAINS=""
 
+  # Check for test environment override
+  if [[ -n "${DNS_TEST_SERVER_IP:-}" ]]; then
+    echo "$DNS_TEST_SERVER_IP"
+    return 0
+  fi
+
   if command -v dokku >/dev/null 2>&1; then
     GLOBAL_DOMAINS=$(dokku domains:report --domains-global-vhosts 2>/dev/null || echo "")
   fi
