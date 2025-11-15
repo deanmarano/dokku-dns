@@ -271,8 +271,8 @@ teardown() {
 
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" multi-fail-app
 
-  # Should show error for each domain
-  assert_output_contains "Failed"
+  # Should show error for each domain (3 domains = 3 failures)
+  assert_output_contains "Failed" 3
 
   cleanup_test_app multi-fail-app
 }
