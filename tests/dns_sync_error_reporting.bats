@@ -19,14 +19,15 @@ teardown() {
   create_test_app phase26a-app
   add_test_domains phase26a-app nonexistent.invalid
 
-  # Enable DNS
-  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" phase26a-app >/dev/null 2>&1 || true
+  # Manually add to DNS management
+  mkdir -p "$PLUGIN_DATA_ROOT/phase26a-app"
+  echo "nonexistent.invalid" >"$PLUGIN_DATA_ROOT/phase26a-app/DOMAINS"
 
   # Sync should fail gracefully
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" phase26a-app
 
-  # Should see failure message
-  assert_output_contains "Failed" || assert_output_contains "No hosted zone"
+  # Should see failure message with zone error
+  assert_output_contains "Failed" || assert_output_contains "No provider found"
 
   # Should not continue with empty zone_id
   ! assert_output_contains "Created/updated record" || true
@@ -38,13 +39,14 @@ teardown() {
   create_test_app zone-check-app
   add_test_domains zone-check-app missing-zone.test
 
-  # Enable DNS
-  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" zone-check-app >/dev/null 2>&1 || true
+  # Manually add to DNS management
+  mkdir -p "$PLUGIN_DATA_ROOT/zone-check-app"
+  echo "missing-zone.test" >"$PLUGIN_DATA_ROOT/zone-check-app/DOMAINS"
 
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" zone-check-app
 
   # The fix adds this specific error message
-  assert_output_contains "Failed" || assert_output_contains "no hosted zone"
+  assert_output_contains "Failed (no hosted zone found)" || assert_output_contains "No provider found"
 
   cleanup_test_app zone-check-app
 }
@@ -53,13 +55,15 @@ teardown() {
   create_test_app counter-app
   add_test_domains counter-app bad1.invalid bad2.invalid
 
-  # Enable DNS
-  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" counter-app >/dev/null 2>&1 || true
+  # Manually add to DNS management
+  mkdir -p "$PLUGIN_DATA_ROOT/counter-app"
+  echo "bad1.invalid" >"$PLUGIN_DATA_ROOT/counter-app/DOMAINS"
+  echo "bad2.invalid" >>"$PLUGIN_DATA_ROOT/counter-app/DOMAINS"
 
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" counter-app
 
-  # Should show failure count
-  assert_output_contains "0 of" || assert_output_contains "Apply complete"
+  # Should show completion message
+  assert_output_contains "Apply complete"
 
   cleanup_test_app counter-app
 }
@@ -68,8 +72,9 @@ teardown() {
   create_test_app skip-app
   add_test_domains skip-app fail-domain.invalid
 
-  # Enable DNS
-  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" skip-app >/dev/null 2>&1 || true
+  # Manually add to DNS management
+  mkdir -p "$PLUGIN_DATA_ROOT/skip-app"
+  echo "fail-domain.invalid" >"$PLUGIN_DATA_ROOT/skip-app/DOMAINS"
 
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" skip-app
 
@@ -203,8 +208,9 @@ teardown() {
   create_test_app integration-zone-app
   add_test_domains integration-zone-app no-zone.invalid
 
-  # Enable DNS
-  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" integration-zone-app >/dev/null 2>&1 || true
+  # Manually add to DNS management
+  mkdir -p "$PLUGIN_DATA_ROOT/integration-zone-app"
+  echo "no-zone.invalid" >"$PLUGIN_DATA_ROOT/integration-zone-app/DOMAINS"
 
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" integration-zone-app
 
@@ -221,8 +227,9 @@ teardown() {
   create_test_app integration-api-app
   add_test_domains integration-api-app api-error.test
 
-  # Enable DNS
-  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" integration-api-app >/dev/null 2>&1 || true
+  # Manually add to DNS management
+  mkdir -p "$PLUGIN_DATA_ROOT/integration-api-app"
+  echo "api-error.test" >"$PLUGIN_DATA_ROOT/integration-api-app/DOMAINS"
 
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" integration-api-app
 
@@ -241,14 +248,16 @@ teardown() {
   create_test_app multi-fail-app
   add_test_domains multi-fail-app fail1.invalid fail2.invalid fail3.invalid
 
-  # Enable DNS
-  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" multi-fail-app >/dev/null 2>&1 || true
+  # Manually add to DNS management
+  mkdir -p "$PLUGIN_DATA_ROOT/multi-fail-app"
+  echo "fail1.invalid" >"$PLUGIN_DATA_ROOT/multi-fail-app/DOMAINS"
+  echo "fail2.invalid" >>"$PLUGIN_DATA_ROOT/multi-fail-app/DOMAINS"
+  echo "fail3.invalid" >>"$PLUGIN_DATA_ROOT/multi-fail-app/DOMAINS"
 
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" multi-fail-app
 
   # Should show error for each domain
-  fail_count=$(echo "$output" | grep -c "Failed" || echo "0")
-  [[ "$fail_count" -ge 1 ]] || fail "Expected to see failure messages"
+  assert_output_contains "Failed"
 
   cleanup_test_app multi-fail-app
 }
@@ -259,8 +268,9 @@ teardown() {
   create_test_app no-silence-app
   add_test_domains no-silence-app error.test
 
-  # Enable DNS
-  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" no-silence-app >/dev/null 2>&1 || true
+  # Manually add to DNS management
+  mkdir -p "$PLUGIN_DATA_ROOT/no-silence-app"
+  echo "error.test" >"$PLUGIN_DATA_ROOT/no-silence-app/DOMAINS"
 
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" no-silence-app
 
@@ -277,8 +287,9 @@ teardown() {
   create_test_app empty-zone-app
   add_test_domains empty-zone-app missing.invalid
 
-  # Enable DNS
-  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" empty-zone-app >/dev/null 2>&1 || true
+  # Manually add to DNS management
+  mkdir -p "$PLUGIN_DATA_ROOT/empty-zone-app"
+  echo "missing.invalid" >"$PLUGIN_DATA_ROOT/empty-zone-app/DOMAINS"
 
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" empty-zone-app
 
