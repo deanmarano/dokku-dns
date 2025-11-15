@@ -126,6 +126,7 @@ dns_sync_app() {
   echo "Analyzing current DNS records..."
   local -a planned_changes=()
   local -a domains_to_sync=()
+  local -a failed_domains=()
   local changes_needed=false
   local domain
 
@@ -139,6 +140,7 @@ dns_sync_app() {
     if [[ "${MULTI_PROVIDER_MODE:-false}" == "true" ]]; then
       if ! zone_id=$(multi_get_zone_id "$domain"); then
         echo "❌ No hosted zone found"
+        failed_domains+=("$domain")
         continue
       fi
 
@@ -147,6 +149,7 @@ dns_sync_app() {
     else
       if ! zone_id=$(provider_get_zone_id "$domain"); then
         echo "❌ No hosted zone found"
+        failed_domains+=("$domain")
         continue
       fi
 
@@ -180,12 +183,16 @@ dns_sync_app() {
     echo
     echo "Plan: 0 to add, 0 to change, ${#planned_changes[@]} to apply"
     echo
+  fi
 
-    # Phase 2: Apply changes
+  # Phase 2: Apply changes
+  # Always run if there are domains to process (successful or failed)
+  if [[ ${#domains_to_sync[@]} -gt 0 ]] || [[ ${#failed_domains[@]} -gt 0 ]]; then
     echo "Applying changes..."
     local domains_synced=0
     local domains_failed=0
 
+    # Process domains that need syncing
     for domain in "${domains_to_sync[@]}"; do
       printf "  %s... " "$domain"
 
@@ -252,8 +259,16 @@ dns_sync_app() {
       fi
     done
 
+    # Process domains that failed in analyze phase
+    for domain in "${failed_domains[@]}"; do
+      printf "  %s... " "$domain"
+      echo "❌ Failed (no hosted zone found)"
+      domains_failed=$((domains_failed + 1))
+    done
+
     echo
-    echo "Apply complete! Successfully applied $domains_synced of ${#domains_to_sync[@]} planned changes."
+    local total_domains=$((${#domains_to_sync[@]} + ${#failed_domains[@]}))
+    echo "Apply complete! Successfully applied $domains_synced of $total_domains planned changes."
 
     if [[ $domains_failed -gt 0 ]]; then
       return 1
