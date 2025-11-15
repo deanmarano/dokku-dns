@@ -20,7 +20,9 @@ teardown() {
   add_test_domains phase26a-app nonexistent.invalid
 
   # Manually add to DNS management
+  mkdir -p "$PLUGIN_DATA_ROOT"
   mkdir -p "$PLUGIN_DATA_ROOT/phase26a-app"
+  echo "phase26a-app" >>"$PLUGIN_DATA_ROOT/LINKS"
   echo "nonexistent.invalid" >"$PLUGIN_DATA_ROOT/phase26a-app/DOMAINS"
 
   # Sync should fail gracefully
@@ -40,7 +42,9 @@ teardown() {
   add_test_domains zone-check-app missing-zone.test
 
   # Manually add to DNS management
+  mkdir -p "$PLUGIN_DATA_ROOT"
   mkdir -p "$PLUGIN_DATA_ROOT/zone-check-app"
+  echo "zone-check-app" >>"$PLUGIN_DATA_ROOT/LINKS"
   echo "missing-zone.test" >"$PLUGIN_DATA_ROOT/zone-check-app/DOMAINS"
 
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" zone-check-app
@@ -56,7 +60,9 @@ teardown() {
   add_test_domains counter-app bad1.invalid bad2.invalid
 
   # Manually add to DNS management
+  mkdir -p "$PLUGIN_DATA_ROOT"
   mkdir -p "$PLUGIN_DATA_ROOT/counter-app"
+  echo "counter-app" >>"$PLUGIN_DATA_ROOT/LINKS"
   echo "bad1.invalid" >"$PLUGIN_DATA_ROOT/counter-app/DOMAINS"
   echo "bad2.invalid" >>"$PLUGIN_DATA_ROOT/counter-app/DOMAINS"
 
@@ -73,7 +79,9 @@ teardown() {
   add_test_domains skip-app fail-domain.invalid
 
   # Manually add to DNS management
+  mkdir -p "$PLUGIN_DATA_ROOT"
   mkdir -p "$PLUGIN_DATA_ROOT/skip-app"
+  echo "skip-app" >>"$PLUGIN_DATA_ROOT/LINKS"
   echo "fail-domain.invalid" >"$PLUGIN_DATA_ROOT/skip-app/DOMAINS"
 
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" skip-app
@@ -209,7 +217,9 @@ teardown() {
   add_test_domains integration-zone-app no-zone.invalid
 
   # Manually add to DNS management
+  mkdir -p "$PLUGIN_DATA_ROOT"
   mkdir -p "$PLUGIN_DATA_ROOT/integration-zone-app"
+  echo "integration-zone-app" >>"$PLUGIN_DATA_ROOT/LINKS"
   echo "no-zone.invalid" >"$PLUGIN_DATA_ROOT/integration-zone-app/DOMAINS"
 
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" integration-zone-app
@@ -228,7 +238,9 @@ teardown() {
   add_test_domains integration-api-app api-error.test
 
   # Manually add to DNS management
+  mkdir -p "$PLUGIN_DATA_ROOT"
   mkdir -p "$PLUGIN_DATA_ROOT/integration-api-app"
+  echo "integration-api-app" >>"$PLUGIN_DATA_ROOT/LINKS"
   echo "api-error.test" >"$PLUGIN_DATA_ROOT/integration-api-app/DOMAINS"
 
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" integration-api-app
@@ -249,7 +261,9 @@ teardown() {
   add_test_domains multi-fail-app fail1.invalid fail2.invalid fail3.invalid
 
   # Manually add to DNS management
+  mkdir -p "$PLUGIN_DATA_ROOT"
   mkdir -p "$PLUGIN_DATA_ROOT/multi-fail-app"
+  echo "multi-fail-app" >>"$PLUGIN_DATA_ROOT/LINKS"
   echo "fail1.invalid" >"$PLUGIN_DATA_ROOT/multi-fail-app/DOMAINS"
   echo "fail2.invalid" >>"$PLUGIN_DATA_ROOT/multi-fail-app/DOMAINS"
   echo "fail3.invalid" >>"$PLUGIN_DATA_ROOT/multi-fail-app/DOMAINS"
@@ -269,7 +283,9 @@ teardown() {
   add_test_domains no-silence-app error.test
 
   # Manually add to DNS management
+  mkdir -p "$PLUGIN_DATA_ROOT"
   mkdir -p "$PLUGIN_DATA_ROOT/no-silence-app"
+  echo "no-silence-app" >>"$PLUGIN_DATA_ROOT/LINKS"
   echo "error.test" >"$PLUGIN_DATA_ROOT/no-silence-app/DOMAINS"
 
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" no-silence-app
@@ -288,7 +304,9 @@ teardown() {
   add_test_domains empty-zone-app missing.invalid
 
   # Manually add to DNS management
+  mkdir -p "$PLUGIN_DATA_ROOT"
   mkdir -p "$PLUGIN_DATA_ROOT/empty-zone-app"
+  echo "empty-zone-app" >>"$PLUGIN_DATA_ROOT/LINKS"
   echo "missing.invalid" >"$PLUGIN_DATA_ROOT/empty-zone-app/DOMAINS"
 
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" empty-zone-app
