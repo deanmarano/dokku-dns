@@ -8,10 +8,10 @@ if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
   source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
 fi
 
-# Load provider adapter for multi-provider support
+# Load provider functions for zone lookup
 PLUGIN_BASE_PATH="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")"
-if [[ -f "$PLUGIN_BASE_PATH/providers/adapter.sh" ]]; then
-  source "$PLUGIN_BASE_PATH/providers/adapter.sh"
+if [[ -f "$PLUGIN_BASE_PATH/providers/multi-provider.sh" ]]; then
+  source "$PLUGIN_BASE_PATH/providers/multi-provider.sh"
 fi
 
 # Define missing functions if needed
