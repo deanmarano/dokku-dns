@@ -137,9 +137,13 @@ teardown() {
 
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" changes-app
 
-  # If zone exists, should show analysis
-  if ! assert_output_contains "No hosted zone found"; then
-    # Should show either pending changes or no pending changes
+  # If zone doesn't exist, test passes (no zone to show pending changes for)
+  # If zone exists, should show either pending changes or no pending changes
+  if echo "$output" | grep -q "No hosted zone found"; then
+    # No zone found, that's expected in test environment
+    [[ "$status" -eq 0 ]] || [[ "$status" -eq 1 ]]
+  else
+    # Zone exists, should show either pending changes or no pending changes
     assert_output_contains "Pending DNS Changes" || assert_output_contains "No pending changes"
   fi
 
