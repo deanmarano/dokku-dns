@@ -97,10 +97,9 @@ dns_global_report() {
     fi
   fi
   
-  # Display global configuration  
+  # Display global configuration
   dokku_log_info1 "DNS Provider: $(echo "$CURRENT_PROVIDER" | tr '[:lower:]' '[:upper:]')"
-  dokku_log_info1 "Configuration Status: $CONFIG_STATUS"
-  
+
   # Get apps under DNS management
   local APPS_LIST
   APPS_LIST=$(get_dns_managed_apps)
@@ -355,13 +354,12 @@ dns_report() {
   
   # Display global configuration
   dokku_log_info1 "DNS Provider: $(echo "$CURRENT_PROVIDER" | tr '[:lower:]' '[:upper:]')"
-  dokku_log_info1 "Configuration Status: $CONFIG_STATUS"
-  
+
   # Display DNS add status
   if [[ "$APP_IS_ADDED" == "true" ]]; then
-    dokku_log_info1 "DNS Status: Added"
+    dokku_log_info1 "DNS Status: Enabled"
   else
-    dokku_log_info1 "DNS Status: Not added (add with: dokku $PLUGIN_COMMAND_PREFIX:apps:enable $APP)"
+    dokku_log_info1 "DNS Status: Disabled (enable with: dokku $PLUGIN_COMMAND_PREFIX:apps:enable $APP)"
   fi
   
   echo
