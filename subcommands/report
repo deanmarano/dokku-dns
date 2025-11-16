@@ -8,6 +8,12 @@ if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
   source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
 fi
 
+# Load provider adapter for multi-provider support
+PLUGIN_BASE_PATH="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")"
+if [[ -f "$PLUGIN_BASE_PATH/providers/adapter.sh" ]]; then
+  source "$PLUGIN_BASE_PATH/providers/adapter.sh"
+fi
+
 # Define missing functions if needed
 if ! declare -f verify_app_name >/dev/null 2>&1; then
   verify_app_name() {
@@ -217,9 +223,9 @@ dns_global_report() {
         # Try to get hosted zone if provider is AWS and ready (handle failure gracefully)
         local HOSTED_ZONE="-"
         if [[ "$PROVIDER" == "aws" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
-          if declare -f "dns_provider_aws_get_hosted_zone_id" >/dev/null 2>&1; then
+          if declare -f "multi_get_zone_id" >/dev/null 2>&1; then
             local ZONE_ID=""
-            ZONE_ID=$(dns_provider_aws_get_hosted_zone_id "$DOMAIN" 2>/dev/null || echo "")
+            ZONE_ID=$(multi_get_zone_id "$DOMAIN" 2>/dev/null || echo "")
             if [[ -n "$ZONE_ID" ]]; then
               # Get the zone name from AWS (handle failure gracefully)
               local ZONE_NAME=""
@@ -430,8 +436,8 @@ dns_report() {
     local HOSTED_ZONE="-"
     local ZONE_ID=""
     if [[ "$PROVIDER" == "aws" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
-      if declare -f "dns_provider_aws_get_hosted_zone_id" >/dev/null 2>&1; then
-        ZONE_ID=$(dns_provider_aws_get_hosted_zone_id "$DOMAIN" 2>/dev/null || echo "")
+      if declare -f "multi_get_zone_id" >/dev/null 2>&1; then
+        ZONE_ID=$(multi_get_zone_id "$DOMAIN" 2>/dev/null || echo "")
         if [[ -n "$ZONE_ID" ]]; then
           # Get the zone name from AWS
           local ZONE_NAME
