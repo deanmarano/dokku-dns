@@ -207,8 +207,8 @@ teardown() {
 
   if echo "$report_output" | grep -q "No hosted zone found"; then
     # Sync should also indicate zone issue
-    echo "$sync_output" | grep -q "No hosted zone found" || \
-    echo "$sync_output" | grep -q "Failed"
+    echo "$sync_output" | grep -q "No hosted zone found" ||
+      echo "$sync_output" | grep -q "Failed"
   fi
 
   cleanup_test_app integration-app
