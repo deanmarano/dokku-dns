@@ -85,10 +85,10 @@ service-sync-deletions-cmd() {
     zones_to_scan=("$ZONE")
   else
     # Get all enabled zones
-    if [[ -f "$PLUGIN_DATA_ROOT/ZONES_ENABLED" ]]; then
+    if [[ -f "$PLUGIN_DATA_ROOT/ENABLED_ZONES" ]]; then
       while IFS= read -r enabled_zone; do
         [[ -n "$enabled_zone" ]] && zones_to_scan+=("$enabled_zone")
-      done < "$PLUGIN_DATA_ROOT/ZONES_ENABLED"
+      done < "$PLUGIN_DATA_ROOT/ENABLED_ZONES"
     fi
     
     if [[ ${#zones_to_scan[@]} -eq 0 ]]; then
