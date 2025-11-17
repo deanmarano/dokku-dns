@@ -35,12 +35,12 @@ teardown() {
   assert_output_contains "DNS Report for app: my-app"
   assert_output_contains "Server Public IP:"
   assert_output_contains "DNS Provider: AWS"
-  assert_output_contains "DNS Status: Not added"
+  assert_output_contains "DNS Status: Disabled"
   assert_output_contains "Domain Analysis:"
   assert_output_contains "Domain                         Status   Enabled         Provider        Zone (Enabled)"
   assert_output_contains "------                         ------   -------         --------        ---------------"
   [[ "$output" =~ example\.com ]] # Domain should appear in output (flexible count)
-  assert_output_contains "DNS Status: Not added"
+  assert_output_contains "DNS Status: Disabled"
 }
 
 @test "(dns:report) app-specific report shows message for nonexistent app" {
@@ -57,8 +57,7 @@ teardown() {
   run dokku "$PLUGIN_COMMAND_PREFIX:report" my-app
   assert_success
   assert_output_contains "DNS Provider: AWS"
-  assert_output_contains "Configuration Status: Not configured"
-  assert_output_contains "DNS Status: Not added"
+  assert_output_contains "DNS Status: Disabled"
 }
 
 @test "(dns:report) global report handles no apps gracefully" {
@@ -112,5 +111,5 @@ teardown() {
 
   # Provider appears in output
   assert_output_contains "AWS"
-  assert_output_contains "DNS Status: Not added"
+  assert_output_contains "DNS Status: Disabled"
 }

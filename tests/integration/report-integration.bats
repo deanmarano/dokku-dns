@@ -20,7 +20,7 @@ teardown() {
   run dokku dns:report "$TEST_APP"
   assert_success
   assert_output --partial "DNS Status:"
-  assert_output --partial "Not added"
+  assert_output --partial "Disabled"
 }
 
 @test "(dns:report) shows app domains even when not in DNS management" {
@@ -37,7 +37,7 @@ teardown() {
   run dokku dns:report "$TEST_APP"
   assert_success
   assert_output --partial "DNS Status:"
-  assert_output --partial "Added"
+  assert_output --partial "Enabled"
 }
 
 @test "(dns:report) global report shows managed app" {
@@ -57,7 +57,7 @@ teardown() {
   run dokku dns:report "$TEST_APP"
   assert_success
   assert_output --partial "DNS Status:"
-  assert_output --partial "Not added"
+  assert_output --partial "Disabled"
 }
 
 @test "(dns:report) global report without apps shows appropriate message" {

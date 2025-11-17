@@ -627,6 +627,12 @@ get_server_ip() {
   local SERVER_IP=""
   local GLOBAL_DOMAINS=""
 
+  # Check for test environment override
+  if [[ -n "${DNS_TEST_SERVER_IP:-}" ]]; then
+    echo "$DNS_TEST_SERVER_IP"
+    return 0
+  fi
+
   if command -v dokku >/dev/null 2>&1; then
     GLOBAL_DOMAINS=$(dokku domains:report --domains-global-vhosts 2>/dev/null || echo "")
   fi
@@ -835,10 +841,7 @@ dns_display_pending_changes() {
   local update_count=0
   local correct_count=0
 
-  # Display changes and count them
-  echo
-  dokku_log_info2 "Pending DNS Changes:"
-
+  # First pass: count the changes
   while IFS= read -r change; do
     [[ -z "$change" ]] && continue
 
@@ -847,27 +850,50 @@ dns_display_pending_changes() {
 
     case "$action" in
       ADD)
-        echo "  + $domain → $target_ip (A record)"
         ((add_count++))
         ;;
       UPDATE)
-        echo "  ~ $domain → $target_ip [was: $current_ip]"
         ((update_count++))
         ;;
       CORRECT)
-        echo "  ✓ $domain → $target_ip (A record)"
         ((correct_count++))
         ;;
     esac
   done <<<"$changes"
 
-  # Display summary
-  echo
   local total_changes=$((add_count + update_count))
-  if [[ $total_changes -eq 0 ]]; then
-    dokku_log_info1 "Plan: No changes needed - all records are correct"
-  else
+
+  # Only show "Pending DNS Changes" section if there are actual changes
+  if [[ $total_changes -gt 0 ]]; then
+    echo
+    dokku_log_info2 "Pending DNS Changes:"
+
+    while IFS= read -r change; do
+      [[ -z "$change" ]] && continue
+
+      local action domain target_ip current_ip
+      IFS=':' read -r action domain target_ip current_ip <<<"$change"
+
+      case "$action" in
+        ADD)
+          echo "  + $domain → $target_ip (A record)"
+          ;;
+        UPDATE)
+          echo "  ~ $domain → $target_ip [was: $current_ip]"
+          ;;
+        CORRECT)
+          # Don't show already-correct records in "Pending Changes"
+          ;;
+      esac
+    done <<<"$changes"
+
+    # Display summary
+    echo
     dokku_log_info1 "Plan: $add_count to add, $update_count to change, 0 to destroy"
+  else
+    # No changes needed
+    echo
+    dokku_log_info1 "No pending changes - all $correct_count DNS record(s) are already correct"
   fi
 
   return 0
