@@ -33,12 +33,6 @@ if [[ -f "$ADAPTER_PATH" ]]; then
   source "$ADAPTER_PATH"
 fi
 
-# Load multi-provider for zone lookup
-PLUGIN_BASE_PATH="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")"
-if [[ -f "$PLUGIN_BASE_PATH/providers/multi-provider.sh" ]]; then
-  source "$PLUGIN_BASE_PATH/providers/multi-provider.sh"
-fi
-
 #E Remove DNS records that no longer correspond to active Dokku apps
 #E dokku $PLUGIN_COMMAND_PREFIX:sync:deletions [zone]
 #E 
@@ -85,10 +79,10 @@ service-sync-deletions-cmd() {
     zones_to_scan=("$ZONE")
   else
     # Get all enabled zones
-    if [[ -f "$PLUGIN_DATA_ROOT/ENABLED_ZONES" ]]; then
+    if [[ -f "$PLUGIN_DATA_ROOT/ZONES_ENABLED" ]]; then
       while IFS= read -r enabled_zone; do
         [[ -n "$enabled_zone" ]] && zones_to_scan+=("$enabled_zone")
-      done < "$PLUGIN_DATA_ROOT/ENABLED_ZONES"
+      done < "$PLUGIN_DATA_ROOT/ZONES_ENABLED"
     fi
     
     if [[ ${#zones_to_scan[@]} -eq 0 ]]; then
@@ -105,7 +99,7 @@ service-sync-deletions-cmd() {
     
     # Get hosted zone ID for this zone
     local zone_id
-    zone_id=$(multi_get_zone_id "$zone" 2>/dev/null || echo "")
+    zone_id=$(dns_provider_aws_get_hosted_zone_id "$zone" 2>/dev/null || echo "")
     
     if [[ -z "$zone_id" ]]; then
       dokku_log_warn "Could not find AWS hosted zone for: $zone"
@@ -192,7 +186,7 @@ service-sync-deletions-cmd() {
       
       # Get hosted zone ID
       local zone_id
-      zone_id=$(multi_get_zone_id "$record_zone" 2>/dev/null || echo "")
+      zone_id=$(dns_provider_aws_get_hosted_zone_id "$record_zone" 2>/dev/null || echo "")
       
       if [[ -z "$zone_id" ]]; then
         dokku_log_warn "Could not find AWS hosted zone ID for: $record_zone"

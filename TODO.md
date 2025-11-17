@@ -81,12 +81,71 @@ See `test-output-examples/` folder for actual command outputs showing these issu
   - [ ] Fix is_domain_in_enabled_zone function or post-create timing
   - [ ] Test: my-test-app.deanoftech.com should be detected in enabled deanoftech.com zone
 
-- [ ] **Fix destroy-trigger.txt Issues**
-  - [ ] App destroy queues domains for deletion but sync:deletions fails
-  - [ ] sync:deletions says "No enabled zones found" despite zones being enabled
-  - [ ] Orphaned DNS records are never deleted from Route53
-  - [ ] Fix sync:deletions to use same zone detection as other commands
-  - [ ] Test: my-test-app.deanoftech.com should be deleted after app destroy
+
+### Phase 26e: Implement Safe DNS Record Deletion System (CRITICAL - SAFETY)
+
+**Problem:** Current `sync:deletions` command scans ALL Route53 A records and deletes anything not matching active Dokku apps. This is DANGEROUS and can delete manually created records or records from other systems.
+
+**Location:** `subcommands/sync:deletions`
+
+**Previous Fix Attempts (REVERTED):**
+- [x] Fixed ZONES_ENABLED → ENABLED_ZONES filename mismatch (line 88)
+- [x] Changed dns_provider_aws_get_hosted_zone_id → multi_get_zone_id (lines 108, 195)
+- [x] Added source of multi-provider.sh (lines 36-40)
+- **NOTE:** These fixes made the command work, but revealed it deletes ALL non-Dokku records - UNSAFE!
+
+**Root Cause:**
+- Command scans Route53 for all A records in enabled zones
+- Compares against current Dokku app domains
+- Marks any non-matching record for deletion (lines 128-146)
+- This includes manually created records, records from other systems, etc.
+
+**Correct Approach - Queue-Based Deletion:**
+1. Track which DNS records the plugin creates (new file: `MANAGED_RECORDS`)
+2. When app destroyed or domain removed, add to deletion queue (new file: `PENDING_DELETIONS`)
+3. `sync:deletions` only processes the queue, never scans Route53
+
+**Tasks:**
+- [ ] Create tracking system for plugin-managed records
+  - [ ] Add `$PLUGIN_DATA_ROOT/MANAGED_RECORDS` file (format: `domain:zone_id:timestamp`)
+  - [ ] Update `dns_sync_app` to append to MANAGED_RECORDS when creating records
+  - [ ] Add helper: `record_managed_domain()` function
+- [ ] Create deletion queue system
+  - [ ] Add `$PLUGIN_DATA_ROOT/PENDING_DELETIONS` file (format: `domain:zone_id:timestamp`)
+  - [ ] Update app-destroy hook to add domains to PENDING_DELETIONS
+  - [ ] Update domains-remove hook to add domains to PENDING_DELETIONS
+  - [ ] Add helper: `queue_domain_deletion()` function
+- [ ] Rewrite sync:deletions command
+  - [ ] Read from PENDING_DELETIONS instead of scanning Route53
+  - [ ] Verify domain is in MANAGED_RECORDS before deleting
+  - [ ] Remove from both files after successful deletion
+  - [ ] Show Terraform-style output for queued deletions
+  - [ ] Add --force flag to bypass confirmation
+- [ ] Update documentation
+  - [ ] Document the queue-based deletion workflow
+  - [ ] Add examples of manual cleanup if needed
+  - [ ] Explain MANAGED_RECORDS and PENDING_DELETIONS files
+- [ ] Testing
+  - [ ] Create app with domain, verify added to MANAGED_RECORDS
+  - [ ] Destroy app, verify domain added to PENDING_DELETIONS
+  - [ ] Run sync:deletions, verify only queued domains deleted
+  - [ ] Manually create Route53 record, verify NOT deleted by sync:deletions
+
+**Example Workflow:**
+```bash
+# App lifecycle
+dokku apps:create myapp
+dokku domains:add myapp myapp.example.com
+dokku dns:apps:sync myapp
+# → myapp.example.com added to MANAGED_RECORDS
+
+dokku apps:destroy myapp
+# → myapp.example.com moved from MANAGED_RECORDS to PENDING_DELETIONS
+
+dokku dns:sync:deletions
+# → Shows: "Queued deletions: myapp.example.com"
+# → Only deletes records in PENDING_DELETIONS (safe!)
+```
 
 
 ### Phase 27: Code Quality - Critical Fixes (Pre-Release)
