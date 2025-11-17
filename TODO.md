@@ -231,6 +231,15 @@ See `test-output-examples/` folder for actual command outputs showing these issu
   - [ ] Update init_provider_system to always use multi-provider routing
   - [ ] Remove "Multi-provider mode activated" messages (it's the only mode)
 
+- [ ] **Remove All Non-Multi-Provider Code**
+  - [ ] Search codebase for `dns_provider_` function calls and replace with `multi_` equivalents
+  - [ ] Remove any remaining direct provider-specific function calls (aws_*, cloudflare_*, etc.)
+  - [ ] Ensure all subcommands source multi-provider.sh for zone lookup
+  - [ ] Replace `dns_provider_aws_get_hosted_zone_id` with `multi_get_zone_id` everywhere
+  - [ ] Replace `dns_provider_aws_*` calls with appropriate multi-provider adapter functions
+  - [ ] Remove unused provider-specific helper functions that are duplicates of multi-provider equivalents
+  - [ ] Audit all hooks, subcommands, and functions for legacy provider patterns
+
 
 ### Phase 28: Code Quality - High Priority Refactoring (Pre-Release)
 
