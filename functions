@@ -1080,3 +1080,111 @@ get_zone_ttl() {
   # No zone TTL configured
   return 1
 }
+
+# DNS Record Tracking Functions
+# These functions manage MANAGED_RECORDS and PENDING_DELETIONS files
+# to implement safe, queue-based DNS record deletion.
+
+record_managed_domain() {
+  declare desc="Add a domain to the managed records tracking file"
+  local domain="$1"
+  local zone_id="$2"
+  local timestamp
+  timestamp=$(date +%s)
+  local MANAGED_RECORDS_FILE="$PLUGIN_DATA_ROOT/MANAGED_RECORDS"
+
+  # Create parent directory if it doesn't exist
+  mkdir -p "$PLUGIN_DATA_ROOT"
+
+  # Check if domain already exists in the file
+  if [[ -f "$MANAGED_RECORDS_FILE" ]] && grep -q "^$domain:" "$MANAGED_RECORDS_FILE" 2>/dev/null; then
+    # Update existing entry
+    local temp_file
+    temp_file=$(mktemp)
+    grep -v "^$domain:" "$MANAGED_RECORDS_FILE" > "$temp_file" || true
+    echo "$domain:$zone_id:$timestamp" >> "$temp_file"
+    mv "$temp_file" "$MANAGED_RECORDS_FILE"
+  else
+    # Add new entry
+    echo "$domain:$zone_id:$timestamp" >> "$MANAGED_RECORDS_FILE"
+  fi
+}
+
+unrecord_managed_domain() {
+  declare desc="Remove a domain from the managed records tracking file"
+  local domain="$1"
+  local MANAGED_RECORDS_FILE="$PLUGIN_DATA_ROOT/MANAGED_RECORDS"
+
+  if [[ -f "$MANAGED_RECORDS_FILE" ]]; then
+    local temp_file
+    temp_file=$(mktemp)
+    grep -v "^$domain:" "$MANAGED_RECORDS_FILE" > "$temp_file" || true
+    mv "$temp_file" "$MANAGED_RECORDS_FILE"
+  fi
+}
+
+queue_domain_deletion() {
+  declare desc="Add a domain to the pending deletions queue"
+  local domain="$1"
+  local zone_id="$2"
+  local timestamp
+  timestamp=$(date +%s)
+  local PENDING_DELETIONS_FILE="$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
+  local MANAGED_RECORDS_FILE="$PLUGIN_DATA_ROOT/MANAGED_RECORDS"
+
+  # Create parent directory if it doesn't exist
+  mkdir -p "$PLUGIN_DATA_ROOT"
+
+  # Only queue if domain was managed by us
+  if [[ -f "$MANAGED_RECORDS_FILE" ]] && grep -q "^$domain:" "$MANAGED_RECORDS_FILE" 2>/dev/null; then
+    # Add to deletion queue if not already there
+    if [[ ! -f "$PENDING_DELETIONS_FILE" ]] || ! grep -q "^$domain:" "$PENDING_DELETIONS_FILE" 2>/dev/null; then
+      echo "$domain:$zone_id:$timestamp" >> "$PENDING_DELETIONS_FILE"
+    fi
+
+    # Remove from managed records
+    unrecord_managed_domain "$domain"
+  fi
+}
+
+get_managed_domains() {
+  declare desc="Get list of all managed domains"
+  local MANAGED_RECORDS_FILE="$PLUGIN_DATA_ROOT/MANAGED_RECORDS"
+
+  if [[ -f "$MANAGED_RECORDS_FILE" ]]; then
+    cat "$MANAGED_RECORDS_FILE"
+  fi
+}
+
+get_pending_deletions() {
+  declare desc="Get list of all pending deletions"
+  local PENDING_DELETIONS_FILE="$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
+
+  if [[ -f "$PENDING_DELETIONS_FILE" ]]; then
+    cat "$PENDING_DELETIONS_FILE"
+  fi
+}
+
+remove_from_deletion_queue() {
+  declare desc="Remove a domain from the pending deletions queue after successful deletion"
+  local domain="$1"
+  local PENDING_DELETIONS_FILE="$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
+
+  if [[ -f "$PENDING_DELETIONS_FILE" ]]; then
+    local temp_file
+    temp_file=$(mktemp)
+    grep -v "^$domain:" "$PENDING_DELETIONS_FILE" > "$temp_file" || true
+    mv "$temp_file" "$PENDING_DELETIONS_FILE"
+  fi
+}
+
+is_domain_managed() {
+  declare desc="Check if a domain is tracked in managed records"
+  local domain="$1"
+  local MANAGED_RECORDS_FILE="$PLUGIN_DATA_ROOT/MANAGED_RECORDS"
+
+  if [[ -f "$MANAGED_RECORDS_FILE" ]] && grep -q "^$domain:" "$MANAGED_RECORDS_FILE" 2>/dev/null; then
+    return 0
+  fi
+  return 1
+}

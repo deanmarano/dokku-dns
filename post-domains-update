@@ -120,9 +120,23 @@ handle_domain_remove() {
 
     dokku_log_info1 "DNS: Domain '$DOMAIN' removed from DNS tracking"
 
-    # Queue domain for potential deletion
-    local DELETIONS_QUEUE="$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
-    echo "$(date '+%Y-%m-%d %H:%M:%S') post-domains-update $APP $DOMAIN" >>"$DELETIONS_QUEUE"
+    # Queue domain for potential deletion using the queue_domain_deletion function
+    # Load multi-provider for zone lookup
+    local MULTI_PROVIDER_PATH="$TRIGGER_BASE_PATH/providers/multi-provider.sh"
+    if [[ -f "$MULTI_PROVIDER_PATH" ]]; then
+      source "$MULTI_PROVIDER_PATH"
+    fi
+
+    # Get zone ID for this domain
+    local zone_id=""
+    if declare -f multi_get_zone_id >/dev/null 2>&1; then
+      zone_id=$(multi_get_zone_id "$DOMAIN" 2>/dev/null || echo "")
+    fi
+
+    # Queue the domain for deletion (will only queue if it was managed by plugin)
+    if declare -f queue_domain_deletion >/dev/null 2>&1; then
+      queue_domain_deletion "$DOMAIN" "$zone_id"
+    fi
 
     dokku_log_info1 "DNS: Domain '$DOMAIN' queued for cleanup"
     dokku_log_info1 "DNS: Run 'dokku $PLUGIN_COMMAND_PREFIX:sync:deletions' to clean up orphaned DNS records"
