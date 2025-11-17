@@ -1101,12 +1101,12 @@ record_managed_domain() {
     # Update existing entry
     local temp_file
     temp_file=$(mktemp)
-    grep -v "^$domain:" "$MANAGED_RECORDS_FILE" > "$temp_file" || true
-    echo "$domain:$zone_id:$timestamp" >> "$temp_file"
+    grep -v "^$domain:" "$MANAGED_RECORDS_FILE" >"$temp_file" || true
+    echo "$domain:$zone_id:$timestamp" >>"$temp_file"
     mv "$temp_file" "$MANAGED_RECORDS_FILE"
   else
     # Add new entry
-    echo "$domain:$zone_id:$timestamp" >> "$MANAGED_RECORDS_FILE"
+    echo "$domain:$zone_id:$timestamp" >>"$MANAGED_RECORDS_FILE"
   fi
 }
 
@@ -1118,7 +1118,7 @@ unrecord_managed_domain() {
   if [[ -f "$MANAGED_RECORDS_FILE" ]]; then
     local temp_file
     temp_file=$(mktemp)
-    grep -v "^$domain:" "$MANAGED_RECORDS_FILE" > "$temp_file" || true
+    grep -v "^$domain:" "$MANAGED_RECORDS_FILE" >"$temp_file" || true
     mv "$temp_file" "$MANAGED_RECORDS_FILE"
   fi
 }
@@ -1139,7 +1139,7 @@ queue_domain_deletion() {
   if [[ -f "$MANAGED_RECORDS_FILE" ]] && grep -q "^$domain:" "$MANAGED_RECORDS_FILE" 2>/dev/null; then
     # Add to deletion queue if not already there
     if [[ ! -f "$PENDING_DELETIONS_FILE" ]] || ! grep -q "^$domain:" "$PENDING_DELETIONS_FILE" 2>/dev/null; then
-      echo "$domain:$zone_id:$timestamp" >> "$PENDING_DELETIONS_FILE"
+      echo "$domain:$zone_id:$timestamp" >>"$PENDING_DELETIONS_FILE"
     fi
 
     # Remove from managed records
@@ -1173,7 +1173,7 @@ remove_from_deletion_queue() {
   if [[ -f "$PENDING_DELETIONS_FILE" ]]; then
     local temp_file
     temp_file=$(mktemp)
-    grep -v "^$domain:" "$PENDING_DELETIONS_FILE" > "$temp_file" || true
+    grep -v "^$domain:" "$PENDING_DELETIONS_FILE" >"$temp_file" || true
     mv "$temp_file" "$PENDING_DELETIONS_FILE"
   fi
 }
