@@ -219,36 +219,27 @@ dns_global_report() {
         # These domains are from the DOMAINS file, so they were added
         local APP_DNS_STATUS="Added"
         
-        # Try to get hosted zone if provider is AWS and ready (handle failure gracefully)
+        # Try to get hosted zone using multi-provider system (handle failure gracefully)
         local HOSTED_ZONE="-"
-        if [[ "$PROVIDER" == "aws" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
-          if declare -f "multi_get_zone_id" >/dev/null 2>&1; then
-            local ZONE_ID=""
-            ZONE_ID=$(multi_get_zone_id "$DOMAIN" 2>/dev/null || echo "")
-            if [[ -n "$ZONE_ID" ]]; then
-              # Get the zone name from AWS (handle failure gracefully)
-              local ZONE_NAME=""
-              if command -v aws >/dev/null 2>&1; then
-                ZONE_NAME=$(aws route53 get-hosted-zone --id "$ZONE_ID" --query 'HostedZone.Name' --output text 2>/dev/null | sed 's/\.$//g' || echo "$ZONE_ID")
-              else
-                ZONE_NAME="$ZONE_ID"
-              fi
-              # Check if this zone is enabled
-              if is_zone_enabled "$ZONE_NAME"; then
-                HOSTED_ZONE="$ZONE_NAME (enabled)"
-              else
-                HOSTED_ZONE="$ZONE_NAME (disabled)"
-              fi
+        if declare -f "multi_get_zone_id" >/dev/null 2>&1; then
+          local ZONE_ID=""
+          ZONE_ID=$(multi_get_zone_id "$DOMAIN" 2>/dev/null || echo "")
+          if [[ -n "$ZONE_ID" ]]; then
+            # Use zone ID as zone name (works for all providers)
+            local ZONE_NAME="$ZONE_ID"
+            # Check if this zone is enabled
+            if is_zone_enabled "$ZONE_NAME"; then
+              HOSTED_ZONE="$ZONE_NAME (enabled)"
+            else
+              HOSTED_ZONE="$ZONE_NAME (disabled)"
+            fi
+          else
+            # Zone ID not found, check if domain is in an enabled zone
+            if is_domain_in_enabled_zone "$DOMAIN"; then
+              HOSTED_ZONE="Zone enabled"
             else
               HOSTED_ZONE="Not found"
             fi
-          fi
-        elif [[ "$PROVIDER" == "aws" ]]; then
-          # Provider is AWS but not ready, still check if domain is in enabled zone
-          if is_domain_in_enabled_zone "$DOMAIN"; then
-            HOSTED_ZONE="Zone enabled"
-          else
-            HOSTED_ZONE="Zone disabled"
           fi
         fi
         
@@ -430,17 +421,24 @@ dns_report() {
       fi
     fi
     
-    # Try to get hosted zone if provider is AWS and ready
+    # Try to get hosted zone using multi-provider system
     local HOSTED_ZONE="-"
     local ZONE_ID=""
-    if [[ "$PROVIDER" == "aws" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
-      if declare -f "multi_get_zone_id" >/dev/null 2>&1; then
-        ZONE_ID=$(multi_get_zone_id "$DOMAIN" 2>/dev/null || echo "")
-        if [[ -n "$ZONE_ID" ]]; then
-          # Get the zone name from AWS
-          local ZONE_NAME
-          ZONE_NAME=$(aws route53 get-hosted-zone --id "$ZONE_ID" --query 'HostedZone.Name' --output text 2>/dev/null | sed 's/\.$//g' || echo "$ZONE_ID")
-          HOSTED_ZONE="$ZONE_NAME"
+    if declare -f "multi_get_zone_id" >/dev/null 2>&1; then
+      ZONE_ID=$(multi_get_zone_id "$DOMAIN" 2>/dev/null || echo "")
+      if [[ -n "$ZONE_ID" ]]; then
+        # Extract zone name from zone ID (works for all providers)
+        local ZONE_NAME="$ZONE_ID"
+        # Check if this zone is enabled
+        if is_zone_enabled "$ZONE_NAME"; then
+          HOSTED_ZONE="$ZONE_NAME (enabled)"
+        else
+          HOSTED_ZONE="$ZONE_NAME (disabled)"
+        fi
+      else
+        # Zone ID not found, check if domain is in an enabled zone
+        if is_domain_in_enabled_zone "$DOMAIN"; then
+          HOSTED_ZONE="Zone enabled"
         else
           HOSTED_ZONE="Not found"
         fi
