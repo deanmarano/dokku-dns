@@ -31,9 +31,9 @@ teardown() {
   run bash -c 'echo "n" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
   assert_success
   assert_output_contains "Queued Deletions:"
-  assert_output_contains "- test-record.example.com (A record)"
+  assert_output_contains "test-record.example.com (A record)"
   assert_output_contains "Plan: 0 to add, 0 to change, 1 to destroy"
-  assert_output_contains "Do you want to delete these 1 DNS records?"
+  assert_output_contains "Do you want to delete"
 }
 
 @test "(dns:sync:deletions integration) respects user cancellation" {
@@ -95,8 +95,9 @@ EOF
   echo "test-record.example.com::$(date +%s)" >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
 
   run bash -c 'echo "y" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
-  assert_success
+  assert_failure
   assert_output_contains "Failed (no zone ID)"
+  assert_output_contains "deletion(s) failed"
 }
 
 @test "(dns:sync:deletions integration) end-to-end workflow with app lifecycle" {

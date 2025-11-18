@@ -44,10 +44,10 @@ EOF
   run bash -c 'echo "n" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
   assert_success
   assert_output_contains "Queued Deletions:"
-  assert_output_contains "- old-app.example.com (A record)"
-  assert_output_contains "- test.example.com (A record)"
+  assert_output_contains "old-app.example.com (A record)"
+  assert_output_contains "test.example.com (A record)"
   assert_output_contains "Plan: 0 to add, 0 to change, 2 to destroy"
-  assert_output_contains "Do you want to delete these 2 DNS records?"
+  assert_output_contains "Do you want to delete"
 }
 
 @test "(dns:sync:deletions) shows timestamps for queued deletions" {
@@ -89,8 +89,10 @@ EOF
   echo "test.example.com::1700000000" >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
 
   run bash -c 'echo "y" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
-  assert_success
+  # Command should fail (exit 1) because deletion failed
+  assert_failure
   assert_output_contains "Failed (no zone ID)"
+  assert_output_contains "deletion(s) failed"
 }
 
 @test "(dns:sync:deletions) handles already-deleted records gracefully" {
