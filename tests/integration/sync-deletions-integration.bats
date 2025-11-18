@@ -33,7 +33,7 @@ teardown() {
   assert_output_contains "Queued Deletions:"
   assert_output_contains "test-record.example.com (A record)"
   assert_output_contains "Plan: 0 to add, 0 to change, 1 to destroy"
-  assert_output_contains "Do you want to delete"
+  assert_output_contains "Deletion cancelled"
 }
 
 @test "(dns:sync:deletions integration) respects user cancellation" {

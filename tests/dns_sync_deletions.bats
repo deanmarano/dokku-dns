@@ -47,7 +47,7 @@ EOF
   assert_output_contains "old-app.example.com (A record)"
   assert_output_contains "test.example.com (A record)"
   assert_output_contains "Plan: 0 to add, 0 to change, 2 to destroy"
-  assert_output_contains "Do you want to delete"
+  assert_output_contains "Deletion cancelled"
 }
 
 @test "(dns:sync:deletions) shows timestamps for queued deletions" {
