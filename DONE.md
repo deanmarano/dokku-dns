@@ -1671,3 +1671,218 @@ dokku dns:sync:deletions
 - Maintains failed deletions in queue for retry
 
 **Related PR:** #64
+
+---
+
+## Phase 27: Code Quality and Safety Improvements - COMPLETED ✅ (2025-11-18)
+
+**Objective**: Critical code quality and safety fixes for pre-release readiness, including install script modernization, error handling improvements, and protection for destructive operations.
+
+**Major Achievements:**
+- 🔧 **Install Script Modernization**: Multi-provider detection with DigitalOcean support
+- 🛡️ **Critical Safety Fix**: Protected all `rm -rf` operations from catastrophic failures
+- ✨ **Safer Error Handling**: Eliminated all unsafe `set +e`/`set -e` patterns
+- 📋 **Zone-Centric Workflow**: Updated installation guidance for modern architecture
+- 🎯 **User-Friendly Output**: Removed internal terminology, grouped provider status
+
+**1. Install Script Modernization (`install`)**
+
+**Removed Deprecated Functionality:**
+- ✅ Removed `detect_and_configure_provider()` function (obsolete)
+- ✅ Removed PROVIDER file creation (deprecated in multi-provider architecture)
+- ✅ Eliminated confusing "default DNS provider" concept
+
+**Enhanced Multi-Provider Detection (`detect_providers()`):**
+
+**AWS Route53:**
+- Detects AWS CLI installation
+- Checks authentication via `aws sts get-caller-identity`
+- Verifies Route53 access via `aws route53 list-hosted-zones`
+- Reports hosted zone count when authenticated
+
+**Cloudflare:**
+- Detects `CLOUDFLARE_API_TOKEN` or `CF_API_TOKEN` environment variables
+- Detects flarectl CLI availability
+- Reports configuration status
+
+**DigitalOcean (NEW!):**
+- Detects `DIGITALOCEAN_ACCESS_TOKEN` or `DO_API_TOKEN` environment variables
+- Detects doctl CLI installation
+- Checks doctl authentication via `doctl auth list`
+- Reports configuration status
+
+**Improved Output Formatting:**
+- Groups non-configured providers: `Not configured: Cloudflare, DigitalOcean`
+- User-friendly status messages (removes internal "multi-provider" terminology):
+  - Multiple providers: `→ Providers ready: AWS, Cloudflare`
+  - Single provider: `→ Provider ready: AWS`
+  - No providers: `→ No DNS providers fully configured yet`
+
+**Updated "Next Steps" Workflow:**
+
+OLD (AWS-centric):
+```bash
+1. Set up AWS credentials:     dokku dns:providers:verify
+2. Add app domains:            dokku dns:apps:enable <app>
+3. Sync DNS records:           dokku dns:apps:sync <app>
+```
+
+NEW (zone-centric, provider-agnostic):
+```bash
+1. Verify provider setup:      dokku dns:providers:verify
+2. Enable DNS zones:           dokku dns:zones:enable <zone>
+3. Enable automatic triggers:  dokku dns:triggers:enable
+4. Add app domains:            dokku dns:apps:enable <app>
+5. Sync DNS records:           dokku dns:apps:sync <app>
+```
+
+**Key Improvements:**
+- Provider-agnostic (not AWS-specific)
+- Zone-centric workflow (zones must be enabled first)
+- Includes trigger setup for automatic DNS management
+- Clearer progression: verify → zones → triggers → apps → sync
+
+**2. Fix Unsafe Error Handling Patterns (`functions`)**
+
+Replaced all `set +e`/`set -e` patterns with safer alternatives:
+
+**functions:405-408 - Zone existence check:**
+```bash
+# Before (UNSAFE)
+set +e
+ZONE_ID=$(provider_get_zone_id "$DOMAIN" 2>/dev/null)
+local ZONE_EXISTS=$?
+set -e
+
+# After (SAFE)
+local ZONE_EXISTS=1
+if ZONE_ID=$(provider_get_zone_id "$DOMAIN" 2>/dev/null); then
+  ZONE_EXISTS=0
+fi
+```
+
+**functions:1018 - Domain TTL grep:**
+```bash
+# Before (UNSAFE)
+set +e
+domain_ttl=$(grep "^$domain:" "$APP_TTLS_FILE" 2>/dev/null | cut -d: -f2)
+set -e
+
+# After (SAFE)
+domain_ttl=$(grep "^$domain:" "$APP_TTLS_FILE" 2>/dev/null | cut -d: -f2 || true)
+```
+
+**functions:1030 - Zone TTL function call:**
+```bash
+# Before (UNSAFE)
+set +e
+zone_ttl=$(get_zone_ttl "$zone" 2>/dev/null)
+set -e
+
+# After (SAFE)
+zone_ttl=$(get_zone_ttl "$zone" 2>/dev/null || true)
+```
+
+**functions:1067 - Zone TTL grep:**
+```bash
+# Before (UNSAFE)
+set +e
+zone_ttl=$(grep "^$zone:" "$ZONE_TTLS_FILE" 2>/dev/null | cut -d: -f2)
+set -e
+
+# After (SAFE)
+zone_ttl=$(grep "^$zone:" "$ZONE_TTLS_FILE" 2>/dev/null | cut -d: -f2 || true)
+```
+
+**Benefits:**
+- No temporary disabling of error handling (`set -e`)
+- Uses idiomatic bash patterns (if-blocks, `|| true`)
+- Maintains script reliability without unsafe patterns
+- Removed 12 lines of error handling boilerplate
+
+**3. Add Safety Validation to rm -rf Operations**
+
+**🚨 CRITICAL FIX:** `providers/adapter.sh` had NO protection on destructive deletion!
+
+**providers/adapter.sh:dns_remove_app():**
+```bash
+# Before (DANGEROUS!)
+rm -rf "$app_dir"  # Could delete everything if app_name is empty!
+
+# After (SAFE)
+# Safety: Validate app_name before deletion
+if [[ -z "$app_name" || "$app_name" == "/" || "$app_name" == *".."* ]]; then
+  echo "Error: Invalid app name for deletion" >&2
+  return 1
+fi
+rm -rf "${PLUGIN_DATA_ROOT:?}/${app_name}"
+```
+
+**post-delete (app deletion hook):**
+```bash
+# Safety: Validate APP before deletion
+if [[ -n "$APP" && "$APP" != "/" && "$APP" != *".."* ]]; then
+  if [[ -d "$PLUGIN_DATA_ROOT/$APP" ]]; then
+    rm -rf "${PLUGIN_DATA_ROOT:?}/${APP:?}"
+  fi
+fi
+```
+
+**post-domains-update (domain removal hook):**
+```bash
+# Safety: Validate APP before deletion
+if [[ -n "$APP" && "$APP" != "/" && "$APP" != *".."* ]]; then
+  dokku_log_info1 "DNS: App '$APP' has no domains left, removing from DNS management"
+  rm -rf "${PLUGIN_DATA_ROOT:?}/${APP:?}"
+fi
+```
+
+**Protection Against:**
+- Empty variable deletion (would delete entire `PLUGIN_DATA_ROOT`)
+- Root directory deletion (`APP="/"`)
+- Path traversal attacks (`APP="../.."`)
+- Invalid or malicious app names
+
+**Defense in Depth:**
+- Explicit validation before deletion
+- Bash parameter expansion with `:?` (errors on empty/unset)
+- Directory existence checks where appropriate
+
+**Testing:**
+- ✅ All unit tests pass
+- ✅ All integration tests pass
+- ✅ Linting passes (shellcheck)
+- ✅ Install script runs successfully in CI
+
+No new tests added because:
+- Install script runs during plugin installation (validated by CI)
+- Provider verification comprehensively tested via `dns:providers:verify` command
+- Error handling refactoring maintains identical behavior (existing tests validate)
+- Safety validation is defensive - prevents errors rather than changing behavior
+
+**Files Changed:**
+1. **install** - Multi-provider detection and modernized workflow
+2. **functions** - Fixed 4 unsafe error handling patterns
+3. **providers/adapter.sh** - Critical safety validation for app deletion
+4. **post-delete** - Enhanced safety validation
+5. **post-domains-update** - Enhanced safety validation
+
+**Phase 27 Completion Status:**
+- ✅ Fix Installation Issues
+- ✅ Update Install Script Next Steps
+- ✅ Add Triggers to Getting Started
+- ✅ Fix Unsafe Error Handling Patterns
+- ✅ Add Safety to Destructive Operations
+- ✅ Fix Linting Failures (was already done - shellcheck directives in place)
+
+**Remaining for separate PRs:**
+- ⏭️ Improve Zone Enable Output (UI/UX enhancement)
+- ⏭️ Add Missing zones:sync Command (new feature)
+
+**Impact:**
+- 🔒 **Critical Safety**: Protected against catastrophic data loss from empty variables
+- ✨ **Code Quality**: Eliminated unsafe bash patterns throughout codebase
+- 📋 **Better UX**: Modern, provider-agnostic installation workflow
+- 🎯 **Production Ready**: All critical safety and quality issues resolved
+
+**Related PR:** #65
