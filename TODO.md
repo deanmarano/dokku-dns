@@ -84,11 +84,11 @@ See `test-output-examples/` folder for actual command outputs showing these issu
 
 ### Phase 27: Code Quality - Critical Fixes (Pre-Release)
 
-- [ ] **Fix Installation Issues**
-  - [ ] Remove "default DNS provider" concept from install script
-  - [ ] Update install script to detect DigitalOcean credentials/CLI
-  - [ ] Install should report multi-provider mode when multiple providers detected
-  - [ ] Remove PROVIDER file creation (deprecated in favor of multi-provider)
+- [x] **Fix Installation Issues** (PR #65)
+  - [x] Remove "default DNS provider" concept from install script
+  - [x] Update install script to detect DigitalOcean credentials/CLI
+  - [x] Install should report multi-provider mode when multiple providers detected
+  - [x] Remove PROVIDER file creation (deprecated in favor of multi-provider)
 
 - [ ] **Improve Zone Enable Output**
   - [ ] Output copy-pastable commands when enabling a zone
@@ -96,16 +96,16 @@ See `test-output-examples/` folder for actual command outputs showing these issu
   - [ ] Format: `dokku dns:apps:enable myapp  # example.com`
   - [ ] Group by app to avoid duplicate commands
 
-- [ ] **Update Install Script Next Steps**
-  - [ ] Change "Set up AWS credentials" to "Verify provider setup" with [provider] parameter
-  - [ ] Add "Enable DNS zones" as step 2 before app management
-  - [ ] Update steps to: verify → zones → apps → sync (zone-centric workflow)
-  - [ ] Make provider-agnostic (not AWS-specific)
+- [x] **Update Install Script Next Steps** (PR #65)
+  - [x] Change "Set up AWS credentials" to "Verify provider setup" with [provider] parameter
+  - [x] Add "Enable DNS zones" as step 2 before app management
+  - [x] Update steps to: verify → zones → apps → sync (zone-centric workflow)
+  - [x] Make provider-agnostic (not AWS-specific)
 
-- [ ] **Add Triggers to Getting Started**
-  - [ ] Show `dokku dns:triggers:enable` in installation next steps
-  - [ ] Add to README Quick Start guide after zone enablement
-  - [ ] Explain that triggers enable automatic DNS management on domain changes
+- [x] **Add Triggers to Getting Started** (PR #65)
+  - [x] Show `dokku dns:triggers:enable` in installation next steps
+  - [x] Add to README Quick Start guide after zone enablement
+  - [x] Explain that triggers enable automatic DNS management on domain changes
 
 - [ ] **Add Missing zones:sync Command**
   - [ ] Create `dns:zones:sync [zone]` subcommand
@@ -113,20 +113,20 @@ See `test-output-examples/` folder for actual command outputs showing these issu
   - [ ] If zone parameter omitted, sync all enabled zones
   - [ ] Show progress per domain within the zone
 
-- [ ] **Fix Linting Failures**
-  - [ ] Remove unused `dokku_log_fail` function in commands file (line 13)
-  - [ ] Add shellcheck disable directive if function is intentionally unused for fallback
+- [x] **Fix Linting Failures** (Already fixed - shellcheck directive in place)
+  - [x] Remove unused `dokku_log_fail` function in commands file (line 13)
+  - [x] Add shellcheck disable directive if function is intentionally unused for fallback
 
-- [ ] **Fix Unsafe Error Handling Patterns**
-  - [ ] Replace `set +e`/`set -e` patterns in functions:405-408 with subshells
-  - [ ] Replace `set +e`/`set -e` patterns in functions:992-994 with command substitution
-  - [ ] Replace `set +e`/`set -e` patterns in functions:1006-1008 with if-blocks
-  - [ ] Replace `set +e`/`set -e` patterns in functions:1045-1047 with proper error handling
+- [x] **Fix Unsafe Error Handling Patterns** (PR #65)
+  - [x] Replace `set +e`/`set -e` patterns in functions:405-408 with subshells
+  - [x] Replace `set +e`/`set -e` patterns in functions:992-994 with command substitution
+  - [x] Replace `set +e`/`set -e` patterns in functions:1006-1008 with if-blocks
+  - [x] Replace `set +e`/`set -e` patterns in functions:1045-1047 with proper error handling
 
-- [ ] **Add Safety to Destructive Operations**
-  - [ ] Add explicit validation before rm -rf in post-domains-update:133
-  - [ ] Verify APP variable is not empty, not "/", and directory exists before deletion
-  - [ ] Add similar validation to any other rm -rf operations in codebase
+- [x] **Add Safety to Destructive Operations** (PR #65)
+  - [x] Add explicit validation before rm -rf in post-domains-update:133
+  - [x] Verify APP variable is not empty, not "/", and directory exists before deletion
+  - [x] Add similar validation to any other rm -rf operations in codebase
 
 
 ### Phase 29: Pre-Release Testing & Validation
