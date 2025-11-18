@@ -3,130 +3,62 @@
 The DNS plugin is in progress! Many core features have been implemented and tested. See [DONE.md](./DONE.md) for completed work.
 
 
-### Phase 26a: Fix Missing Error Checking in Sync Apply Phase (CRITICAL - BLOCKING)
+### Phase 26: Display and Reporting Fixes (Pre-Release)
 
-**Problem:** `dns:apps:sync` fails silently when trying to update DNS records. The apply phase doesn't check if zone lookup succeeds, leading to attempts to create records with empty zone IDs.
+**Objective:** Fix inconsistent zone detection in status displays and reduce excessive output verbosity.
 
-**Location:** `providers/adapter.sh:dns_sync_app()` lines 194-210
+- [ ] **Fix Zone Lookup in Report/Status Commands**
+  - [ ] Fix zone lookup in report subcommand to use same logic as apps:enable
+  - [ ] Update Domain Status Table to reflect actual zone detection results
+  - [ ] Ensure consistency between "checking" phase and status table
+  - [ ] Show actual zone ID or provider in table when zone is found
+  - [ ] Clarify difference between "zone exists" vs "zone enabled for auto-discovery"
+  - **Problem:** `dns:report` shows "No hosted zone" even when zones exist and are enabled
+  - **Location:** `subcommands/report`, `functions:dns_add_app_domains()` status table
+  - **Examples:**
+    - `dns:report website` shows "No hosted zone" for dean.is (zone ZZ36BKMR6SB53 exists)
+    - `dns:apps:enable` shows "✓ dean.is can be managed" but table shows "⚠️ No (no hosted zone)"
 
-**Root Cause:**
-- Phase 1 (analyze) checks zone_id lookup: `if ! zone_id=$(multi_get_zone_id "$domain"); then`
-- Phase 2 (apply) doesn't check: `zone_id=$(multi_get_zone_id "$domain" 2>/dev/null)`
-- If zone lookup fails in apply phase, continues with empty zone_id
-- `multi_create_record` called with empty zone_id → fails silently
-
-**Tasks:**
-- [x] Add error checking in apply phase (lines 194-195 and 212-213)
-- [x] Skip domain if zone_id lookup fails, similar to analyze phase
-- [x] Show error message when zone lookup fails in apply phase
-- [ ] Test with dean.is domain that has existing A records
-
-**Example:** User sees "❌ Failed" with no indication why (zone not found? permissions? API error?)
-
-
-### Phase 26b: Improve Provider Error Reporting (HIGH - DEBUGGING)
-
-**Problem:** Provider errors are silenced, making it impossible to debug why operations fail.
-
-**Location:** `providers/adapter.sh` and various subcommands
-
-**Root Cause:**
-- Errors redirected to `/dev/null 2>&1` in many places
-- Line 204, 221: `multi_create_record` failures are silent
-- Line 195, 212: `multi_get_zone_id` failures redirected to /dev/null
-- User sees "❌ Failed" but no indication why
-
-**Tasks:**
-- [x] Remove `2>/dev/null` from zone lookup calls in apply phase
-- [x] Capture stderr from provider calls and display on failure
-- [ ] Add DNS_VERBOSE environment variable for detailed debugging (future enhancement)
-- [x] Show actual error messages from AWS/provider APIs
-- [x] Format: "❌ Failed" with error details on next line
-
-
-### Phase 26c: Fix Zone Lookup Inconsistency in Report/Status (MEDIUM - DISPLAY)
-
-**Problem:** Report and status commands show "No hosted zone" even when zones exist and are enabled.
-
-**Location:** `subcommands/report`, `functions:dns_add_app_domains()` status table
-
-**Examples:**
-- `dns:report website` shows "No hosted zone" for dean.is (zone ZZ36BKMR6SB53 exists)
-- `dns:report website` shows "No hosted zone" for website.deanoftech.com (zone Z0444961AB4Z3I5DF5NH exists)
-- `dns:apps:enable` shows "✓ dean.is can be managed (zone enabled)" but table shows "⚠️ No (no hosted zone)"
-- "Zone (Enabled)" column shows "-" instead of actual zone status
-
-**Tasks:**
-- [ ] Fix zone lookup in report subcommand to use same logic as apps:enable
-- [ ] Update Domain Status Table to reflect actual zone detection results
-- [ ] Ensure consistency between "checking" phase and status table
-- [ ] Show actual zone ID or provider in table when zone is found
-- [ ] Clarify difference between "zone exists" vs "zone enabled for auto-discovery"
-
-
-### Phase 26d: Fix Test Output Issues (Pre-Release)
-
-See `test-output-examples/` folder for actual command outputs showing these issues.
-
-- [ ] **Fix provider-verify-output.txt Issues**
+- [ ] **Reduce provider:verify Output Verbosity**
   - [ ] Reduce excessive verbosity (multiple heading levels, redundant messages)
   - [ ] Condense zone listing (don't show every zone detail in table)
   - [ ] Remove redundant "checking" messages
   - [ ] Show summary counts instead of full credential detection lists
   - [ ] Add --verbose flag for detailed output if needed
+  - **Problem:** `dns:providers:verify` output is excessively verbose
+  - **Reference:** See `test-output-examples/provider-verify-output.txt`
 
-- [ ] **Fix app-create-trigger-fail.txt Issues**
+
+### Phase 27: Trigger System Improvements (Pre-Release)
+
+**Objective:** Fix post-create trigger failing to detect auto-added domains from global vhost.
+
+- [ ] **Fix Post-Create Trigger Domain Detection**
   - [ ] post-create trigger says "No domains configured" but domain exists
   - [ ] Trigger doesn't detect auto-added domain from global vhost
   - [ ] Fix is_domain_in_enabled_zone function or post-create timing
   - [ ] Test: my-test-app.deanoftech.com should be detected in enabled deanoftech.com zone
+  - **Problem:** Trigger runs before domain is fully configured
+  - **Reference:** See `test-output-examples/app-create-trigger-fail.txt`
 
 
-### Phase 27: Code Quality - Critical Fixes (Pre-Release)
+### Phase 28: Zone Management UX Improvements (Pre-Release)
 
-- [x] **Fix Installation Issues** (PR #65)
-  - [x] Remove "default DNS provider" concept from install script
-  - [x] Update install script to detect DigitalOcean credentials/CLI
-  - [x] Install should report multi-provider mode when multiple providers detected
-  - [x] Remove PROVIDER file creation (deprecated in favor of multi-provider)
+**Objective:** Improve user experience for zone management with better output and new sync command.
 
 - [ ] **Improve Zone Enable Output**
   - [ ] Output copy-pastable commands when enabling a zone
   - [ ] Show `dokku dns:apps:enable <app>` commands with domain as comment
   - [ ] Format: `dokku dns:apps:enable myapp  # example.com`
   - [ ] Group by app to avoid duplicate commands
+  - **Goal:** Make it easier for users to enable apps after enabling zones
 
-- [x] **Update Install Script Next Steps** (PR #65)
-  - [x] Change "Set up AWS credentials" to "Verify provider setup" with [provider] parameter
-  - [x] Add "Enable DNS zones" as step 2 before app management
-  - [x] Update steps to: verify → zones → apps → sync (zone-centric workflow)
-  - [x] Make provider-agnostic (not AWS-specific)
-
-- [x] **Add Triggers to Getting Started** (PR #65)
-  - [x] Show `dokku dns:triggers:enable` in installation next steps
-  - [x] Add to README Quick Start guide after zone enablement
-  - [x] Explain that triggers enable automatic DNS management on domain changes
-
-- [ ] **Add Missing zones:sync Command**
+- [ ] **Add zones:sync Command**
   - [ ] Create `dns:zones:sync [zone]` subcommand
   - [ ] Sync all apps/domains within a specific zone
   - [ ] If zone parameter omitted, sync all enabled zones
   - [ ] Show progress per domain within the zone
-
-- [x] **Fix Linting Failures** (Already fixed - shellcheck directive in place)
-  - [x] Remove unused `dokku_log_fail` function in commands file (line 13)
-  - [x] Add shellcheck disable directive if function is intentionally unused for fallback
-
-- [x] **Fix Unsafe Error Handling Patterns** (PR #65)
-  - [x] Replace `set +e`/`set -e` patterns in functions:405-408 with subshells
-  - [x] Replace `set +e`/`set -e` patterns in functions:992-994 with command substitution
-  - [x] Replace `set +e`/`set -e` patterns in functions:1006-1008 with if-blocks
-  - [x] Replace `set +e`/`set -e` patterns in functions:1045-1047 with proper error handling
-
-- [x] **Add Safety to Destructive Operations** (PR #65)
-  - [x] Add explicit validation before rm -rf in post-domains-update:133
-  - [x] Verify APP variable is not empty, not "/", and directory exists before deletion
-  - [x] Add similar validation to any other rm -rf operations in codebase
+  - **Goal:** Bulk sync operations at the zone level
 
 
 ### Phase 29: Pre-Release Testing & Validation
@@ -232,70 +164,6 @@ See `test-output-examples/` folder for actual command outputs showing these issu
   - [ ] Replace `dns_provider_aws_*` calls with appropriate multi-provider adapter functions
   - [ ] Remove unused provider-specific helper functions that are duplicates of multi-provider equivalents
   - [ ] Audit all hooks, subcommands, and functions for legacy provider patterns
-
-
-### Phase 28: Code Quality - High Priority Refactoring (Pre-Release)
-
-- [ ] **Create Testing Documentation**
-  - [ ] Create TESTING.md with manual test procedures for all providers
-  - [ ] Document CRUD operations test checklist for AWS Route53
-  - [ ] Document CRUD operations test checklist for Cloudflare
-  - [ ] Document CRUD operations test checklist for DigitalOcean
-  - [ ] Include test result logging template with pass/fail criteria
-  - [ ] Document common troubleshooting scenarios and solutions
-
-- [ ] **Provider Integration Testing**
-  - [ ] Execute AWS Route53 CRUD operations on production server
-  - [ ] Execute Cloudflare CRUD operations on production server
-  - [ ] Execute DigitalOcean CRUD operations on production server
-  - [ ] Test multi-provider zone routing (domains in different providers)
-  - [ ] Validate provider failover and error handling
-
-- [ ] **Installation & Deployment Testing**
-  - [ ] Test plugin installation from GitHub on fresh Dokku instance
-  - [ ] Validate provider setup workflow for each provider
-  - [ ] Test automatic zone discovery after provider configuration
-  - [ ] Verify trigger system integration with app lifecycle events
-  - [ ] Test sync-all command with multiple apps and providers
-
-
-### Phase 29: 1.0 Release
-
-- [ ] **GitHub Release Infrastructure**
-  - [ ] Create semantic version tagging strategy (v1.0.0)
-  - [ ] Set up release branch protection and approval workflows
-
-- [ ] **Release Artifacts**
-  - [ ] Generate documentation bundle with all guides and references
-  - [ ] Create installation scripts for multiple platforms
-
-- [ ] **Post-Release Validation**
-  - [ ] Verify GitHub release visibility and downloads
-  - [ ] Validate documentation link accessibility
-  - [ ] Coordinate community notifications and announcements
-  - [ ] Prepare issue tracking and support channels
-  - [ ] Set up performance monitoring and error tracking
-
-
-### Phase 30: Community & Support (Post-Release)
-
-- [ ] **Community Announcements**
-  - [ ] Post to Dokku community forum
-  - [ ] Create GitHub repository announcement and pinned issue
-  - [ ] Execute social media announcement strategy
-  - [ ] Publish technical blog post highlighting key features
-
-- [ ] **Support Infrastructure**
-  - [ ] Create issue templates for bug reports and feature requests
-  - [ ] Create discussion templates for community support
-  - [ ] Write contributing guidelines for community contributors
-  - [ ] Establish code of conduct and community standards
-
-- [ ] **Post-Release Maintenance Planning**
-  - [ ] Define patch release strategy and versioning scheme
-  - [ ] Set up community feedback collection and analysis process
-  - [ ] Create bug triage and priority classification system
-  - [ ] Design feature request evaluation and roadmap integration
 
 
 ### Phase 33: Code Quality - Low Priority Polish (Post-1.0)

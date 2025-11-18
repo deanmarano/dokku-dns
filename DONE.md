@@ -1886,3 +1886,51 @@ No new tests added because:
 - 🎯 **Production Ready**: All critical safety and quality issues resolved
 
 **Related PR:** #65
+
+---
+
+## Phase 26a: Fix Missing Error Checking in Sync Apply Phase - COMPLETED ✅
+
+**Objective**: Add proper error checking to DNS sync apply phase to prevent silent failures.
+
+**Problem Solved**:
+The `dns:apps:sync` command was failing silently when zone lookup failed in the apply phase. The analyze phase properly checked zone_id lookup, but the apply phase didn't, causing attempts to create records with empty zone IDs that failed without explanation.
+
+**Implementation**:
+- Added error checking in apply phase (providers/adapter.sh:194-195 and 212-213)
+- Skip domains if zone_id lookup fails, matching analyze phase behavior
+- Show clear error messages when zone lookup fails in apply phase
+
+**Impact**:
+- Users now see clear error messages instead of silent "❌ Failed"
+- Proper error handling prevents attempts to create records with empty zone IDs
+- Consistent behavior between analyze and apply phases
+
+**Note**: Manual testing with production domains (dean.is) remains as ongoing validation.
+
+**Related PR:** Merged in earlier Phase 26 work
+
+---
+
+## Phase 26b: Improve Provider Error Reporting - COMPLETED ✅
+
+**Objective**: Surface provider errors to users for better debugging of DNS operation failures.
+
+**Problem Solved**:
+Provider errors were being silenced by redirecting stderr to `/dev/null`, making it impossible to debug why DNS operations failed. Users would see "❌ Failed" with no indication of the root cause (zone not found, permission issues, API errors, etc.).
+
+**Implementation**:
+- Removed `2>/dev/null` from zone lookup calls in apply phase
+- Captured stderr from provider calls and display on failure
+- Show actual error messages from AWS/provider APIs
+- Format errors as "❌ Failed" with error details on following line
+
+**Impact**:
+- Users can now see actual AWS/Cloudflare/provider error messages
+- Debugging DNS issues is significantly easier
+- Clear visibility into permission problems, zone issues, API errors
+
+**Future Enhancement** (moved to Phase 33):
+- DNS_VERBOSE environment variable for even more detailed debugging output
+
+**Related PR:** Merged in earlier Phase 26 work
