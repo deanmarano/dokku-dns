@@ -42,6 +42,7 @@ check_dependencies() {
 detect_providers() {
   local DETECTED_PROVIDERS=()
   local CONFIGURED_PROVIDERS=()
+  local NOT_CONFIGURED=()
 
   # Ensure the data directory exists
   mkdir -p "$PLUGIN_DATA_ROOT" 2>/dev/null || true
@@ -58,12 +59,14 @@ detect_providers() {
         CONFIGURED_PROVIDERS+=("AWS")
       else
         echo "       ⚠ AWS CLI authenticated but Route53 access limited (check permissions)"
+        NOT_CONFIGURED+=("AWS")
       fi
     else
       echo "       ⚠ AWS CLI installed but not configured (run: aws configure)"
+      NOT_CONFIGURED+=("AWS")
     fi
   else
-    echo "       - AWS CLI not installed"
+    NOT_CONFIGURED+=("AWS")
   fi
 
   # Check for Cloudflare environment variables
@@ -74,8 +77,9 @@ detect_providers() {
   elif command -v flarectl >/dev/null 2>&1; then
     DETECTED_PROVIDERS+=("Cloudflare")
     echo "       ✓ Cloudflare CLI (flarectl) available (requires API token)"
+    NOT_CONFIGURED+=("Cloudflare")
   else
-    echo "       - Cloudflare not configured"
+    NOT_CONFIGURED+=("Cloudflare")
   fi
 
   # Check for DigitalOcean credentials
@@ -90,9 +94,16 @@ detect_providers() {
       CONFIGURED_PROVIDERS+=("DigitalOcean")
     else
       echo "       ✓ DigitalOcean CLI (doctl) available (requires authentication)"
+      NOT_CONFIGURED+=("DigitalOcean")
     fi
   else
-    echo "       - DigitalOcean not configured"
+    NOT_CONFIGURED+=("DigitalOcean")
+  fi
+
+  # Show not configured providers if any
+  if [[ ${#NOT_CONFIGURED[@]} -gt 0 ]]; then
+    local IFS=", "
+    echo "       Not configured: ${NOT_CONFIGURED[*]}"
   fi
 
   # Report multi-provider status
@@ -103,9 +114,6 @@ detect_providers() {
     echo "       → Provider ready: ${CONFIGURED_PROVIDERS[0]}"
   else
     echo "       → No DNS providers fully configured yet"
-    if [[ ${#DETECTED_PROVIDERS[@]} -gt 0 ]]; then
-      echo "       → Available providers: ${DETECTED_PROVIDERS[*]}"
-    fi
   fi
 
   return 0
