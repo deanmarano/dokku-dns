@@ -169,7 +169,7 @@ EOF
   # Step 4: Process deletion queue
   run bash -c 'echo "y" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
   assert_success
-  assert_output_contains "test-app.example.com"
+  assert_output_contains "test-app.example.com" 2
 }
 
 @test "(dns:sync:deletions) only queues domains that were managed by plugin" {
