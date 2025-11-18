@@ -33,216 +33,193 @@ if [[ -f "$ADAPTER_PATH" ]]; then
   source "$ADAPTER_PATH"
 fi
 
-#E Remove DNS records that no longer correspond to active Dokku apps
-#E dokku $PLUGIN_COMMAND_PREFIX:sync:deletions [zone]
-#E 
-#E Removes DNS records that no longer correspond to active Dokku apps or domains.
-#E Without arguments, scans all enabled zones for records to be deleted.
-#E With zone argument, scans only that specific zone.
+# Load multi-provider for DNS operations
+PLUGIN_BASE_PATH="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")"
+if [[ -f "$PLUGIN_BASE_PATH/providers/multi-provider.sh" ]]; then
+  source "$PLUGIN_BASE_PATH/providers/multi-provider.sh"
+fi
+
+#E Remove DNS records from the pending deletions queue
+#E dokku $PLUGIN_COMMAND_PREFIX:sync:deletions [--force]
+#E
+#E Processes the pending deletions queue and removes DNS records that were
+#E queued for deletion when apps were destroyed or domains were removed.
+#E
+#E This command only deletes records that were explicitly tracked and queued
+#E by the plugin. It will never scan Route53 for orphaned records.
+#E
+#E Options:
+#E   --force   Skip confirmation prompt and delete immediately
 #E
 #E Examples:
 #E   dokku $PLUGIN_COMMAND_PREFIX:sync:deletions
-#E   dokku $PLUGIN_COMMAND_PREFIX:sync:deletions example.com
-#A zone, zone name to scan for records to be deleted (optional - scans all enabled zones if omitted)
+#E   dokku $PLUGIN_COMMAND_PREFIX:sync:deletions --force
+#A --force, skip confirmation prompt
 
 service-sync-deletions-cmd() {
-  declare desc="remove DNS records that no longer correspond to active Dokku apps"
+  declare desc="remove DNS records from the pending deletions queue"
   local cmd="$PLUGIN_COMMAND_PREFIX:sync:deletions"
   [[ "$1" == "$cmd" ]] && shift 1
-  
-  local ZONE="$1"
-  
-  dokku_log_info1 "DNS Record Cleanup"
-  
-  # Get list of all current Dokku apps and their domains
-  local current_domains=()
-  local apps
-  apps=$(dokku apps:list 2>/dev/null | tail -n +2 | tr '\n' ' ')
-  
-  for app in $apps; do
-    local app_domains
-    app_domains=$(get_app_domains "$app" 2>/dev/null || echo "")
-    if [[ -n "$app_domains" ]]; then
-      while IFS= read -r domain; do
-        [[ -n "$domain" ]] && current_domains+=("$domain")
-      done <<< "$app_domains"
-    fi
+
+  # Parse arguments
+  local FORCE=false
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --force)
+        FORCE=true
+        shift
+        ;;
+      *)
+        dokku_log_fail "Unknown option: $1"
+        ;;
+    esac
   done
-  
-  dokku_log_info2 "Found ${#current_domains[@]} domains across $apps apps"
-  
-  # Get DNS records to be deleted
-  local records_to_be_deleted=()
-  local zones_to_scan=()
-  
-  if [[ -n "$ZONE" ]]; then
-    zones_to_scan=("$ZONE")
-  else
-    # Get all enabled zones
-    if [[ -f "$PLUGIN_DATA_ROOT/ZONES_ENABLED" ]]; then
-      while IFS= read -r enabled_zone; do
-        [[ -n "$enabled_zone" ]] && zones_to_scan+=("$enabled_zone")
-      done < "$PLUGIN_DATA_ROOT/ZONES_ENABLED"
-    fi
-    
-    if [[ ${#zones_to_scan[@]} -eq 0 ]]; then
-      dokku_log_warn "No enabled zones found. Use 'dokku dns:zones:enable <zone>' to enable zones first."
-      return 0
-    fi
-    
-    dokku_log_info2 "Scanning ${#zones_to_scan[@]} enabled zones: ${zones_to_scan[*]}"
-  fi
-  
-  # Scan each zone for records to be deleted
-  for zone in "${zones_to_scan[@]}"; do
-    dokku_log_info2 "Scanning zone: $zone"
-    
-    # Get hosted zone ID for this zone
-    local zone_id
-    zone_id=$(dns_provider_aws_get_hosted_zone_id "$zone" 2>/dev/null || echo "")
-    
-    if [[ -z "$zone_id" ]]; then
-      dokku_log_warn "Could not find AWS hosted zone for: $zone"
-      continue
-    fi
-    
-    # Get all A records in this zone
-    local zone_records
-    zone_records=$(aws route53 list-resource-record-sets \
-      --hosted-zone-id "$zone_id" \
-      --query "ResourceRecordSets[?Type=='A' && !contains(Name, 'www.')].Name" \
-      --output text 2>/dev/null | tr '\t' '\n' || echo "")
-    
-    if [[ -z "$zone_records" ]]; then
-      dokku_log_info2 "No A records found in zone: $zone"
-      continue
-    fi
-    
-    # Check each DNS record against current domains
-    while IFS= read -r dns_record; do
-      [[ -z "$dns_record" ]] && continue
-      
-      # Remove trailing dot from Route53 record name
-      dns_record="${dns_record%.}"
-      
-      # Check if this DNS record corresponds to any current domain
-      local should_be_deleted=true
-      for current_domain in "${current_domains[@]}"; do
-        if [[ "$dns_record" == "$current_domain" ]]; then
-          should_be_deleted=false
-          break
-        fi
-      done
-      
-      if [[ "$should_be_deleted" == "true" ]]; then
-        records_to_be_deleted+=("$dns_record")
-      fi
-    done <<< "$zone_records"
-  done
-  
-  # Display results in Terraform-style format
-  if [[ ${#records_to_be_deleted[@]} -eq 0 ]]; then
-    dokku_log_info1 "No DNS records to be deleted"
-    dokku_log_info2 "All DNS records correspond to active Dokku domains"
+
+  dokku_log_info1 "DNS Record Deletion Queue"
+  echo
+
+  # Check if pending deletions file exists
+  local PENDING_DELETIONS_FILE="$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
+  if [[ ! -f "$PENDING_DELETIONS_FILE" ]] || [[ ! -s "$PENDING_DELETIONS_FILE" ]]; then
+    dokku_log_info1 "No pending deletions"
+    dokku_log_info2 "The deletion queue is empty"
     return 0
   fi
-  
-  echo ""
-  dokku_log_info1 "Planned Deletions:"
-  echo ""
-  
-  for record in "${records_to_be_deleted[@]}"; do
-    echo "  - $record (A record)"
+
+  # Read pending deletions
+  local -a pending_deletions=()
+  while IFS=: read -r domain zone_id timestamp; do
+    [[ -z "$domain" ]] && continue
+    pending_deletions+=("$domain:$zone_id:$timestamp")
+  done < "$PENDING_DELETIONS_FILE"
+
+  if [[ ${#pending_deletions[@]} -eq 0 ]]; then
+    dokku_log_info1 "No pending deletions"
+    dokku_log_info2 "The deletion queue is empty"
+    return 0
+  fi
+
+  # Display queued deletions in Terraform-style format
+  dokku_log_info1 "Queued Deletions:"
+  echo
+
+  for entry in "${pending_deletions[@]}"; do
+    IFS=: read -r domain zone_id timestamp <<< "$entry"
+    local date_str=""
+    if [[ -n "$timestamp" ]] && command -v date >/dev/null 2>&1; then
+      date_str=$(date -d "@$timestamp" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "")
+    fi
+    if [[ -n "$date_str" ]]; then
+      echo "  - $domain (A record) [queued: $date_str]"
+    else
+      echo "  - $domain (A record)"
+    fi
   done
-  
-  echo ""
-  dokku_log_info2 "Plan: 0 to add, 0 to change, ${#records_to_be_deleted[@]} to destroy"
-  echo ""
-  
-  # Confirmation prompt before deletion
-  echo ""
-  read -rp "Do you want to delete these ${#records_to_be_deleted[@]} DNS records? [y/N] " confirm
-  
-  if [[ "$confirm" =~ ^[Yy]$ ]]; then
-    dokku_log_info1 "Deleting DNS records..."
-    
-    local deleted_count=0
-    for record in "${records_to_be_deleted[@]}"; do
-      dokku_log_info2 "Deleting: $record"
-      
-      # Find the zone this record belongs to
-      local record_zone=""
-      for zone in "${zones_to_scan[@]}"; do
-        if [[ "$record" == *".$zone" ]] || [[ "$record" == "$zone" ]]; then
-          record_zone="$zone"
+
+  echo
+  dokku_log_info2 "Plan: 0 to add, 0 to change, ${#pending_deletions[@]} to destroy"
+  echo
+
+  # Confirmation prompt unless --force is specified
+  if [[ "$FORCE" != "true" ]]; then
+    echo
+    read -rp "Do you want to delete these ${#pending_deletions[@]} DNS records? [y/N] " confirm
+    echo
+
+    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+      dokku_log_info1 "Deletion cancelled"
+      return 0
+    fi
+  fi
+
+  # Process deletions
+  dokku_log_info1 "Deleting DNS records..."
+  echo
+
+  local deleted_count=0
+  local failed_count=0
+  local -a successfully_deleted=()
+
+  for entry in "${pending_deletions[@]}"; do
+    IFS=: read -r domain zone_id timestamp <<< "$entry"
+
+    printf "  %s... " "$domain"
+
+    # Validate zone_id
+    if [[ -z "$zone_id" ]]; then
+      echo "❌ Failed (no zone ID)"
+      failed_count=$((failed_count + 1))
+      continue
+    fi
+
+    # Get current record value
+    local record_value=""
+    if declare -f multi_get_record >/dev/null 2>&1; then
+      record_value=$(multi_get_record "$zone_id" "$domain" "A" 2>/dev/null || echo "")
+    fi
+
+    if [[ -z "$record_value" ]]; then
+      echo "⚠️  Already deleted or not found"
+      successfully_deleted+=("$domain")
+      deleted_count=$((deleted_count + 1))
+      continue
+    fi
+
+    # Delete the record
+    local deletion_successful=false
+    if declare -f multi_delete_record >/dev/null 2>&1; then
+      if multi_delete_record "$zone_id" "$domain" "A" "$record_value" 2>/dev/null; then
+        deletion_successful=true
+      fi
+    fi
+
+    if [[ "$deletion_successful" == "true" ]]; then
+      echo "✅ Deleted"
+      successfully_deleted+=("$domain")
+      deleted_count=$((deleted_count + 1))
+    else
+      echo "❌ Failed"
+      failed_count=$((failed_count + 1))
+    fi
+  done
+
+  # Remove successfully deleted domains from the queue
+  if [[ ${#successfully_deleted[@]} -gt 0 ]]; then
+    local temp_file
+    temp_file=$(mktemp)
+
+    # Write all entries except successfully deleted ones
+    for entry in "${pending_deletions[@]}"; do
+      IFS=: read -r domain zone_id timestamp <<< "$entry"
+      local is_deleted=false
+
+      for deleted_domain in "${successfully_deleted[@]}"; do
+        if [[ "$domain" == "$deleted_domain" ]]; then
+          is_deleted=true
           break
         fi
       done
-      
-      if [[ -z "$record_zone" ]]; then
-        dokku_log_warn "Could not determine zone for record: $record"
-        continue
-      fi
-      
-      # Get hosted zone ID
-      local zone_id
-      zone_id=$(dns_provider_aws_get_hosted_zone_id "$record_zone" 2>/dev/null || echo "")
-      
-      if [[ -z "$zone_id" ]]; then
-        dokku_log_warn "Could not find AWS hosted zone ID for: $record_zone"
-        continue
-      fi
-      
-      # Get current record value to build delete request
-      local record_value
-      record_value=$(aws route53 list-resource-record-sets \
-        --hosted-zone-id "$zone_id" \
-        --query "ResourceRecordSets[?Name=='$record.' && Type=='A'].ResourceRecords[0].Value" \
-        --output text 2>/dev/null || echo "")
-      
-      if [[ -z "$record_value" || "$record_value" == "None" ]]; then
-        dokku_log_warn "Could not find record value for: $record"
-        continue
-      fi
-      
-      # Create change batch JSON for deletion
-      local change_batch
-      change_batch=$(cat <<EOF
-{
-  "Changes": [
-    {
-      "Action": "DELETE",
-      "ResourceRecordSet": {
-        "Name": "$record",
-        "Type": "A",
-        "ResourceRecords": [
-          {
-            "Value": "$record_value"
-          }
-        ]
-      }
-    }
-  ]
-}
-EOF
-)
-      
-      # Execute the deletion
-      if aws route53 change-resource-record-sets \
-        --hosted-zone-id "$zone_id" \
-        --change-batch "$change_batch" >/dev/null 2>&1; then
-        echo "  Deleted: $record (A record)"
-        deleted_count=$((deleted_count + 1))
-      else
-        echo "  Failed to delete: $record"
+
+      if [[ "$is_deleted" == "false" ]]; then
+        echo "$entry" >> "$temp_file"
       fi
     done
-    
-    echo ""
-    dokku_log_info1 "Deleted $deleted_count of ${#records_to_be_deleted[@]} DNS records"
-  else
-    dokku_log_info1 "Deletion cancelled"
+
+    mv "$temp_file" "$PENDING_DELETIONS_FILE"
   fi
+
+  # Display summary
+  echo
+  if [[ $deleted_count -gt 0 ]]; then
+    dokku_log_info1 "Successfully deleted $deleted_count of ${#pending_deletions[@]} DNS records"
+  fi
+
+  if [[ $failed_count -gt 0 ]]; then
+    dokku_log_warn "$failed_count deletion(s) failed"
+    return 1
+  fi
+
+  return 0
 }
 
 service-sync-deletions-cmd "$@"

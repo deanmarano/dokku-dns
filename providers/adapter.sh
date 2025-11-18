@@ -220,6 +220,10 @@ dns_sync_app() {
         if [[ $exit_code -eq 0 ]]; then
           echo "✅ Applied"
           domains_synced=$((domains_synced + 1))
+          # Track this domain as managed by the plugin
+          if declare -f record_managed_domain >/dev/null 2>&1; then
+            record_managed_domain "$domain" "$zone_id"
+          fi
         else
           echo "❌ Failed"
           if [[ -n "$error_output" ]]; then
@@ -249,6 +253,10 @@ dns_sync_app() {
         if [[ $exit_code -eq 0 ]]; then
           echo "✅ Applied"
           domains_synced=$((domains_synced + 1))
+          # Track this domain as managed by the plugin
+          if declare -f record_managed_domain >/dev/null 2>&1; then
+            record_managed_domain "$domain" "$zone_id"
+          fi
         else
           echo "❌ Failed"
           if [[ -n "$error_output" ]]; then

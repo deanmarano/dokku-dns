@@ -1,214 +1,204 @@
 #!/usr/bin/env bats
 load test_helper
 
+# Tests for Phase 26e: Safe Queue-Based DNS Record Deletion System
+
 setup() {
   cleanup_dns_data
   setup_dns_provider aws
   mkdir -p "$PLUGIN_DATA_ROOT"
-
-  # Mock the AWS provider function for sync:deletions tests
-  dns_provider_aws_get_hosted_zone_id() {
-    local DOMAIN="$1"
-
-    # Check for credential failure simulation
-    if [[ "${AWS_MOCK_FAIL_CREDENTIALS:-}" == "true" ]]; then
-      return 1
-    fi
-
-    # Mock implementation for testing
-    case "$DOMAIN" in
-      "example.com" | *.example.com)
-        echo "Z1234567890ABC"
-        return 0
-        ;;
-      "test.org" | *.test.org)
-        echo "Z0987654321DEF"
-        return 0
-        ;;
-      *)
-        return 1
-        ;;
-    esac
-  }
-  export -f dns_provider_aws_get_hosted_zone_id
+  export DNS_TEST_SERVER_IP="192.0.2.1"
 }
 
 teardown() {
   cleanup_dns_data
-  # Restore functions file if backup exists
-  if [[ -f "${TEST_TMP_DIR}/functions.orig" ]]; then
-    cp "${TEST_TMP_DIR}/functions.orig" "$PLUGIN_ROOT/functions"
-  fi
-  # Restore main AWS mock
-  restore_main_aws_mock
-  # Clean up AWS mock control
-  clear_aws_mock_record_count
 }
 
-@test "(dns:sync:deletions) error with invalid zone argument" {
-  # Create a mock ZONES_ENABLED file
-  echo "example.com" >"$PLUGIN_DATA_ROOT/ZONES_ENABLED"
-
-  run dokku "$PLUGIN_COMMAND_PREFIX:sync:deletions" nonexistent-zone.com
-
-  # Should still run successfully but find no orphaned records
-  assert_success
-}
-
-@test "(dns:sync:deletions) shows message when no enabled zones" {
-  # Ensure no enabled zones
-  rm -f "$PLUGIN_DATA_ROOT/ZONES_ENABLED"
-
-  # Use writable bin directory for CI compatibility
-  WRITABLE_BIN=$(setup_writable_test_bin)
+@test "(dns:sync:deletions) shows message when deletion queue is empty" {
+  # Ensure no pending deletions file
+  rm -f "$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
 
   run dokku "$PLUGIN_COMMAND_PREFIX:sync:deletions"
   assert_success
-  assert_output_contains "No enabled zones found"
-  assert_output_contains "Use 'dokku dns:zones:enable <zone>' to enable zones first"
+  assert_output_contains "No pending deletions"
+  assert_output_contains "The deletion queue is empty"
 }
 
-@test "(dns:sync:deletions) shows message when no records to be deleted found" {
-  # Create enabled zones but no records to be deleted
-  echo "example.com" >"$PLUGIN_DATA_ROOT/ZONES_ENABLED"
-
-  # Set AWS mock to return 0 records
-  set_aws_mock_record_count 0
+@test "(dns:sync:deletions) shows message when deletion queue exists but is empty" {
+  # Create empty pending deletions file
+  touch "$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
 
   run dokku "$PLUGIN_COMMAND_PREFIX:sync:deletions"
   assert_success
-  assert_output_contains "No DNS records to be deleted"
-  assert_output_contains "All DNS records correspond to active Dokku domains"
+  assert_output_contains "No pending deletions"
+  assert_output_contains "The deletion queue is empty"
 }
 
-@test "(dns:sync:deletions) displays Terraform-style plan output for records to be deleted" {
-  # Create enabled zones
-  echo "example.com" >"$PLUGIN_DATA_ROOT/ZONES_ENABLED"
-
-  # Set AWS mock to return 2 records that will be considered for deletion
-  set_aws_mock_record_count 2 "old-app"
-
-  # Mock get_app_domains to return no domains (making all DNS records eligible for deletion)
-  # Save original functions file and restore it after test
-  cp "$PLUGIN_ROOT/functions" "${TEST_TMP_DIR}/functions.orig"
-
-  cat >>"$PLUGIN_ROOT/functions" <<'EOF'
-
-get_app_domains() {
-  echo ""
-}
+@test "(dns:sync:deletions) displays queued deletions in Terraform-style format" {
+  # Create pending deletions queue with test data
+  cat >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS" <<EOF
+old-app.example.com:Z1234567890ABC:1700000000
+test.example.com:Z1234567890ABC:1700000100
 EOF
-
-  run bash -c 'echo "n" | dokku '\"$PLUGIN_COMMAND_PREFIX\"':sync:deletions'
-  assert_success
-  assert_output_contains "Planned Deletions:"
-  assert_output_contains "- old-app-1.example.com (A record)"
-  assert_output_contains "- old-app-2.example.com (A record)"
-  assert_output_contains "Plan: 0 to add, 0 to change, 2 to destroy"
-
-  # Restore original functions file
-  cp "${TEST_TMP_DIR}/functions.orig" "$PLUGIN_ROOT/functions"
-}
-
-@test "(dns:sync:deletions) handles zone-specific cleanup" {
-  # Create multiple enabled zones
-  echo -e "example.com\ntest.org" >"$PLUGIN_DATA_ROOT/ZONES_ENABLED"
-
-  # Set AWS mock to return 1 record for example.com zone only
-  set_aws_mock_record_count 1 "old-app"
-
-  run bash -c 'echo "n" | dokku '\"$PLUGIN_COMMAND_PREFIX\"':sync:deletions example.com'
-  assert_success
-  assert_output_contains "Scanning zone: example.com"
-  assert_output_contains "- old-app.example.com (A record)"
-  # Should not contain any test.org records (since we're only scanning example.com zone)
-  [[ "$output" != *"test.org"* ]]
-}
-
-@test "(dns:sync:deletions) filters out current app domains from deletion list" {
-  # Create test app with domains
-  create_test_app current-app
-  add_test_domains current-app current.example.com
-
-  # Enable DNS for the app
-  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" current-app >/dev/null 2>&1
-
-  # Create enabled zones
-  echo "example.com" >"$PLUGIN_DATA_ROOT/ZONES_ENABLED"
-
-  # Set AWS mock to return both current and records to be deleted
-  # The mock will return record-to-delete.example.com as a DNS record that should be filtered
-  set_aws_mock_record_count 1 "record-to-delete"
 
   run bash -c 'echo "n" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
   assert_success
+  assert_output_contains "Queued Deletions:"
+  assert_output_contains "old-app.example.com (A record)"
+  assert_output_contains "test.example.com (A record)"
+  assert_output_contains "Plan: 0 to add, 0 to change, 2 to destroy"
+  assert_output_contains "Deletion cancelled"
+}
 
-  # Should show record to be deleted but not current app domain
-  assert_output_contains "- record-to-delete.example.com (A record)"
-  [[ "$output" != *"- current.example.com (A record)"* ]]
-  assert_output_contains "Plan: 0 to add, 0 to change, 1 to destroy"
+@test "(dns:sync:deletions) shows timestamps for queued deletions" {
+  # Create pending deletion with known timestamp
+  echo "test.example.com:Z1234567890ABC:1700000000" >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
 
-  cleanup_test_app current-app
+  run bash -c 'echo "n" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
+  assert_success
+  assert_output_contains "queued:"
+  # Should show timestamp in human-readable format
 }
 
 @test "(dns:sync:deletions) handles user cancellation gracefully" {
-  # Create enabled zones with records to be deleted
-  echo "example.com" >"$PLUGIN_DATA_ROOT/ZONES_ENABLED"
-
-  # Set AWS mock to return 1 record to be deleted
-  set_aws_mock_record_count 1 "record-to-delete"
+  # Create pending deletions queue
+  echo "test.example.com:Z1234567890ABC:1700000000" >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
 
   # Mock user input to simulate 'n' (no) response
   run bash -c 'echo "n" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
   assert_success
   assert_output_contains "Deletion cancelled"
+
+  # Queue should still exist
+  [[ -f "$PLUGIN_DATA_ROOT/PENDING_DELETIONS" ]]
 }
 
-@test "(dns:sync:deletions) attempts deletion when user confirms" {
-  # Create enabled zones with records to be deleted
-  echo "example.com" >"$PLUGIN_DATA_ROOT/ZONES_ENABLED"
+@test "(dns:sync:deletions) --force flag skips confirmation prompt" {
+  # Create pending deletions queue
+  echo "nonexistent.example.com:Z1234567890ABC:1700000000" >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
 
-  # Set AWS mock to return 1 record to be deleted
-  set_aws_mock_record_count 1 "record-to-delete"
-
-  # Mock user input to simulate 'y' (yes) response
-  run bash -c 'echo "y" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
+  run dokku "$PLUGIN_COMMAND_PREFIX:sync:deletions" --force
   assert_success
+  # Should not show confirmation prompt
+  [[ "$output" != *"Do you want to delete"* ]]
   assert_output_contains "Deleting DNS records..."
-  assert_output_contains "Deleting: record-to-delete.example.com"
-  assert_output_contains "Deleted: record-to-delete.example.com (A record)"
-  assert_output_contains "Deleted 1 of 1 DNS records"
 }
 
-@test "(dns:sync:deletions) handles AWS API failures gracefully" {
-  # Create enabled zones
-  echo "example.com" >"$PLUGIN_DATA_ROOT/ZONES_ENABLED"
+@test "(dns:sync:deletions) handles domain with missing zone_id" {
+  # Create pending deletion without zone_id
+  echo "test.example.com::1700000000" >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
 
-  # Set AWS mock to return 1 record to be deleted
-  set_aws_mock_record_count 1 "record-to-delete"
+  run bash -c 'echo "y" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
+  # Command should fail (exit 1) because deletion failed
+  assert_failure
+  assert_output_contains "Failed (no zone ID)"
+  assert_output_contains "deletion(s) failed"
+}
 
-  # Force API failure mode for reliable testing across different CI environments
-  export AWS_MOCK_FAIL_API="true"
+@test "(dns:sync:deletions) handles already-deleted records gracefully" {
+  # Create pending deletion for record that doesn't exist in DNS
+  echo "nonexistent.example.com:Z1234567890ABC:1700000000" >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
 
-  # Mock user input to simulate 'y' (yes) response
   run bash -c 'echo "y" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
   assert_success
-  assert_output_contains "Failed to delete: record-to-delete.example.com"
-  assert_output_contains "Deleted 0 of 1 DNS records"
+  assert_output_contains "Already deleted or not found"
+  assert_output_contains "Successfully deleted 1 of 1 DNS records"
 
-  # Clean up environment variable to not affect other tests
-  unset AWS_MOCK_FAIL_API
+  # Record should be removed from queue
+  ! grep -q "nonexistent.example.com" "$PLUGIN_DATA_ROOT/PENDING_DELETIONS" 2>/dev/null || [[ ! -s "$PLUGIN_DATA_ROOT/PENDING_DELETIONS" ]]
 }
 
-@test "(dns:sync:deletions) handles missing AWS credentials" {
-  # Create enabled zones
-  echo "example.com" >"$PLUGIN_DATA_ROOT/ZONES_ENABLED"
+@test "(dns:sync:deletions) removes successfully deleted domains from queue" {
+  # Create pending deletions queue with multiple domains
+  cat >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS" <<EOF
+deleted1.example.com:Z1234567890ABC:1700000000
+deleted2.example.com:Z1234567890ABC:1700000100
+deleted3.example.com:Z1234567890ABC:1700000200
+EOF
 
-  # Set environment variable to simulate credential failure
-  export AWS_MOCK_FAIL_CREDENTIALS=true
-
-  run dokku "$PLUGIN_COMMAND_PREFIX:sync:deletions"
+  run bash -c 'echo "y" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
   assert_success
-  # Should handle gracefully and show warning about hosted zone
-  assert_output_contains "Could not find AWS hosted zone for: example.com"
+
+  # All domains should be removed from queue (or marked as deleted/not found)
+  if [[ -f "$PLUGIN_DATA_ROOT/PENDING_DELETIONS" ]]; then
+    # File might still exist but should be empty or only contain failed deletions
+    [[ ! -s "$PLUGIN_DATA_ROOT/PENDING_DELETIONS" ]] || {
+      # If not empty, check that successfully deleted domains are gone
+      ! grep -q "deleted1.example.com" "$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
+    }
+  fi
+}
+
+@test "(dns:sync:deletions) rejects invalid arguments" {
+  run dokku "$PLUGIN_COMMAND_PREFIX:sync:deletions" --invalid-flag
+  assert_failure
+  assert_output_contains "Unknown option: --invalid-flag"
+}
+
+@test "(dns:sync:deletions) handles multi-line PENDING_DELETIONS file" {
+  # Create pending deletions with various formats
+  cat >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS" <<EOF
+domain1.example.com:Z1234567890ABC:1700000000
+domain2.example.com:Z1234567890ABC:1700000100
+
+domain3.example.com:Z1234567890ABC:1700000200
+EOF
+
+  run bash -c 'echo "n" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
+  assert_success
+  assert_output_contains "- domain1.example.com (A record)"
+  assert_output_contains "- domain2.example.com (A record)"
+  assert_output_contains "- domain3.example.com (A record)"
+  assert_output_contains "Plan: 0 to add, 0 to change, 3 to destroy"
+}
+
+@test "(dns:sync:deletions) integration with record_managed_domain function" {
+  # Simulate the full workflow: create managed record → queue for deletion → delete
+
+  # Step 1: Add domain to MANAGED_RECORDS (simulating dns:apps:sync)
+  echo "test-app.example.com:Z1234567890ABC:1700000000" >"$PLUGIN_DATA_ROOT/MANAGED_RECORDS"
+
+  # Step 2: Queue it for deletion (simulating app destroy)
+  run bash -c 'source '"$PLUGIN_ROOT"'/functions && queue_domain_deletion "test-app.example.com" "Z1234567890ABC"'
+  assert_success
+
+  # Step 3: Verify it's in PENDING_DELETIONS and removed from MANAGED_RECORDS
+  grep -q "test-app.example.com" "$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
+  ! grep -q "test-app.example.com" "$PLUGIN_DATA_ROOT/MANAGED_RECORDS" 2>/dev/null || [[ ! -s "$PLUGIN_DATA_ROOT/MANAGED_RECORDS" ]]
+
+  # Step 4: Process deletion queue
+  run bash -c 'echo "y" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
+  assert_success
+  assert_output_contains "test-app.example.com" 2
+}
+
+@test "(dns:sync:deletions) only queues domains that were managed by plugin" {
+  # Try to queue a domain that was never in MANAGED_RECORDS
+  run bash -c 'source '"$PLUGIN_ROOT"'/functions && queue_domain_deletion "never-managed.example.com" "Z1234567890ABC"'
+  assert_success
+
+  # Should NOT be added to PENDING_DELETIONS
+  [[ ! -f "$PLUGIN_DATA_ROOT/PENDING_DELETIONS" ]] || ! grep -q "never-managed.example.com" "$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
+}
+
+@test "(dns:sync:deletions) handles domains with special characters" {
+  # Create pending deletion with hyphenated domain
+  echo "my-test-app.example.com:Z1234567890ABC:1700000000" >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
+
+  run bash -c 'echo "n" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
+  assert_success
+  assert_output_contains "- my-test-app.example.com (A record)"
+}
+
+@test "(dns:sync:deletions) shows count summary after deletion" {
+  # Create pending deletions
+  cat >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS" <<EOF
+record1.example.com:Z1234567890ABC:1700000000
+record2.example.com:Z1234567890ABC:1700000100
+EOF
+
+  run bash -c 'echo "y" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
+  assert_success
+  assert_output_contains "Successfully deleted"
+  assert_output_contains "of 2 DNS records"
 }

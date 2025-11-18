@@ -87,11 +87,24 @@ main() {
   fi
 
   if [[ ${#managed_domains[@]} -gt 0 ]]; then
-    # Queue domains for potential deletion
-    local DELETIONS_QUEUE="$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
+    # Queue domains for potential deletion using the queue_domain_deletion function
+    # Load multi-provider for zone lookup
+    local MULTI_PROVIDER_PATH="$TRIGGER_BASE_PATH/providers/multi-provider.sh"
+    if [[ -f "$MULTI_PROVIDER_PATH" ]]; then
+      source "$MULTI_PROVIDER_PATH"
+    fi
+
     for domain in "${managed_domains[@]}"; do
-      # Add timestamp and source info to the deletions queue
-      echo "$(date '+%Y-%m-%d %H:%M:%S') post-delete $APP $domain" >>"$DELETIONS_QUEUE"
+      # Get zone ID for this domain
+      local zone_id=""
+      if declare -f multi_get_zone_id >/dev/null 2>&1; then
+        zone_id=$(multi_get_zone_id "$domain" 2>/dev/null || echo "")
+      fi
+
+      # Queue the domain for deletion (will only queue if it was managed by plugin)
+      if declare -f queue_domain_deletion >/dev/null 2>&1; then
+        queue_domain_deletion "$domain" "$zone_id"
+      fi
     done
 
     dokku_log_info1 "DNS: App '$APP' removed from DNS management"
