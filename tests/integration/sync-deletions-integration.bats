@@ -26,7 +26,7 @@ teardown() {
 @test "(dns:sync:deletions integration) displays queued deletions in Terraform-style format" {
   # Manually create a pending deletion for testing
   mkdir -p "$PLUGIN_DATA_ROOT"
-  echo "test-record.example.com:Z1234567890ABC:$(date +%s)" > "$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
+  echo "test-record.example.com:Z1234567890ABC:$(date +%s)" >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
 
   run bash -c 'echo "n" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
   assert_success
@@ -39,7 +39,7 @@ teardown() {
 @test "(dns:sync:deletions integration) respects user cancellation" {
   # Create a pending deletion
   mkdir -p "$PLUGIN_DATA_ROOT"
-  echo "test-record.example.com:Z1234567890ABC:$(date +%s)" > "$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
+  echo "test-record.example.com:Z1234567890ABC:$(date +%s)" >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
 
   # Pipe 'n' to simulate user declining deletion
   run bash -c 'echo "n" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
@@ -56,7 +56,7 @@ teardown() {
 
   # Create a pending deletion for a record that doesn't exist
   mkdir -p "$PLUGIN_DATA_ROOT"
-  echo "nonexistent-record.example.com:Z1234567890ABC:$(date +%s)" > "$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
+  echo "nonexistent-record.example.com:Z1234567890ABC:$(date +%s)" >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
 
   # Use --force flag to bypass confirmation
   run dokku "$PLUGIN_COMMAND_PREFIX:sync:deletions" --force
@@ -71,7 +71,7 @@ teardown() {
 
   # Create pending deletions for non-existent records
   mkdir -p "$PLUGIN_DATA_ROOT"
-  cat > "$PLUGIN_DATA_ROOT/PENDING_DELETIONS" <<EOF
+  cat >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS" <<EOF
 nonexistent1.example.com:Z1234567890ABC:$(date +%s)
 nonexistent2.example.com:Z1234567890ABC:$(date +%s)
 EOF
@@ -92,7 +92,7 @@ EOF
 @test "(dns:sync:deletions integration) handles domains with missing zone_id" {
   # Create pending deletion without zone_id
   mkdir -p "$PLUGIN_DATA_ROOT"
-  echo "test-record.example.com::$(date +%s)" > "$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
+  echo "test-record.example.com::$(date +%s)" >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
 
   run bash -c 'echo "y" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
   assert_success
@@ -141,7 +141,7 @@ EOF
   # Create pending deletion with known timestamp
   mkdir -p "$PLUGIN_DATA_ROOT"
   local timestamp=$(date +%s)
-  echo "test-record.example.com:Z1234567890ABC:$timestamp" > "$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
+  echo "test-record.example.com:Z1234567890ABC:$timestamp" >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
 
   run bash -c 'echo "n" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
   assert_success

@@ -36,7 +36,7 @@ teardown() {
 
 @test "(dns:sync:deletions) displays queued deletions in Terraform-style format" {
   # Create pending deletions queue with test data
-  cat > "$PLUGIN_DATA_ROOT/PENDING_DELETIONS" <<EOF
+  cat >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS" <<EOF
 old-app.example.com:Z1234567890ABC:1700000000
 test.example.com:Z1234567890ABC:1700000100
 EOF
@@ -52,7 +52,7 @@ EOF
 
 @test "(dns:sync:deletions) shows timestamps for queued deletions" {
   # Create pending deletion with known timestamp
-  echo "test.example.com:Z1234567890ABC:1700000000" > "$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
+  echo "test.example.com:Z1234567890ABC:1700000000" >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
 
   run bash -c 'echo "n" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
   assert_success
@@ -62,7 +62,7 @@ EOF
 
 @test "(dns:sync:deletions) handles user cancellation gracefully" {
   # Create pending deletions queue
-  echo "test.example.com:Z1234567890ABC:1700000000" > "$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
+  echo "test.example.com:Z1234567890ABC:1700000000" >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
 
   # Mock user input to simulate 'n' (no) response
   run bash -c 'echo "n" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
@@ -75,7 +75,7 @@ EOF
 
 @test "(dns:sync:deletions) --force flag skips confirmation prompt" {
   # Create pending deletions queue
-  echo "nonexistent.example.com:Z1234567890ABC:1700000000" > "$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
+  echo "nonexistent.example.com:Z1234567890ABC:1700000000" >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
 
   run dokku "$PLUGIN_COMMAND_PREFIX:sync:deletions" --force
   assert_success
@@ -86,7 +86,7 @@ EOF
 
 @test "(dns:sync:deletions) handles domain with missing zone_id" {
   # Create pending deletion without zone_id
-  echo "test.example.com::1700000000" > "$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
+  echo "test.example.com::1700000000" >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
 
   run bash -c 'echo "y" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
   assert_success
@@ -95,7 +95,7 @@ EOF
 
 @test "(dns:sync:deletions) handles already-deleted records gracefully" {
   # Create pending deletion for record that doesn't exist in DNS
-  echo "nonexistent.example.com:Z1234567890ABC:1700000000" > "$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
+  echo "nonexistent.example.com:Z1234567890ABC:1700000000" >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
 
   run bash -c 'echo "y" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
   assert_success
@@ -108,7 +108,7 @@ EOF
 
 @test "(dns:sync:deletions) removes successfully deleted domains from queue" {
   # Create pending deletions queue with multiple domains
-  cat > "$PLUGIN_DATA_ROOT/PENDING_DELETIONS" <<EOF
+  cat >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS" <<EOF
 deleted1.example.com:Z1234567890ABC:1700000000
 deleted2.example.com:Z1234567890ABC:1700000100
 deleted3.example.com:Z1234567890ABC:1700000200
@@ -135,7 +135,7 @@ EOF
 
 @test "(dns:sync:deletions) handles multi-line PENDING_DELETIONS file" {
   # Create pending deletions with various formats
-  cat > "$PLUGIN_DATA_ROOT/PENDING_DELETIONS" <<EOF
+  cat >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS" <<EOF
 domain1.example.com:Z1234567890ABC:1700000000
 domain2.example.com:Z1234567890ABC:1700000100
 
@@ -154,7 +154,7 @@ EOF
   # Simulate the full workflow: create managed record → queue for deletion → delete
 
   # Step 1: Add domain to MANAGED_RECORDS (simulating dns:apps:sync)
-  echo "test-app.example.com:Z1234567890ABC:1700000000" > "$PLUGIN_DATA_ROOT/MANAGED_RECORDS"
+  echo "test-app.example.com:Z1234567890ABC:1700000000" >"$PLUGIN_DATA_ROOT/MANAGED_RECORDS"
 
   # Step 2: Queue it for deletion (simulating app destroy)
   run bash -c 'source '"$PLUGIN_ROOT"'/functions && queue_domain_deletion "test-app.example.com" "Z1234567890ABC"'
@@ -181,7 +181,7 @@ EOF
 
 @test "(dns:sync:deletions) handles domains with special characters" {
   # Create pending deletion with hyphenated domain
-  echo "my-test-app.example.com:Z1234567890ABC:1700000000" > "$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
+  echo "my-test-app.example.com:Z1234567890ABC:1700000000" >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
 
   run bash -c 'echo "n" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
   assert_success
@@ -190,7 +190,7 @@ EOF
 
 @test "(dns:sync:deletions) shows count summary after deletion" {
   # Create pending deletions
-  cat > "$PLUGIN_DATA_ROOT/PENDING_DELETIONS" <<EOF
+  cat >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS" <<EOF
 record1.example.com:Z1234567890ABC:1700000000
 record2.example.com:Z1234567890ABC:1700000100
 EOF
