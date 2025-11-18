@@ -106,9 +106,9 @@ detect_providers() {
     echo "       Not configured: ${NOT_CONFIGURED[*]}"
   fi
 
-  # Report multi-provider status
+  # Report provider status
   if [[ ${#CONFIGURED_PROVIDERS[@]} -gt 1 ]]; then
-    echo "       → Multi-provider mode: ${CONFIGURED_PROVIDERS[*]}"
+    echo "       → Providers ready: ${CONFIGURED_PROVIDERS[*]}"
     echo "       → DNS records will route to appropriate provider based on zone"
   elif [[ ${#CONFIGURED_PROVIDERS[@]} -eq 1 ]]; then
     echo "       → Provider ready: ${CONFIGURED_PROVIDERS[0]}"
