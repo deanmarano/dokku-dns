@@ -106,30 +106,30 @@ See `test-output-examples/` folder for actual command outputs showing these issu
 3. `sync:deletions` only processes the queue, never scans Route53
 
 **Tasks:**
-- [ ] Create tracking system for plugin-managed records
-  - [ ] Add `$PLUGIN_DATA_ROOT/MANAGED_RECORDS` file (format: `domain:zone_id:timestamp`)
-  - [ ] Update `dns_sync_app` to append to MANAGED_RECORDS when creating records
-  - [ ] Add helper: `record_managed_domain()` function
-- [ ] Create deletion queue system
-  - [ ] Add `$PLUGIN_DATA_ROOT/PENDING_DELETIONS` file (format: `domain:zone_id:timestamp`)
-  - [ ] Update app-destroy hook to add domains to PENDING_DELETIONS
-  - [ ] Update domains-remove hook to add domains to PENDING_DELETIONS
-  - [ ] Add helper: `queue_domain_deletion()` function
-- [ ] Rewrite sync:deletions command
-  - [ ] Read from PENDING_DELETIONS instead of scanning Route53
-  - [ ] Verify domain is in MANAGED_RECORDS before deleting
-  - [ ] Remove from both files after successful deletion
-  - [ ] Show Terraform-style output for queued deletions
-  - [ ] Add --force flag to bypass confirmation
-- [ ] Update documentation
-  - [ ] Document the queue-based deletion workflow
-  - [ ] Add examples of manual cleanup if needed
-  - [ ] Explain MANAGED_RECORDS and PENDING_DELETIONS files
-- [ ] Testing
-  - [ ] Create app with domain, verify added to MANAGED_RECORDS
-  - [ ] Destroy app, verify domain added to PENDING_DELETIONS
-  - [ ] Run sync:deletions, verify only queued domains deleted
-  - [ ] Manually create Route53 record, verify NOT deleted by sync:deletions
+- [x] Create tracking system for plugin-managed records
+  - [x] Add `$PLUGIN_DATA_ROOT/MANAGED_RECORDS` file (format: `domain:zone_id:timestamp`)
+  - [x] Update `dns_sync_app` to append to MANAGED_RECORDS when creating records
+  - [x] Add helper: `record_managed_domain()` function
+- [x] Create deletion queue system
+  - [x] Add `$PLUGIN_DATA_ROOT/PENDING_DELETIONS` file (format: `domain:zone_id:timestamp`)
+  - [x] Update app-destroy hook to add domains to PENDING_DELETIONS
+  - [x] Update domains-remove hook to add domains to PENDING_DELETIONS
+  - [x] Add helper: `queue_domain_deletion()` function
+- [x] Rewrite sync:deletions command
+  - [x] Read from PENDING_DELETIONS instead of scanning Route53
+  - [x] Verify domain is in MANAGED_RECORDS before deleting
+  - [x] Remove from both files after successful deletion
+  - [x] Show Terraform-style output for queued deletions
+  - [x] Add --force flag to bypass confirmation
+- [x] Update documentation
+  - [x] Document the queue-based deletion workflow
+  - [x] Add examples of manual cleanup if needed
+  - [x] Explain MANAGED_RECORDS and PENDING_DELETIONS files
+- [x] Testing
+  - [x] Create app with domain, verify added to MANAGED_RECORDS
+  - [x] Destroy app, verify domain added to PENDING_DELETIONS
+  - [x] Run sync:deletions, verify only queued domains deleted
+  - [x] Manually create Route53 record, verify NOT deleted by sync:deletions
 
 **Example Workflow:**
 ```bash
