@@ -3,7 +3,7 @@
 The DNS plugin is in progress! Many core features have been implemented and tested. See [DONE.md](./DONE.md) for completed work.
 
 
-### Phase 26: Display and Reporting Fixes (Pre-Release)
+### Phase 28: Display and Reporting Fixes (Pre-Release)
 
 **Objective:** Fix inconsistent zone detection in status displays and reduce excessive output verbosity.
 
@@ -29,7 +29,7 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - **Reference:** See `test-output-examples/provider-verify-output.txt`
 
 
-### Phase 27: Trigger System Improvements (Pre-Release)
+### Phase 29: Trigger System Improvements (Pre-Release)
 
 **Objective:** Fix post-create trigger failing to detect auto-added domains from global vhost.
 
@@ -42,7 +42,7 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - **Reference:** See `test-output-examples/app-create-trigger-fail.txt`
 
 
-### Phase 28: Zone Management UX Improvements (Pre-Release)
+### Phase 30: Zone Management UX Improvements (Pre-Release)
 
 **Objective:** Improve user experience for zone management with better output and new sync command.
 
@@ -61,7 +61,7 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - **Goal:** Bulk sync operations at the zone level
 
 
-### Phase 29: Pre-Release Testing & Validation
+### Phase 31: Pre-Release Testing & Validation
 
 - [ ] **Create Testing Documentation**
   - [ ] Create TESTING.md with manual test procedures for all providers
@@ -86,7 +86,7 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - [ ] Test sync-all command with multiple apps and providers
 
 
-### Phase 30: 1.0 Release
+### Phase 32: 1.0 Release
 
 - [ ] **GitHub Release Infrastructure**
   - [ ] Create semantic version tagging strategy (v1.0.0)
@@ -104,7 +104,7 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - [ ] Set up performance monitoring and error tracking
 
 
-### Phase 31: Community & Support (Post-Release)
+### Phase 33: Community & Support (Post-Release)
 
 - [ ] **Community Announcements**
   - [ ] Post to Dokku community forum
@@ -125,7 +125,7 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - [ ] Design feature request evaluation and roadmap integration
 
 
-### Phase 32: Code Quality - Medium Priority Cleanup (Post-1.0)
+### Phase 34: Code Quality - Medium Priority Cleanup (Post-1.0)
 
 - [ ] **Extract Duplicate Provider Code**
   - [ ] Create `apply_dns_record` helper function in adapter.sh
@@ -166,7 +166,7 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - [ ] Audit all hooks, subcommands, and functions for legacy provider patterns
 
 
-### Phase 33: Code Quality - Low Priority Polish (Post-1.0)
+### Phase 35: Code Quality - Low Priority Polish (Post-1.0)
 
 - [ ] **Reduce Logging Verbosity**
   - [ ] Extract logging from functions:347-397 (dns_add_app_domains)
