@@ -1513,3 +1513,161 @@ Successfully completed a comprehensive documentation transformation that elevate
 
 **Impact:**
 Users now see the correct mental model: zones must be enabled before domain management works, which aligns with the plugin's actual architecture and multi-provider routing logic.
+---
+
+## Phase 26e: Safe DNS Record Deletion System - COMPLETED ✅ (2025-11-18)
+
+**Objective**: Implement queue-based deletion system to prevent accidentally deleting manually created DNS records.
+
+**Problem Solved**: 
+The previous `sync:deletions` command scanned ALL Route53 A records and marked any record not matching a current Dokku app for deletion. This was DANGEROUS and could delete:
+- Manually created DNS records
+- Records from other systems
+- Records not managed by the Dokku plugin
+
+**Major Achievements:**
+- 🔒 **Safety-First Architecture**: Queue-based deletion only removes explicitly tracked records
+- 📋 **Record Tracking**: MANAGED_RECORDS file tracks all plugin-created domains
+- 🗑️ **Deletion Queue**: PENDING_DELETIONS file queues domains for safe removal
+- 🔍 **Never Scans Route53**: Complete rewrite eliminates dangerous scanning behavior
+- ✅ **Comprehensive Testing**: 32 tests (20 unit + 12 integration) covering all workflows
+- 🎨 **Terraform-Style Output**: Beautiful deletion plan display with timestamps
+- 🛡️ **Protection Guarantees**: Manual DNS records are never touched
+
+**Technical Implementation:**
+
+**1. DNS Record Tracking System (`functions:1084-1190`)**
+- `record_managed_domain()` - Add domains to tracking when created
+- `unrecord_managed_domain()` - Remove from tracking  
+- `queue_domain_deletion()` - Add to deletion queue (only if previously tracked)
+- `get_managed_domains()` - Query all managed domains
+- `get_pending_deletions()` - Query deletion queue
+- `remove_from_deletion_queue()` - Remove after successful deletion
+- `is_domain_managed()` - Check tracking status
+
+**2. Updated Hooks**
+- **post-delete**: Queues domains when app destroyed
+- **post-domains-update**: Queues domains when removed from app
+- Both use `multi_get_zone_id` before queuing to preserve zone information
+
+**3. Updated DNS Sync (`providers/adapter.sh:220-226, 253-259`)**
+- Calls `record_managed_domain()` after successful record creation
+- Tracks domain with zone_id and timestamp for lifecycle management
+
+**4. Complete `sync:deletions` Rewrite (`subcommands/sync:deletions`)**
+- ✅ Reads from PENDING_DELETIONS queue (never scans Route53)
+- ✅ Parses `domain:zone_id:timestamp` format
+- ✅ Displays queued deletions with timestamps (Terraform-style)
+- ✅ Added `--force` flag to skip confirmation
+- ✅ Uses `multi_delete_record()` for provider-agnostic deletion
+- ✅ Removes successfully deleted domains from queue
+- ✅ Proper exit codes (0 on success, 1 on any failures)
+- ✅ **NEVER scans Route53** - only processes explicit queue
+
+**File Format:**
+```
+# Both MANAGED_RECORDS and PENDING_DELETIONS use:
+domain:zone_id:timestamp
+
+# Example:
+myapp.example.com:Z1234567890ABC:1700000000
+test.example.com:Z0987654321XYZ:1700000100
+```
+
+**Example Output:**
+```bash
+$ dokku dns:sync:deletions
+-----> DNS Record Deletion Queue
+
+-----> Queued Deletions:
+
+  - old-app.example.com (A record) [queued: 2025-11-17 14:23:45]
+  - test.example.com (A record) [queued: 2025-11-17 15:10:22]
+
+=====> Plan: 0 to add, 0 to change, 2 to destroy
+
+Do you want to delete these 2 DNS records? [y/N]
+```
+
+**Workflow Example:**
+```bash
+# 1. Create app and sync DNS
+dokku apps:create testapp
+dokku domains:add testapp test.example.com
+dokku dns:apps:enable testapp
+dokku dns:apps:sync testapp
+# → test.example.com added to MANAGED_RECORDS
+
+# 2. Destroy app
+dokku apps:destroy testapp
+# → test.example.com moved from MANAGED_RECORDS to PENDING_DELETIONS
+
+# 3. Process deletion queue
+dokku dns:sync:deletions
+# → Shows queued deletions with timestamps
+# → Only deletes explicitly queued records (safe!)
+
+# 4. Manual records remain untouched
+# Any records created outside the plugin are NEVER touched
+```
+
+**Safety Guarantees:**
+- ✅ Only plugin-managed records can be deleted
+- ✅ Manual DNS records are never touched
+- ✅ Records from other systems are never touched
+- ✅ Explicit queue-based workflow (no scanning)
+- ✅ Confirmation prompt before deletion (unless `--force` used)
+- ✅ Records removed from queue only after successful deletion
+- ✅ Comprehensive test coverage (32 tests total)
+
+**Test Suite:**
+
+**Unit Tests (`tests/dns_sync_deletions.bats`) - 20 tests:**
+- Empty queue handling
+- Terraform-style output display
+- Timestamp formatting
+- User cancellation flow
+- `--force` flag behavior
+- Missing zone_id handling
+- Already-deleted record handling
+- Queue removal after successful deletion
+- Invalid argument rejection
+- Multi-line queue file parsing
+- Integration with `record_managed_domain()` workflow
+- Safety checks (only queues managed domains)
+- Special character handling
+- Count summaries
+
+**Integration Tests (`tests/integration/sync-deletions-integration.bats`) - 12 tests:**
+- End-to-end workflows
+- Real app lifecycle testing
+- Provider interaction
+- Confirmation prompt behavior
+- Safety guarantees (never scans Route53)
+- Manual record protection
+
+**Files Enhanced:**
+1. **functions** - Added 7 DNS record tracking helper functions
+2. **providers/adapter.sh** - Updated `dns_sync_app` to track managed domains
+3. **post-delete** - Updated to queue domains using new helper functions
+4. **post-domains-update** - Updated to queue domains when removed
+5. **subcommands/sync:deletions** - Complete rewrite for queue-based deletion
+6. **tests/dns_sync_deletions.bats** - Comprehensive unit test suite (20 tests)
+7. **tests/integration/sync-deletions-integration.bats** - Integration tests (12 tests)
+
+**Impact:**
+- 🔒 **Critical Safety Fix**: Eliminated dangerous Route53 scanning behavior
+- 🛡️ **Data Protection**: Manual DNS records can never be accidentally deleted
+- 📋 **Explicit Workflow**: Clear, auditable deletion process with confirmation
+- ✅ **High Confidence**: Comprehensive test coverage ensures reliability
+- 🎯 **Production Ready**: Safe for use in production environments
+
+**Technical Notes:**
+- Queue persistence across operations (survives reboots)
+- Atomic file operations for data integrity
+- Graceful handling of missing zone IDs
+- Provider-agnostic deletion (works with all DNS providers)
+- Clear error messages for failed deletions
+- Maintains failed deletions in queue for retry
+
+**Related PR:** #64
