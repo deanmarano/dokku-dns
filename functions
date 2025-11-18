@@ -402,10 +402,10 @@ dns_add_app_domains() {
     for DOMAIN in "${SKIPPED_DOMAINS[@]}"; do
       # Check if it was skipped due to zone being disabled vs no hosted zone
       local ZONE_ID
-      set +e # Temporarily disable exit on error
-      ZONE_ID=$(provider_get_zone_id "$DOMAIN" 2>/dev/null)
-      local ZONE_EXISTS=$?
-      set -e # Re-enable exit on error
+      local ZONE_EXISTS=1
+      if ZONE_ID=$(provider_get_zone_id "$DOMAIN" 2>/dev/null); then
+        ZONE_EXISTS=0
+      fi
 
       if [[ $ZONE_EXISTS -eq 0 ]] && [[ -n "$ZONE_ID" ]]; then
         dokku_log_info1 "  ❌ $DOMAIN (zone not enabled for auto-discovery)"
@@ -1015,9 +1015,7 @@ get_domain_ttl() {
   # Check for domain-specific TTL first
   if [[ -f "$APP_TTLS_FILE" ]]; then
     local domain_ttl
-    set +e # Temporarily disable exit on error for grep
-    domain_ttl=$(grep "^$domain:" "$APP_TTLS_FILE" 2>/dev/null | cut -d: -f2)
-    set -e # Re-enable exit on error
+    domain_ttl=$(grep "^$domain:" "$APP_TTLS_FILE" 2>/dev/null | cut -d: -f2 || true)
     if [[ -n "$domain_ttl" && "$domain_ttl" =~ ^[0-9]+$ ]]; then
       echo "$domain_ttl"
       return 0
@@ -1029,9 +1027,7 @@ get_domain_ttl() {
   zone=$(get_zone_from_domain "$domain")
   if [[ -n "$zone" ]]; then
     local zone_ttl
-    set +e # Temporarily disable exit on error
-    zone_ttl=$(get_zone_ttl "$zone" 2>/dev/null)
-    set -e # Re-enable exit on error
+    zone_ttl=$(get_zone_ttl "$zone" 2>/dev/null || true)
     if [[ -n "$zone_ttl" && "$zone_ttl" =~ ^[0-9]+$ ]]; then
       echo "$zone_ttl"
       return 0
@@ -1068,9 +1064,7 @@ get_zone_ttl() {
 
   if [[ -f "$ZONE_TTLS_FILE" ]]; then
     local zone_ttl
-    set +e # Temporarily disable exit on error for grep
-    zone_ttl=$(grep "^$zone:" "$ZONE_TTLS_FILE" 2>/dev/null | cut -d: -f2)
-    set -e # Re-enable exit on error
+    zone_ttl=$(grep "^$zone:" "$ZONE_TTLS_FILE" 2>/dev/null | cut -d: -f2 || true)
     if [[ -n "$zone_ttl" && "$zone_ttl" =~ ^[0-9]+$ ]]; then
       echo "$zone_ttl"
       return 0

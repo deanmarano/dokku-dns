@@ -374,7 +374,14 @@ dns_add_domains() {
 # Remove app from DNS management
 dns_remove_app() {
   local app_name="$1"
-  local app_dir="$PLUGIN_DATA_ROOT/$app_name"
+
+  # Safety: Validate app_name before deletion
+  if [[ -z "$app_name" || "$app_name" == "/" || "$app_name" == *".."* ]]; then
+    echo "Error: Invalid app name for deletion" >&2
+    return 1
+  fi
+
+  local app_dir="${PLUGIN_DATA_ROOT:?}/${app_name}"
 
   if [[ -d "$app_dir" ]]; then
     rm -rf "$app_dir"

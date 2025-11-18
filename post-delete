@@ -82,8 +82,11 @@ main() {
   fi
 
   # Remove app's domain tracking directory
-  if [[ -d "$PLUGIN_DATA_ROOT/$APP" ]]; then
-    rm -rf "${PLUGIN_DATA_ROOT:?}/${APP:?}"
+  # Safety: Validate APP before deletion
+  if [[ -n "$APP" && "$APP" != "/" && "$APP" != *".."* ]]; then
+    if [[ -d "$PLUGIN_DATA_ROOT/$APP" ]]; then
+      rm -rf "${PLUGIN_DATA_ROOT:?}/${APP:?}"
+    fi
   fi
 
   if [[ ${#managed_domains[@]} -gt 0 ]]; then

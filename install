@@ -39,64 +39,84 @@ check_dependencies() {
   return 0
 }
 
-detect_and_configure_provider() {
-  local PROVIDER_FILE="$PLUGIN_DATA_ROOT/PROVIDER"
+detect_providers() {
   local DETECTED_PROVIDERS=()
-  local CONFIGURED_PROVIDER=""
+  local CONFIGURED_PROVIDERS=()
+  local NOT_CONFIGURED=()
 
   # Ensure the data directory exists
   mkdir -p "$PLUGIN_DATA_ROOT" 2>/dev/null || true
 
-  # Check for AWS CLI
+  # Check for AWS CLI and credentials
   if command -v aws >/dev/null 2>&1; then
-    DETECTED_PROVIDERS+=("aws")
-
+    DETECTED_PROVIDERS+=("AWS Route53")
     if aws sts get-caller-identity >/dev/null 2>&1; then
       # Test Route53 access
       if aws route53 list-hosted-zones >/dev/null 2>&1; then
         local ZONE_COUNT
         ZONE_COUNT=$(aws route53 list-hosted-zones --query 'length(HostedZones)' --output text 2>/dev/null || echo "0")
-        echo "       ✓ AWS CLI authenticated with Route53 access ($ZONE_COUNT hosted zones)"
-        CONFIGURED_PROVIDER="aws"
+        echo "       ✓ AWS Route53 authenticated with access ($ZONE_COUNT hosted zones)"
+        CONFIGURED_PROVIDERS+=("AWS")
       else
         echo "       ⚠ AWS CLI authenticated but Route53 access limited (check permissions)"
+        NOT_CONFIGURED+=("AWS")
       fi
     else
       echo "       ⚠ AWS CLI installed but not configured (run: aws configure)"
+      NOT_CONFIGURED+=("AWS")
     fi
   else
-    echo "       - AWS CLI not installed"
+    NOT_CONFIGURED+=("AWS")
   fi
 
-  # Check for Cloudflare CLI (flarectl)
-  if command -v flarectl >/dev/null 2>&1; then
-    echo "       ✓ Cloudflare CLI (flarectl) detected"
-    echo "       → Cloudflare support available (requires API token configuration)"
-    DETECTED_PROVIDERS+=("cloudflare")
+  # Check for Cloudflare environment variables
+  if [[ -n "${CLOUDFLARE_API_TOKEN:-}" ]] || [[ -n "${CF_API_TOKEN:-}" ]]; then
+    DETECTED_PROVIDERS+=("Cloudflare")
+    echo "       ✓ Cloudflare API token configured"
+    CONFIGURED_PROVIDERS+=("Cloudflare")
+  elif command -v flarectl >/dev/null 2>&1; then
+    DETECTED_PROVIDERS+=("Cloudflare")
+    echo "       ✓ Cloudflare CLI (flarectl) available (requires API token)"
+    NOT_CONFIGURED+=("Cloudflare")
   else
-    echo "       - Cloudflare CLI not installed"
+    NOT_CONFIGURED+=("Cloudflare")
   fi
 
-  # Set default provider based on detection
-  if [[ -n "$CONFIGURED_PROVIDER" ]]; then
-    echo "       → Setting $CONFIGURED_PROVIDER as default DNS provider (fully configured)"
-    echo "$CONFIGURED_PROVIDER" >"$PROVIDER_FILE" 2>/dev/null || true
-    return 0
-  elif [[ ${#DETECTED_PROVIDERS[@]} -eq 1 ]]; then
-    echo "       → Setting ${DETECTED_PROVIDERS[0]} as default DNS provider"
-    echo "${DETECTED_PROVIDERS[0]}" >"$PROVIDER_FILE" 2>/dev/null || true
-    return 0 # Configuration is complete, provider just needs credentials
-  elif [[ ${#DETECTED_PROVIDERS[@]} -gt 1 ]]; then
-    echo "       → Multiple providers detected: ${DETECTED_PROVIDERS[*]}"
-    echo "       → Setting aws as default (use dokku $PLUGIN_COMMAND_PREFIX:configure to change)"
-    echo "aws" >"$PROVIDER_FILE" 2>/dev/null || true
-    return 0
+  # Check for DigitalOcean credentials
+  if [[ -n "${DIGITALOCEAN_ACCESS_TOKEN:-}" ]] || [[ -n "${DO_API_TOKEN:-}" ]]; then
+    DETECTED_PROVIDERS+=("DigitalOcean")
+    echo "       ✓ DigitalOcean API token configured"
+    CONFIGURED_PROVIDERS+=("DigitalOcean")
+  elif command -v doctl >/dev/null 2>&1; then
+    DETECTED_PROVIDERS+=("DigitalOcean")
+    if doctl auth list >/dev/null 2>&1; then
+      echo "       ✓ DigitalOcean CLI (doctl) authenticated"
+      CONFIGURED_PROVIDERS+=("DigitalOcean")
+    else
+      echo "       ✓ DigitalOcean CLI (doctl) available (requires authentication)"
+      NOT_CONFIGURED+=("DigitalOcean")
+    fi
   else
-    echo "       → No DNS provider CLI tools detected"
-    echo "       → Setting aws as default provider"
-    echo "aws" >"$PROVIDER_FILE" 2>/dev/null || true
-    return 0
+    NOT_CONFIGURED+=("DigitalOcean")
   fi
+
+  # Show not configured providers if any
+  if [[ ${#NOT_CONFIGURED[@]} -gt 0 ]]; then
+    local IFS=", "
+    echo "       Not configured: ${NOT_CONFIGURED[*]}"
+  fi
+
+  # Report provider status
+  if [[ ${#CONFIGURED_PROVIDERS[@]} -gt 1 ]]; then
+    echo "       → Providers ready: ${CONFIGURED_PROVIDERS[*]}"
+    echo "       → DNS records will route to appropriate provider based on zone"
+  elif [[ ${#CONFIGURED_PROVIDERS[@]} -eq 1 ]]; then
+    echo "       → Provider ready: ${CONFIGURED_PROVIDERS[0]}"
+  else
+    echo "       → No DNS providers fully configured yet"
+  fi
+
+  return 0
 }
 
 plugin-install() {
@@ -129,20 +149,18 @@ plugin-install() {
     find "$PLUGIN_ROOT/providers" -type f -exec chmod +x {} \; 2>/dev/null || true
   fi
 
-  # Auto-detect and configure DNS provider
-  echo "-----> Auto-detecting DNS provider capabilities..."
-  local PROVIDER_FILE="$PLUGIN_DATA_ROOT/PROVIDER"
-  if detect_and_configure_provider 2>&1; then
-    echo "-----> $PLUGIN_SERVICE plugin installed and configured successfully"
-  else
-    echo "-----> $PLUGIN_SERVICE plugin installed successfully"
-  fi
+  # Auto-detect DNS providers
+  echo "-----> Detecting DNS provider capabilities..."
+  detect_providers 2>&1
+  echo "-----> $PLUGIN_SERVICE plugin installed successfully"
 
   echo ""
   echo "Next steps:"
-  echo "  1. Set up AWS credentials:     dokku $PLUGIN_COMMAND_PREFIX:providers:verify"
-  echo "  2. Add app domains:            dokku $PLUGIN_COMMAND_PREFIX:apps:enable <app>"
-  echo "  3. Sync DNS records:           dokku $PLUGIN_COMMAND_PREFIX:apps:sync <app>"
+  echo "  1. Verify provider setup:      dokku $PLUGIN_COMMAND_PREFIX:providers:verify"
+  echo "  2. Enable DNS zones:           dokku $PLUGIN_COMMAND_PREFIX:zones:enable <zone>"
+  echo "  3. Enable automatic triggers:  dokku $PLUGIN_COMMAND_PREFIX:triggers:enable"
+  echo "  4. Add app domains:            dokku $PLUGIN_COMMAND_PREFIX:apps:enable <app>"
+  echo "  5. Sync DNS records:           dokku $PLUGIN_COMMAND_PREFIX:apps:sync <app>"
   echo ""
 
   # Show the help output directly
