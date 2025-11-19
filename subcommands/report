@@ -113,35 +113,9 @@ dns_global_report() {
   # Check global provider credentials
   local CREDENTIALS_DIR="$GLOBAL_CONFIG_ROOT/credentials"
   local SYNC_STATUS="Not ready"
-  
+
   if [[ "$PROVIDER" != "None" ]]; then
-    case "$PROVIDER" in
-      aws)
-        if [[ -d "$CREDENTIALS_DIR" ]] && [[ -f "$CREDENTIALS_DIR/AWS_ACCESS_KEY_ID" ]]; then
-          SYNC_STATUS="Ready"
-        elif aws sts get-caller-identity >/dev/null 2>&1; then
-          SYNC_STATUS="Ready"
-        else
-          SYNC_STATUS="Missing auth"
-        fi
-        ;;
-      cloudflare)
-        if [[ -d "$CREDENTIALS_DIR" ]] && [[ -f "$CREDENTIALS_DIR/CLOUDFLARE_API_TOKEN" ]]; then
-          SYNC_STATUS="Ready"
-        else
-          SYNC_STATUS="Missing auth"
-        fi
-        ;;
-      *)
-        SYNC_STATUS="Unknown provider"
-        ;;
-    esac
-  else
-    SYNC_STATUS="Not configured"
-  fi
-  
-  # Load provider functions if available
-  if [[ "$PROVIDER" != "None" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
+    # Load provider functions to check credentials
     local PROVIDER_SCRIPT
     PROVIDER_SCRIPT="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/providers/$PROVIDER"
     if [[ -f "$PROVIDER_SCRIPT" ]]; then
@@ -150,7 +124,22 @@ dns_global_report() {
       if declare -f "provider_setup_env" >/dev/null 2>&1; then
         provider_setup_env
       fi
+
+      # Use provider interface to validate credentials (provider-agnostic)
+      if declare -f "provider_validate_credentials" >/dev/null 2>&1; then
+        if provider_validate_credentials 2>/dev/null; then
+          SYNC_STATUS="Ready"
+        else
+          SYNC_STATUS="Missing auth"
+        fi
+      else
+        SYNC_STATUS="Unknown provider"
+      fi
+    else
+      SYNC_STATUS="Unknown provider"
     fi
+  else
+    SYNC_STATUS="Not configured"
   fi
   
   echo
@@ -362,35 +351,9 @@ dns_report() {
   # Check global provider credentials
   local CREDENTIALS_DIR="$GLOBAL_CONFIG_ROOT/credentials"
   local SYNC_STATUS="Not ready"
-  
+
   if [[ "$PROVIDER" != "None" ]]; then
-    case "$PROVIDER" in
-      aws)
-        if [[ -d "$CREDENTIALS_DIR" ]] && [[ -f "$CREDENTIALS_DIR/AWS_ACCESS_KEY_ID" ]]; then
-          SYNC_STATUS="Ready"
-        elif aws sts get-caller-identity >/dev/null 2>&1; then
-          SYNC_STATUS="Ready"
-        else
-          SYNC_STATUS="Missing auth"
-        fi
-        ;;
-      cloudflare)
-        if [[ -d "$CREDENTIALS_DIR" ]] && [[ -f "$CREDENTIALS_DIR/CLOUDFLARE_API_TOKEN" ]]; then
-          SYNC_STATUS="Ready"
-        else
-          SYNC_STATUS="Missing auth"
-        fi
-        ;;
-      *)
-        SYNC_STATUS="Unknown provider"
-        ;;
-    esac
-  else
-    SYNC_STATUS="Not configured"
-  fi
-  
-  # Load provider functions if available
-  if [[ "$PROVIDER" != "None" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
+    # Load provider functions to check credentials
     local PROVIDER_SCRIPT
     PROVIDER_SCRIPT="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/providers/$PROVIDER"
     if [[ -f "$PROVIDER_SCRIPT" ]]; then
@@ -399,7 +362,22 @@ dns_report() {
       if declare -f "provider_setup_env" >/dev/null 2>&1; then
         provider_setup_env
       fi
+
+      # Use provider interface to validate credentials (provider-agnostic)
+      if declare -f "provider_validate_credentials" >/dev/null 2>&1; then
+        if provider_validate_credentials 2>/dev/null; then
+          SYNC_STATUS="Ready"
+        else
+          SYNC_STATUS="Missing auth"
+        fi
+      else
+        SYNC_STATUS="Unknown provider"
+      fi
+    else
+      SYNC_STATUS="Unknown provider"
     fi
+  else
+    SYNC_STATUS="Not configured"
   fi
   
   # Analyze each domain - split space-separated domains properly
@@ -534,43 +512,50 @@ get_records_to_be_deleted() {
   local records_to_be_deleted=()
   for zone in "${zones_to_scan[@]}"; do
     local zone_id
-    zone_id=$(dns_provider_aws_get_hosted_zone_id "$zone" 2>/dev/null || echo "")
-    
+    zone_id=$(multi_get_zone_id "$zone" 2>/dev/null || echo "")
+
     if [[ -z "$zone_id" ]]; then
       continue
     fi
-    
-    # Get all A records in this zone
-    local zone_records
-    zone_records=$(aws route53 list-resource-record-sets \
-      --hosted-zone-id "$zone_id" \
-      --query "ResourceRecordSets[?Type=='A' && !contains(Name, 'www.')].Name" \
-      --output text 2>/dev/null | tr '\t' '\n' || echo "")
-    
-    if [[ -z "$zone_records" ]]; then
-      continue
-    fi
-    
-    # Check each DNS record against current domains
-    while IFS= read -r dns_record; do
-      [[ -z "$dns_record" ]] && continue
-      
-      # Remove trailing dot from Route53 record name
-      dns_record="${dns_record%.}"
-      
-      # Check if this DNS record corresponds to any current domain
-      local should_be_deleted=true
-      for current_domain in "${current_domains[@]}"; do
-        if [[ "$dns_record" == "$current_domain" ]]; then
-          should_be_deleted=false
-          break
-        fi
-      done
-      
-      if [[ "$should_be_deleted" == "true" ]]; then
-        echo "$dns_record"
-      fi
-    done <<< "$zone_records"
+
+    # TODO: This feature is temporarily disabled - needs provider interface extension
+    # The provider interface doesn't currently support listing all DNS records in a zone.
+    # Need to add provider_list_records(zone_id) function to INTERFACE.md and implement
+    # for all providers (AWS, Cloudflare, DigitalOcean) before re-enabling this feature.
+    # For now, skip record enumeration to maintain provider-agnostic architecture.
+    continue
+
+    # Get all A records in this zone (AWS-SPECIFIC - DISABLED)
+    # local zone_records
+    # zone_records=$(aws route53 list-resource-record-sets \
+    #   --hosted-zone-id "$zone_id" \
+    #   --query "ResourceRecordSets[?Type=='A' && !contains(Name, 'www.')].Name" \
+    #   --output text 2>/dev/null | tr '\t' '\n' || echo "")
+    #
+    # if [[ -z "$zone_records" ]]; then
+    #   continue
+    # fi
+    #
+    # Check each DNS record against current domains (AWS-SPECIFIC - DISABLED)
+    # while IFS= read -r dns_record; do
+    #   [[ -z "$dns_record" ]] && continue
+    #
+    #   # Remove trailing dot from Route53 record name
+    #   dns_record="${dns_record%.}"
+    #
+    #   # Check if this DNS record corresponds to any current domain
+    #   local should_be_deleted=true
+    #   for current_domain in "${current_domains[@]}"; do
+    #     if [[ "$dns_record" == "$current_domain" ]]; then
+    #       should_be_deleted=false
+    #       break
+    #     fi
+    #   done
+    #
+    #   if [[ "$should_be_deleted" == "true" ]]; then
+    #     echo "$dns_record"
+    #   fi
+    # done <<< "$zone_records"
   done
 }
 
