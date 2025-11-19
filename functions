@@ -567,28 +567,30 @@ dns_display_domains_table() {
       fi
     fi
 
-    # Try to get hosted zone using multi-provider system
+    # Try to get hosted zone using multi-provider system (only when provider is ready)
     local HOSTED_ZONE="-"
     local ZONE_ID=""
-    if declare -f "multi_get_zone_id" >/dev/null 2>&1; then
-      ZONE_ID=$(multi_get_zone_id "$DOMAIN" 2>/dev/null || echo "")
-      if [[ -n "$ZONE_ID" ]]; then
-        # Use zone ID as zone name (works for all providers)
-        local ZONE_NAME="$ZONE_ID"
-        # Check if this zone is enabled
-        if is_zone_enabled "$ZONE_NAME"; then
-          HOSTED_ZONE="$ZONE_NAME ✅"
-        else
-          HOSTED_ZONE="$ZONE_NAME ❌"
-        fi
-      else
-        HOSTED_ZONE="Not found"
-      fi
-    fi
-
-    # Check if domain is enabled based on zone enablement
     local ENABLED_STATUS="No"
+
     if [[ "$SYNC_STATUS" == "Ready" ]]; then
+      # Zone lookup
+      if declare -f "multi_get_zone_id" >/dev/null 2>&1; then
+        ZONE_ID=$(multi_get_zone_id "$DOMAIN" 2>/dev/null || echo "")
+        if [[ -n "$ZONE_ID" ]]; then
+          # Use zone ID as zone name (works for all providers)
+          local ZONE_NAME="$ZONE_ID"
+          # Check if this zone is enabled
+          if is_zone_enabled "$ZONE_NAME"; then
+            HOSTED_ZONE="$ZONE_NAME ✅"
+          else
+            HOSTED_ZONE="$ZONE_NAME ❌"
+          fi
+        else
+          HOSTED_ZONE="Not found"
+        fi
+      fi
+
+      # Check if domain is enabled based on zone enablement
       if [[ -n "$ZONE_ID" ]]; then
         # Check if the zone is enabled
         if is_domain_in_enabled_zone "$DOMAIN"; then
