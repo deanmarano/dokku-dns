@@ -199,6 +199,32 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - [ ] Remove unused provider-specific helper functions that are duplicates of multi-provider equivalents
   - [ ] Audit all hooks, subcommands, and functions for legacy provider patterns
 
+- [ ] **Complete Provider-Agnostic Refactoring of Zone Subcommands**
+  - [ ] **subcommands/zones** - AWS-specific code remains (lines 74-180, 190-391)
+    - [ ] Remove hardcoded AWS provider references (lines 74-75, 190-191)
+    - [ ] Replace `zones_list_aws_zones()` with provider-agnostic implementation
+    - [ ] Update `zones_show_zone()` to use multi-provider system
+    - [ ] Remove AWS CLI direct calls and use provider interface
+    - [ ] Update test mocks to work with provider interface
+    - **Problem:** Tests expect specific AWS CLI query patterns
+    - **Challenge:** Need to update both code and test mocks together
+    - **Impact:** zones command only works with AWS Route53 currently
+  - [ ] **subcommands/zones:enable** - AWS-specific code remains
+    - [ ] **zones_add_zone()** function (lines 90-117) uses AWS CLI directly
+    - [ ] **zones_add_all()** function (lines 122-154) uses AWS CLI directly
+    - [ ] Replace AWS CLI calls with multi-provider system
+    - [ ] Load provider loader system to find which provider manages each zone
+    - [ ] Use `provider_get_zone_id()` through multi-provider routing
+    - [ ] Use `provider_list_zones()` for --all flag
+    - **Problem:** Direct AWS CLI usage prevents other providers from working
+    - **Impact:** zones:enable only works with AWS Route53 currently
+  - [ ] **subcommands/zones:disable** - Check for AWS-specific code
+    - [ ] Review and update to use multi-provider system if needed
+  - [ ] **subcommands/zones:ttl** - Check for AWS-specific code
+    - [ ] Review and update to use multi-provider system if needed
+  - **Note:** Attempted refactoring in commit 50655bd but tests failed due to mock incompatibility
+  - **Note:** Reverted in commit ce59bcb to preserve passing tests
+
 
 ### Phase 35: Code Quality - Low Priority Polish (Post-1.0)
 
