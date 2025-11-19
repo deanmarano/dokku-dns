@@ -51,35 +51,80 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - **Goal:** Bulk sync operations at the zone level
 
 
-### Phase 30a: Provider Interface Extension - Record Listing (Pre-Release)
+### Phase 31: Define TTL Constants (Pre-Release) ⚡ QUICK WIN
 
-**Objective:** Extend provider interface to support listing all DNS records in a zone, enabling DNS cleanup features.
+**Objective:** Extract magic numbers into named constants for better maintainability.
 
-- [ ] **Extend Provider Interface**
-  - [ ] Add `provider_list_records(zone_id)` to providers/INTERFACE.md
-  - [ ] Define input/output format for record listing
-  - [ ] Specify return format: "name type value ttl" one per line
-  - [ ] Document error handling and empty zone behavior
-  - **Location:** `providers/INTERFACE.md`
+- [ ] Add DNS_DEFAULT_TTL=300 to config file
+- [ ] Add DNS_MIN_TTL=60 to config file
+- [ ] Add DNS_MAX_TTL=86400 to config file
+- [ ] Replace hardcoded "300" in functions:981 with DNS_DEFAULT_TTL
+- [ ] Replace hardcoded TTL values in adapter.sh:202, 218 with DNS_DEFAULT_TTL
+- [ ] Update all TTL validation to use DNS_MIN_TTL and DNS_MAX_TTL constants
 
-- [ ] **Implement for All Providers**
-  - [ ] Implement `provider_list_records()` in providers/aws/provider.sh
-  - [ ] Implement `provider_list_records()` in providers/cloudflare/provider.sh
-  - [ ] Implement `provider_list_records()` in providers/digitalocean/provider.sh
-  - [ ] Add tests for each provider implementation
-  - **Goal:** Consistent record listing across all DNS providers
-
-- [ ] **Re-enable DNS Cleanup Candidates Feature**
-  - [ ] Remove `continue` bypass in subcommands/report:548
-  - [ ] Uncomment record listing code in get_records_to_be_deleted()
-  - [ ] Replace `aws route53 list-resource-record-sets` with `provider_list_records()`
-  - [ ] Update to use multi-provider routing
-  - [ ] Test cleanup detection with all providers
-  - **Location:** `subcommands/report` get_records_to_be_deleted() function
-  - **Reference:** Currently disabled at lines 543-558
+**Effort:** Low (simple search and replace)
+**Impact:** Improves code clarity and makes TTL changes easier
 
 
-### Phase 31: Pre-Release Testing & Validation
+### Phase 32: Extract Duplicate Provider Code (Pre-Release) ⚡ QUICK WIN
+
+**Objective:** DRY up duplicated DNS record application logic.
+
+- [ ] Create `apply_dns_record` helper function in adapter.sh
+- [ ] Replace duplicated code in adapter.sh:204-210 and 221-227
+- [ ] Ensure error messages are preserved (not sent to /dev/null)
+- [ ] Add proper error logging for debugging
+
+**Effort:** Low (small refactor, 2 call sites)
+**Impact:** Reduces code duplication, improves maintainability
+
+
+### Phase 33: Remove MULTI_PROVIDER_MODE Flag (Pre-Release) ⚡ QUICK WIN
+
+**Objective:** Remove legacy feature flag that's always enabled.
+
+- [ ] Remove MULTI_PROVIDER_MODE environment variable (always true, legacy code)
+- [ ] Remove all `if [[ "${MULTI_PROVIDER_MODE:-false}" == "true" ]]` conditionals in adapter.sh
+- [ ] Always call multi_* functions (multi_get_zone_id, multi_get_record, etc.)
+- [ ] Delete dead code branches that call provider_* directly (lines 147-155 in adapter.sh)
+- [ ] Update init_provider_system to always use multi-provider routing
+- [ ] Remove "Multi-provider mode activated" messages (it's the only mode)
+
+**Effort:** Low (code deletion, already dead code)
+**Impact:** Simplifies codebase, removes confusing messages
+
+
+### Phase 34: Fix Direct provider_get_zone_id Calls (Pre-Release)
+
+**Objective:** Replace direct provider interface calls with multi-provider router in application code.
+
+- [ ] **functions:406** - Replace `provider_get_zone_id` with `multi_get_zone_id` in skipped domains warning
+- [ ] **functions:800** - Replace `provider_get_zone_id` with `multi_get_zone_id` in DNS sync logic
+- [ ] Verify multi-provider routing works correctly for both call sites
+
+**Effort:** Low (2 specific replacements)
+**Impact:** Fixes architectural violations, ensures proper provider routing
+**Note:** `provider_get_zone_id` is the provider interface (each provider implements it)
+**Note:** `multi_get_zone_id` is the multi-provider router (application code should use this)
+**Architecture:** Application → `multi_get_zone_id` → finds provider → `provider_get_zone_id`
+
+
+### Phase 35: Add TTL Input Validation (Pre-Release)
+
+**Objective:** Add missing validation to TTL subcommands.
+
+- [ ] Add TTL validation to zones:ttl subcommand (currently missing)
+- [ ] Add TTL validation to ttl subcommand (currently missing)
+- [ ] Use DNS_MIN_TTL and DNS_MAX_TTL constants (from Phase 31)
+- [ ] Ensure consistent validation across all entry points
+- [ ] Add user-friendly error messages for invalid TTL values
+
+**Effort:** Low (simple validation checks)
+**Impact:** Prevents invalid TTL values, improves UX
+**Dependency:** Should be done after Phase 31 (TTL constants)
+
+
+### Phase 36: Pre-Release Testing & Validation
 
 - [ ] **Create Testing Documentation**
   - [ ] Create TESTING.md with manual test procedures for all providers
@@ -104,7 +149,7 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - [ ] Test sync-all command with multiple apps and providers
 
 
-### Phase 32: 1.0 Release
+### Phase 37: 1.0 Release
 
 - [ ] **GitHub Release Infrastructure**
   - [ ] Create semantic version tagging strategy (v1.0.0)
@@ -122,7 +167,7 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - [ ] Set up performance monitoring and error tracking
 
 
-### Phase 33: Community & Support (Post-Release)
+### Phase 38: Community & Support (Post-Release)
 
 - [ ] **Community Announcements**
   - [ ] Post to Dokku community forum
@@ -143,127 +188,181 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - [ ] Design feature request evaluation and roadmap integration
 
 
-### Phase 34: Code Quality - Medium Priority Cleanup (Post-1.0)
+### Phase 39: Add Domain Input Validation (Post-1.0)
 
-- [ ] **Extract Duplicate Provider Code**
-  - [ ] Create `apply_dns_record` helper function in adapter.sh
-  - [ ] Replace duplicated code in adapter.sh:204-210 and 221-227
-  - [ ] Ensure error messages are preserved (not sent to /dev/null)
-  - [ ] Add proper error logging for debugging
+**Objective:** Add RFC 1035 domain validation across all entry points.
 
-- [ ] **Add Comprehensive Input Validation**
-  - [ ] Create `validate_dns_domain` helper function for RFC 1035 compliance
-  - [ ] Add domain validation to all subcommands that accept domains
-  - [ ] Add TTL validation to zones:ttl subcommand (currently missing)
-  - [ ] Add TTL validation to ttl subcommand (currently missing)
-  - [ ] Ensure consistent validation across all entry points
+- [ ] Create `validate_dns_domain` helper function for RFC 1035 compliance
+- [ ] Add domain validation to all subcommands that accept domains
+- [ ] Ensure consistent validation across all entry points
+- [ ] Add user-friendly error messages for invalid domains
 
-- [ ] **Define Constants in Config**
-  - [ ] Add DNS_DEFAULT_TTL=300 to config file
-  - [ ] Add DNS_MIN_TTL=60 to config file
-  - [ ] Add DNS_MAX_TTL=86400 to config file
-  - [ ] Replace hardcoded "300" in functions:981 with constant
-  - [ ] Replace hardcoded TTL values in adapter.sh:202, 218 with constants
-  - [ ] Update all TTL validation to use constants
-
-- [ ] **Remove MULTI_PROVIDER_MODE Flag**
-  - [ ] Remove MULTI_PROVIDER_MODE environment variable (always true, legacy code)
-  - [ ] Remove all `if [[ "${MULTI_PROVIDER_MODE:-false}" == "true" ]]` conditionals in adapter.sh
-  - [ ] Always call multi_* functions (multi_get_zone_id, multi_get_record, etc.)
-  - [ ] Delete dead code branches that call provider_* directly (lines 147-155 in adapter.sh)
-  - [ ] Update init_provider_system to always use multi-provider routing
-  - [ ] Remove "Multi-provider mode activated" messages (it's the only mode)
-
-- [ ] **Remove All Non-Multi-Provider Code**
-  - [ ] **Replace direct `provider_get_zone_id` calls with `multi_get_zone_id` in application code**
-    - [ ] **functions:406** - Checking if skipped domain has a zone (in skipped domains warning section)
-    - [ ] **functions:800** - Getting zone ID for DNS record operations (in DNS sync logic)
-    - **Note:** `provider_get_zone_id` is the provider interface (each provider implements it)
-    - **Note:** `multi_get_zone_id` is the multi-provider router (application code should use this)
-    - **Architecture:** Application → `multi_get_zone_id` → finds provider → `provider_get_zone_id`
-  - [ ] Search codebase for `dns_provider_` function calls and replace with `multi_` equivalents
-  - [ ] Remove any remaining direct provider-specific function calls (aws_*, cloudflare_*, etc.)
-  - [ ] Ensure all subcommands source multi-provider.sh for zone lookup
-  - [ ] Replace `dns_provider_aws_get_hosted_zone_id` with `multi_get_zone_id` everywhere
-  - [ ] Replace `dns_provider_aws_*` calls with appropriate multi-provider adapter functions
-  - [ ] Remove unused provider-specific helper functions that are duplicates of multi-provider equivalents
-  - [ ] Audit all hooks, subcommands, and functions for legacy provider patterns
-
-- [ ] **Complete Provider-Agnostic Refactoring of Zone Subcommands**
-  - [ ] **subcommands/zones** - AWS-specific code remains (lines 74-180, 190-391)
-    - [ ] Remove hardcoded AWS provider references (lines 74-75, 190-191)
-    - [ ] Replace `zones_list_aws_zones()` with provider-agnostic implementation
-    - [ ] Update `zones_show_zone()` to use multi-provider system
-    - [ ] Remove AWS CLI direct calls and use provider interface
-    - [ ] Update test mocks to work with provider interface
-    - **Problem:** Tests expect specific AWS CLI query patterns
-    - **Challenge:** Need to update both code and test mocks together
-    - **Impact:** zones command only works with AWS Route53 currently
-  - [ ] **subcommands/zones:enable** - AWS-specific code remains
-    - [ ] **zones_add_zone()** function (lines 90-117) uses AWS CLI directly
-    - [ ] **zones_add_all()** function (lines 122-154) uses AWS CLI directly
-    - [ ] Replace AWS CLI calls with multi-provider system
-    - [ ] Load provider loader system to find which provider manages each zone
-    - [ ] Use `provider_get_zone_id()` through multi-provider routing
-    - [ ] Use `provider_list_zones()` for --all flag
-    - **Problem:** Direct AWS CLI usage prevents other providers from working
-    - **Impact:** zones:enable only works with AWS Route53 currently
-  - [ ] **subcommands/zones:disable** - Check for AWS-specific code
-    - [ ] Review and update to use multi-provider system if needed
-  - [ ] **subcommands/zones:ttl** - Check for AWS-specific code
-    - [ ] Review and update to use multi-provider system if needed
-  - **Note:** Attempted refactoring in commit 50655bd but tests failed due to mock incompatibility
-  - **Note:** Reverted in commit ce59bcb to preserve passing tests
+**Effort:** Medium (need to identify all entry points)
+**Impact:** Prevents invalid domain names, improves robustness
 
 
-### Phase 35: Code Quality - Low Priority Polish (Post-1.0)
+### Phase 40: Audit Legacy Provider Patterns (Post-1.0)
 
-- [ ] **Reduce Logging Verbosity**
-  - [ ] Extract logging from functions:347-397 (dns_add_app_domains)
-  - [ ] Create `log_domain_check` helper for conditional verbose logging
-  - [ ] Add DNS_VERBOSE environment variable support
-  - [ ] Reduce function to <80 lines by extracting logging
+**Objective:** Find and catalog remaining legacy provider-specific code.
 
-- [ ] **Create Common Functions File**
-  - [ ] Create new `common-functions` file with standard fallback functions
-  - [ ] Move dokku_log_info1, dokku_log_info2, dokku_log_warn, dokku_log_fail definitions
-  - [ ] Update all files to source common-functions instead of duplicating
-  - [ ] Remove duplicate function definitions from 10+ files (commands, subcommands, hooks)
+- [ ] Search codebase for `dns_provider_` function calls
+- [ ] Search for direct provider function calls (aws_*, cloudflare_*, digitalocean_*)
+- [ ] Find `dns_provider_aws_get_hosted_zone_id` calls
+- [ ] Find `dns_provider_aws_*` calls
+- [ ] Audit all hooks for legacy provider patterns
+- [ ] Audit all subcommands for legacy provider patterns
+- [ ] Audit functions file for legacy provider patterns
+- [ ] Document all findings with file:line references
 
-- [ ] **Simplify Complex Conditionals**
-  - [ ] Refactor functions:363-397 to use early returns
-  - [ ] Extract validation logic to separate functions
-  - [ ] Create `handle_no_provider_validation` helper
-  - [ ] Create `validate_domains_with_provider` helper
-  - [ ] Reduce nesting depth in complex conditionals
-
-- [ ] **Standardize Quoting**
-  - [ ] Audit all variable references for missing quotes
-  - [ ] Ensure all `$var` become `"$var"`
-  - [ ] Ensure all `${array[@]}` become `"${array[@]}"`
-  - [ ] Add linting rule to enforce proper quoting
+**Effort:** Medium (thorough search required)
+**Impact:** Creates roadmap for complete multi-provider migration
+**Note:** This is discovery work - actual fixes in later phases
 
 
+### Phase 41: Create Common Functions File (Post-1.0)
 
-- [ ] **Improve Documentation**
-  - [ ] Add detailed comments to providers/aws/provider.sh:8-28
-  - [ ] Document complex regex patterns and jq operations
-  - [ ] Add function-level documentation for internal helpers
-  - [ ] Document expected inputs, outputs, and side effects
+**Objective:** Eliminate duplicate logging function definitions across 10+ files.
 
-- [ ] **Standardize Function Naming**
-  - [ ] Create naming convention guide
+- [ ] Create new `common-functions` file with standard fallback functions
+- [ ] Move dokku_log_info1, dokku_log_info2, dokku_log_warn, dokku_log_fail definitions
+- [ ] Update all files to source common-functions instead of duplicating
+- [ ] Remove duplicate function definitions from commands, subcommands, hooks
+
+**Effort:** Medium (many files to update)
+**Impact:** Reduces code duplication, ensures consistent logging behavior
+
+
+### Phase 42: Refactor zones Subcommand to Multi-Provider (Post-1.0)
+
+**Objective:** Make zones subcommand work with all providers, not just AWS.
+
+- [ ] **subcommands/zones** - AWS-specific code remains (lines 74-180, 190-391)
+  - [ ] Remove hardcoded AWS provider references (lines 74-75, 190-191)
+  - [ ] Replace `zones_list_aws_zones()` with provider-agnostic implementation
+  - [ ] Update `zones_show_zone()` to use multi-provider system
+  - [ ] Remove AWS CLI direct calls and use provider interface
+  - [ ] Update test mocks to work with provider interface
+  - **Problem:** Tests expect specific AWS CLI query patterns
+  - **Challenge:** Need to update both code and test mocks together
+  - **Impact:** zones command only works with AWS Route53 currently
+
+**Effort:** High (complex refactor with test compatibility issues)
+**Impact:** Enables zones command for Cloudflare and DigitalOcean
+**Note:** Attempted in commit 50655bd but reverted in ce59bcb due to test failures
+
+
+### Phase 43: Refactor zones:enable to Multi-Provider (Post-1.0)
+
+**Objective:** Make zones:enable work with all providers, not just AWS.
+
+- [ ] **subcommands/zones:enable** - AWS-specific code remains
+  - [ ] **zones_add_zone()** function (lines 90-117) uses AWS CLI directly
+  - [ ] **zones_add_all()** function (lines 122-154) uses AWS CLI directly
+  - [ ] Replace AWS CLI calls with multi-provider system
+  - [ ] Load provider loader system to find which provider manages each zone
+  - [ ] Use `provider_get_zone_id()` through multi-provider routing
+  - [ ] Use `provider_list_zones()` for --all flag
+  - **Problem:** Direct AWS CLI usage prevents other providers from working
+  - **Impact:** zones:enable only works with AWS Route53 currently
+
+**Effort:** High (complex refactor)
+**Impact:** Enables zone management for Cloudflare and DigitalOcean
+
+
+### Phase 44: Audit Other Zone Subcommands (Post-1.0)
+
+**Objective:** Check zones:disable and zones:ttl for AWS-specific code.
+
+- [ ] **subcommands/zones:disable** - Review and update to use multi-provider system if needed
+- [ ] **subcommands/zones:ttl** - Review and update to use multi-provider system if needed
+- [ ] Document any AWS-specific code found
+- [ ] Create follow-up tasks for any refactoring needed
+
+**Effort:** Low (audit only, fixes may be needed)
+**Impact:** Ensures all zone subcommands support multiple providers
+
+
+### Phase 45: Code Polish - Logging Verbosity (Post-1.0)
+
+**Objective:** Reduce excessive logging in dns_add_app_domains function.
+
+- [ ] Extract logging from functions:347-397 (dns_add_app_domains)
+- [ ] Create `log_domain_check` helper for conditional verbose logging
+- [ ] Add DNS_VERBOSE environment variable support
+- [ ] Reduce function to <80 lines by extracting logging
+
+**Effort:** Medium (requires careful refactoring)
+**Impact:** Improves code readability, optional verbose output
+
+
+### Phase 46: Simplify Complex Conditionals (Post-1.0)
+
+**Objective:** Reduce nesting depth and complexity in validation logic.
+
+- [ ] Refactor functions:363-397 to use early returns
+- [ ] Extract validation logic to separate functions
+- [ ] Create `handle_no_provider_validation` helper
+- [ ] Create `validate_domains_with_provider` helper
+- [ ] Reduce nesting depth in complex conditionals
+
+**Effort:** Medium (refactoring complex logic)
+**Impact:** Improves code readability and maintainability
+
+
+### Phase 47: Improve Provider Documentation (Post-1.0)
+
+**Objective:** Add detailed comments to complex provider code.
+
+- [ ] Add detailed comments to providers/aws/provider.sh:8-28
+- [ ] Document complex regex patterns and jq operations
+- [ ] Add function-level documentation for internal helpers
+- [ ] Document expected inputs, outputs, and side effects
+
+**Effort:** Low (documentation only)
+**Impact:** Improves code comprehension for contributors
+
+
+### Phase 48: Standardize Function Naming (Post-1.0)
+
+**Objective:** Create consistent naming conventions across the codebase.
+
+- [ ] Create naming convention guide document
   - [ ] Public API: `dns_*`
   - [ ] Internal helpers: `_dns_*` (underscore prefix)
   - [ ] Predicates: `is_*` or `has_*`
   - [ ] Getters: `get_*`, Setters: `set_*`
-  - [ ] Refactor inconsistent function names across codebase
+- [ ] Audit all function names for consistency
+- [ ] Refactor inconsistent function names across codebase
+- [ ] Update all call sites
 
-- [ ] **Add ShellCheck Directives**
-  - [ ] Audit all shellcheck warnings
-  - [ ] Add explicit `# shellcheck disable=SCXXXX` where needed
-  - [ ] Add explanatory comments for each disable directive
-  - [ ] Document why each check is disabled
+**Effort:** High (many functions to rename)
+**Impact:** Improves code consistency and clarity
+
+
+### Phase 49: Add ShellCheck Directives (Post-1.0)
+
+**Objective:** Document why specific shellcheck warnings are disabled.
+
+- [ ] Audit all current shellcheck warnings
+- [ ] Add explicit `# shellcheck disable=SCXXXX` where needed
+- [ ] Add explanatory comments for each disable directive
+- [ ] Document why each check is disabled
+
+**Effort:** Medium (thorough audit required)
+**Impact:** Improves code quality awareness, helps future contributors
+
+
+### Phase 50: Standardize Shell Quoting (Post-1.0)
+
+**Objective:** Ensure all variables are properly quoted to prevent word splitting.
+
+- [ ] Audit all variable references for missing quotes
+- [ ] Ensure all `$var` become `"$var"`
+- [ ] Ensure all `${array[@]}` become `"${array[@]}"`
+- [ ] Consider adding linting rule to enforce proper quoting
+
+**Effort:** High (affects many lines of code)
+**Impact:** Prevents subtle bugs from word splitting/globbing
 
 
 ## Future Enhancements
