@@ -39,7 +39,7 @@ teardown() {
   assert_output_contains "Domain                         Status   Enabled         Provider        Zone (Enabled)"
   [[ "$output" =~ example\.com ]]
   [[ "$output" =~ api\.example\.com ]]
-  assert_output_contains "No (zone disabled)" 1 # Enabled column count adjusted for adapter system
+  assert_output_contains "No (zone disabled)" 2 # Both domains in same zone - multi-provider finds parent zone
   assert_output_contains "Provider system ready" 1
   assert_output_contains "Status Legend:"
   assert_output_contains "✅ Points to server IP"

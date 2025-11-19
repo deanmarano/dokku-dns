@@ -1,8 +1,10 @@
 # Development History - Completed Phases
 
-This file documents the complete development journey of the Dokku DNS plugin through 24 major phases. This is primarily for contributors and maintainers to understand the technical evolution of the project.
+This file documents the complete development journey of the Dokku DNS plugin. This is primarily for contributors and maintainers to understand the technical evolution of the project.
 
 **For user-facing changes, see [CHANGELOG.md](./CHANGELOG.md)**
+
+**Note**: Phases are listed in completion order, not sequential numbering. Some phases were completed out of numerical order due to development priorities. The current latest completed phase is Phase 28.
 
 ---
 
@@ -1671,3 +1673,328 @@ dokku dns:sync:deletions
 - Maintains failed deletions in queue for retry
 
 **Related PR:** #64
+
+---
+
+## Phase 27: Code Quality and Safety Improvements - COMPLETED ✅ (2025-11-18)
+
+**Objective**: Critical code quality and safety fixes for pre-release readiness, including install script modernization, error handling improvements, and protection for destructive operations.
+
+**Major Achievements:**
+- 🔧 **Install Script Modernization**: Multi-provider detection with DigitalOcean support
+- 🛡️ **Critical Safety Fix**: Protected all `rm -rf` operations from catastrophic failures
+- ✨ **Safer Error Handling**: Eliminated all unsafe `set +e`/`set -e` patterns
+- 📋 **Zone-Centric Workflow**: Updated installation guidance for modern architecture
+- 🎯 **User-Friendly Output**: Removed internal terminology, grouped provider status
+
+**1. Install Script Modernization (`install`)**
+
+**Removed Deprecated Functionality:**
+- ✅ Removed `detect_and_configure_provider()` function (obsolete)
+- ✅ Removed PROVIDER file creation (deprecated in multi-provider architecture)
+- ✅ Eliminated confusing "default DNS provider" concept
+
+**Enhanced Multi-Provider Detection (`detect_providers()`):**
+
+**AWS Route53:**
+- Detects AWS CLI installation
+- Checks authentication via `aws sts get-caller-identity`
+- Verifies Route53 access via `aws route53 list-hosted-zones`
+- Reports hosted zone count when authenticated
+
+**Cloudflare:**
+- Detects `CLOUDFLARE_API_TOKEN` or `CF_API_TOKEN` environment variables
+- Detects flarectl CLI availability
+- Reports configuration status
+
+**DigitalOcean (NEW!):**
+- Detects `DIGITALOCEAN_ACCESS_TOKEN` or `DO_API_TOKEN` environment variables
+- Detects doctl CLI installation
+- Checks doctl authentication via `doctl auth list`
+- Reports configuration status
+
+**Improved Output Formatting:**
+- Groups non-configured providers: `Not configured: Cloudflare, DigitalOcean`
+- User-friendly status messages (removes internal "multi-provider" terminology):
+  - Multiple providers: `→ Providers ready: AWS, Cloudflare`
+  - Single provider: `→ Provider ready: AWS`
+  - No providers: `→ No DNS providers fully configured yet`
+
+**Updated "Next Steps" Workflow:**
+
+OLD (AWS-centric):
+```bash
+1. Set up AWS credentials:     dokku dns:providers:verify
+2. Add app domains:            dokku dns:apps:enable <app>
+3. Sync DNS records:           dokku dns:apps:sync <app>
+```
+
+NEW (zone-centric, provider-agnostic):
+```bash
+1. Verify provider setup:      dokku dns:providers:verify
+2. Enable DNS zones:           dokku dns:zones:enable <zone>
+3. Enable automatic triggers:  dokku dns:triggers:enable
+4. Add app domains:            dokku dns:apps:enable <app>
+5. Sync DNS records:           dokku dns:apps:sync <app>
+```
+
+**Key Improvements:**
+- Provider-agnostic (not AWS-specific)
+- Zone-centric workflow (zones must be enabled first)
+- Includes trigger setup for automatic DNS management
+- Clearer progression: verify → zones → triggers → apps → sync
+
+**2. Fix Unsafe Error Handling Patterns (`functions`)**
+
+Replaced all `set +e`/`set -e` patterns with safer alternatives:
+
+**functions:405-408 - Zone existence check:**
+```bash
+# Before (UNSAFE)
+set +e
+ZONE_ID=$(provider_get_zone_id "$DOMAIN" 2>/dev/null)
+local ZONE_EXISTS=$?
+set -e
+
+# After (SAFE)
+local ZONE_EXISTS=1
+if ZONE_ID=$(provider_get_zone_id "$DOMAIN" 2>/dev/null); then
+  ZONE_EXISTS=0
+fi
+```
+
+**functions:1018 - Domain TTL grep:**
+```bash
+# Before (UNSAFE)
+set +e
+domain_ttl=$(grep "^$domain:" "$APP_TTLS_FILE" 2>/dev/null | cut -d: -f2)
+set -e
+
+# After (SAFE)
+domain_ttl=$(grep "^$domain:" "$APP_TTLS_FILE" 2>/dev/null | cut -d: -f2 || true)
+```
+
+**functions:1030 - Zone TTL function call:**
+```bash
+# Before (UNSAFE)
+set +e
+zone_ttl=$(get_zone_ttl "$zone" 2>/dev/null)
+set -e
+
+# After (SAFE)
+zone_ttl=$(get_zone_ttl "$zone" 2>/dev/null || true)
+```
+
+**functions:1067 - Zone TTL grep:**
+```bash
+# Before (UNSAFE)
+set +e
+zone_ttl=$(grep "^$zone:" "$ZONE_TTLS_FILE" 2>/dev/null | cut -d: -f2)
+set -e
+
+# After (SAFE)
+zone_ttl=$(grep "^$zone:" "$ZONE_TTLS_FILE" 2>/dev/null | cut -d: -f2 || true)
+```
+
+**Benefits:**
+- No temporary disabling of error handling (`set -e`)
+- Uses idiomatic bash patterns (if-blocks, `|| true`)
+- Maintains script reliability without unsafe patterns
+- Removed 12 lines of error handling boilerplate
+
+**3. Add Safety Validation to rm -rf Operations**
+
+**🚨 CRITICAL FIX:** `providers/adapter.sh` had NO protection on destructive deletion!
+
+**providers/adapter.sh:dns_remove_app():**
+```bash
+# Before (DANGEROUS!)
+rm -rf "$app_dir"  # Could delete everything if app_name is empty!
+
+# After (SAFE)
+# Safety: Validate app_name before deletion
+if [[ -z "$app_name" || "$app_name" == "/" || "$app_name" == *".."* ]]; then
+  echo "Error: Invalid app name for deletion" >&2
+  return 1
+fi
+rm -rf "${PLUGIN_DATA_ROOT:?}/${app_name}"
+```
+
+**post-delete (app deletion hook):**
+```bash
+# Safety: Validate APP before deletion
+if [[ -n "$APP" && "$APP" != "/" && "$APP" != *".."* ]]; then
+  if [[ -d "$PLUGIN_DATA_ROOT/$APP" ]]; then
+    rm -rf "${PLUGIN_DATA_ROOT:?}/${APP:?}"
+  fi
+fi
+```
+
+**post-domains-update (domain removal hook):**
+```bash
+# Safety: Validate APP before deletion
+if [[ -n "$APP" && "$APP" != "/" && "$APP" != *".."* ]]; then
+  dokku_log_info1 "DNS: App '$APP' has no domains left, removing from DNS management"
+  rm -rf "${PLUGIN_DATA_ROOT:?}/${APP:?}"
+fi
+```
+
+**Protection Against:**
+- Empty variable deletion (would delete entire `PLUGIN_DATA_ROOT`)
+- Root directory deletion (`APP="/"`)
+- Path traversal attacks (`APP="../.."`)
+- Invalid or malicious app names
+
+**Defense in Depth:**
+- Explicit validation before deletion
+- Bash parameter expansion with `:?` (errors on empty/unset)
+- Directory existence checks where appropriate
+
+**Testing:**
+- ✅ All unit tests pass
+- ✅ All integration tests pass
+- ✅ Linting passes (shellcheck)
+- ✅ Install script runs successfully in CI
+
+No new tests added because:
+- Install script runs during plugin installation (validated by CI)
+- Provider verification comprehensively tested via `dns:providers:verify` command
+- Error handling refactoring maintains identical behavior (existing tests validate)
+- Safety validation is defensive - prevents errors rather than changing behavior
+
+**Files Changed:**
+1. **install** - Multi-provider detection and modernized workflow
+2. **functions** - Fixed 4 unsafe error handling patterns
+3. **providers/adapter.sh** - Critical safety validation for app deletion
+4. **post-delete** - Enhanced safety validation
+5. **post-domains-update** - Enhanced safety validation
+
+**Phase 27 Completion Status:**
+- ✅ Fix Installation Issues
+- ✅ Update Install Script Next Steps
+- ✅ Add Triggers to Getting Started
+- ✅ Fix Unsafe Error Handling Patterns
+- ✅ Add Safety to Destructive Operations
+- ✅ Fix Linting Failures (was already done - shellcheck directives in place)
+
+**Remaining for separate PRs:**
+- ⏭️ Improve Zone Enable Output (UI/UX enhancement)
+- ⏭️ Add Missing zones:sync Command (new feature)
+
+**Impact:**
+- 🔒 **Critical Safety**: Protected against catastrophic data loss from empty variables
+- ✨ **Code Quality**: Eliminated unsafe bash patterns throughout codebase
+- 📋 **Better UX**: Modern, provider-agnostic installation workflow
+- 🎯 **Production Ready**: All critical safety and quality issues resolved
+
+**Related PR:** #65
+
+---
+
+## Phase 26a: Fix Missing Error Checking in Sync Apply Phase - COMPLETED ✅
+
+**Objective**: Add proper error checking to DNS sync apply phase to prevent silent failures.
+
+**Problem Solved**:
+The `dns:apps:sync` command was failing silently when zone lookup failed in the apply phase. The analyze phase properly checked zone_id lookup, but the apply phase didn't, causing attempts to create records with empty zone IDs that failed without explanation.
+
+**Implementation**:
+- Added error checking in apply phase (providers/adapter.sh:194-195 and 212-213)
+- Skip domains if zone_id lookup fails, matching analyze phase behavior
+- Show clear error messages when zone lookup fails in apply phase
+
+**Impact**:
+- Users now see clear error messages instead of silent "❌ Failed"
+- Proper error handling prevents attempts to create records with empty zone IDs
+- Consistent behavior between analyze and apply phases
+
+**Note**: Manual testing with production domains (dean.is) remains as ongoing validation.
+
+**Related PR:** Merged in earlier Phase 26 work
+
+---
+
+## Phase 26b: Improve Provider Error Reporting - COMPLETED ✅
+
+**Objective**: Surface provider errors to users for better debugging of DNS operation failures.
+
+**Problem Solved**:
+Provider errors were being silenced by redirecting stderr to `/dev/null`, making it impossible to debug why DNS operations failed. Users would see "❌ Failed" with no indication of the root cause (zone not found, permission issues, API errors, etc.).
+
+**Implementation**:
+- Removed `2>/dev/null` from zone lookup calls in apply phase
+- Captured stderr from provider calls and display on failure
+- Show actual error messages from AWS/provider APIs
+- Format errors as "❌ Failed" with error details on following line
+
+**Impact**:
+- Users can now see actual AWS/Cloudflare/provider error messages
+- Debugging DNS issues is significantly easier
+- Clear visibility into permission problems, zone issues, API errors
+
+**Future Enhancement** (moved to Phase 33):
+- DNS_VERBOSE environment variable for even more detailed debugging output
+
+**Related PR:** Merged in earlier Phase 26 work
+
+---
+
+## Phase 28: Fix Zone Lookup in Report/Status Commands - COMPLETED ✅
+
+**Objective**: Fix inconsistent zone detection in status displays where dns:report showed "No hosted zone" even when zones existed and were enabled.
+
+**Problem Solved**:
+The report subcommand and domain status tables were using different zone lookup mechanisms, causing inconsistent results. `dns:report` would show "No hosted zone" for domains while `dns:apps:enable` showed the zone was available. This was due to:
+1. Report using AWS-specific direct zone lookup
+2. Status table not properly checking zone existence
+3. No clear distinction between "zone exists" vs "zone enabled for auto-discovery"
+
+**Implementation**:
+
+1. **Updated Report Subcommand** (subcommands/report)
+   - Replaced AWS-specific zone lookup with multi-provider system
+   - Loaded multi-provider.sh for zone detection
+   - Used `multi_get_zone_id()` for consistent zone lookups
+   - Added proper zone existence checking
+   - Removed AWS-specific code and hardcoded references
+
+2. **Updated Domain Status Table** (functions:dns_add_app_domains)
+   - Fixed zone lookup to use `multi_get_zone_id()` consistently
+   - Added proper zone detection in status table generation
+   - Show actual zone ID or provider when zone is found
+   - Clarified "zone exists" vs "zone enabled" distinction
+   - Ensured consistency between checking phase and status display
+
+3. **Status Display Improvements**
+   - "No (no hosted zone)" - Zone doesn't exist in any provider
+   - "No (zone disabled)" - Zone exists but not enabled for auto-discovery
+   - "Yes" - Zone exists and is enabled
+   - Show zone ID in hover/details when available
+
+**Testing**:
+- ✅ All existing unit tests pass
+- ✅ All integration tests pass
+- ✅ Zone lookup consistency verified across commands
+- ✅ Status table accurately reflects zone state
+
+**Files Changed**:
+1. **subcommands/report** - Multi-provider zone lookup
+2. **functions** - Fixed dns_add_app_domains() zone detection and status table
+
+**Impact**:
+- 🎯 **Consistency**: Report and status displays now show matching zone information
+- 📊 **Clarity**: Clear distinction between "zone exists" and "zone enabled"
+- 🔍 **Visibility**: Users can see actual zone IDs when zones are found
+- 🌐 **Multi-Provider**: Works with AWS, Cloudflare, DigitalOcean
+
+**Deferred to Phase 34**:
+- Complete provider-agnostic refactoring of zones subcommand (test compatibility issues)
+- Complete provider-agnostic refactoring of zones:enable subcommand
+- See TODO.md Phase 34 for detailed notes and commit references
+
+**Deferred to Future PR**:
+- Reduce provider:verify output verbosity
+- Add --verbose flag to providers:verify command
+
+**Related PR:** #66
+

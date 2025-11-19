@@ -113,43 +113,33 @@ dns_global_report() {
   # Check global provider credentials
   local CREDENTIALS_DIR="$GLOBAL_CONFIG_ROOT/credentials"
   local SYNC_STATUS="Not ready"
-  
+
   if [[ "$PROVIDER" != "None" ]]; then
-    case "$PROVIDER" in
-      aws)
-        if [[ -d "$CREDENTIALS_DIR" ]] && [[ -f "$CREDENTIALS_DIR/AWS_ACCESS_KEY_ID" ]]; then
-          SYNC_STATUS="Ready"
-        elif aws sts get-caller-identity >/dev/null 2>&1; then
-          SYNC_STATUS="Ready"
-        else
-          SYNC_STATUS="Missing auth"
-        fi
-        ;;
-      cloudflare)
-        if [[ -d "$CREDENTIALS_DIR" ]] && [[ -f "$CREDENTIALS_DIR/CLOUDFLARE_API_TOKEN" ]]; then
-          SYNC_STATUS="Ready"
-        else
-          SYNC_STATUS="Missing auth"
-        fi
-        ;;
-      *)
-        SYNC_STATUS="Unknown provider"
-        ;;
-    esac
-  else
-    SYNC_STATUS="Not configured"
-  fi
-  
-  # Load provider functions if available
-  if [[ "$PROVIDER" != "None" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
+    # Load provider functions to check credentials
     local PROVIDER_SCRIPT
     PROVIDER_SCRIPT="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/providers/$PROVIDER"
     if [[ -f "$PROVIDER_SCRIPT" ]]; then
       source "$PROVIDER_SCRIPT"
-      if [[ "$PROVIDER" == "aws" ]]; then
-        dns_provider_aws_setup_env
+      # Call provider setup if available (generic for all providers)
+      if declare -f "provider_setup_env" >/dev/null 2>&1; then
+        provider_setup_env
       fi
+
+      # Use provider interface to validate credentials (provider-agnostic)
+      if declare -f "provider_validate_credentials" >/dev/null 2>&1; then
+        if provider_validate_credentials 2>/dev/null; then
+          SYNC_STATUS="Ready"
+        else
+          SYNC_STATUS="Missing auth"
+        fi
+      else
+        SYNC_STATUS="Unknown provider"
+      fi
+    else
+      SYNC_STATUS="Unknown provider"
     fi
+  else
+    SYNC_STATUS="Not configured"
   fi
   
   echo
@@ -219,36 +209,27 @@ dns_global_report() {
         # These domains are from the DOMAINS file, so they were added
         local APP_DNS_STATUS="Added"
         
-        # Try to get hosted zone if provider is AWS and ready (handle failure gracefully)
+        # Try to get hosted zone using multi-provider system (handle failure gracefully)
         local HOSTED_ZONE="-"
-        if [[ "$PROVIDER" == "aws" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
-          if declare -f "multi_get_zone_id" >/dev/null 2>&1; then
-            local ZONE_ID=""
-            ZONE_ID=$(multi_get_zone_id "$DOMAIN" 2>/dev/null || echo "")
-            if [[ -n "$ZONE_ID" ]]; then
-              # Get the zone name from AWS (handle failure gracefully)
-              local ZONE_NAME=""
-              if command -v aws >/dev/null 2>&1; then
-                ZONE_NAME=$(aws route53 get-hosted-zone --id "$ZONE_ID" --query 'HostedZone.Name' --output text 2>/dev/null | sed 's/\.$//g' || echo "$ZONE_ID")
-              else
-                ZONE_NAME="$ZONE_ID"
-              fi
-              # Check if this zone is enabled
-              if is_zone_enabled "$ZONE_NAME"; then
-                HOSTED_ZONE="$ZONE_NAME (enabled)"
-              else
-                HOSTED_ZONE="$ZONE_NAME (disabled)"
-              fi
+        if declare -f "multi_get_zone_id" >/dev/null 2>&1; then
+          local ZONE_ID=""
+          ZONE_ID=$(multi_get_zone_id "$DOMAIN" 2>/dev/null || echo "")
+          if [[ -n "$ZONE_ID" ]]; then
+            # Use zone ID as zone name (works for all providers)
+            local ZONE_NAME="$ZONE_ID"
+            # Check if this zone is enabled
+            if is_zone_enabled "$ZONE_NAME"; then
+              HOSTED_ZONE="$ZONE_NAME (enabled)"
+            else
+              HOSTED_ZONE="$ZONE_NAME (disabled)"
+            fi
+          else
+            # Zone ID not found, check if domain is in an enabled zone
+            if is_domain_in_enabled_zone "$DOMAIN"; then
+              HOSTED_ZONE="Zone enabled"
             else
               HOSTED_ZONE="Not found"
             fi
-          fi
-        elif [[ "$PROVIDER" == "aws" ]]; then
-          # Provider is AWS but not ready, still check if domain is in enabled zone
-          if is_domain_in_enabled_zone "$DOMAIN"; then
-            HOSTED_ZONE="Zone enabled"
-          else
-            HOSTED_ZONE="Zone disabled"
           fi
         fi
         
@@ -370,43 +351,33 @@ dns_report() {
   # Check global provider credentials
   local CREDENTIALS_DIR="$GLOBAL_CONFIG_ROOT/credentials"
   local SYNC_STATUS="Not ready"
-  
+
   if [[ "$PROVIDER" != "None" ]]; then
-    case "$PROVIDER" in
-      aws)
-        if [[ -d "$CREDENTIALS_DIR" ]] && [[ -f "$CREDENTIALS_DIR/AWS_ACCESS_KEY_ID" ]]; then
-          SYNC_STATUS="Ready"
-        elif aws sts get-caller-identity >/dev/null 2>&1; then
-          SYNC_STATUS="Ready"
-        else
-          SYNC_STATUS="Missing auth"
-        fi
-        ;;
-      cloudflare)
-        if [[ -d "$CREDENTIALS_DIR" ]] && [[ -f "$CREDENTIALS_DIR/CLOUDFLARE_API_TOKEN" ]]; then
-          SYNC_STATUS="Ready"
-        else
-          SYNC_STATUS="Missing auth"
-        fi
-        ;;
-      *)
-        SYNC_STATUS="Unknown provider"
-        ;;
-    esac
-  else
-    SYNC_STATUS="Not configured"
-  fi
-  
-  # Load provider functions if available
-  if [[ "$PROVIDER" != "None" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
+    # Load provider functions to check credentials
     local PROVIDER_SCRIPT
     PROVIDER_SCRIPT="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/providers/$PROVIDER"
     if [[ -f "$PROVIDER_SCRIPT" ]]; then
       source "$PROVIDER_SCRIPT"
-      if [[ "$PROVIDER" == "aws" ]]; then
-        dns_provider_aws_setup_env
+      # Call provider setup if available (generic for all providers)
+      if declare -f "provider_setup_env" >/dev/null 2>&1; then
+        provider_setup_env
       fi
+
+      # Use provider interface to validate credentials (provider-agnostic)
+      if declare -f "provider_validate_credentials" >/dev/null 2>&1; then
+        if provider_validate_credentials 2>/dev/null; then
+          SYNC_STATUS="Ready"
+        else
+          SYNC_STATUS="Missing auth"
+        fi
+      else
+        SYNC_STATUS="Unknown provider"
+      fi
+    else
+      SYNC_STATUS="Unknown provider"
     fi
+  else
+    SYNC_STATUS="Not configured"
   fi
   
   # Analyze each domain - split space-separated domains properly
@@ -430,17 +401,24 @@ dns_report() {
       fi
     fi
     
-    # Try to get hosted zone if provider is AWS and ready
+    # Try to get hosted zone using multi-provider system
     local HOSTED_ZONE="-"
     local ZONE_ID=""
-    if [[ "$PROVIDER" == "aws" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
-      if declare -f "multi_get_zone_id" >/dev/null 2>&1; then
-        ZONE_ID=$(multi_get_zone_id "$DOMAIN" 2>/dev/null || echo "")
-        if [[ -n "$ZONE_ID" ]]; then
-          # Get the zone name from AWS
-          local ZONE_NAME
-          ZONE_NAME=$(aws route53 get-hosted-zone --id "$ZONE_ID" --query 'HostedZone.Name' --output text 2>/dev/null | sed 's/\.$//g' || echo "$ZONE_ID")
-          HOSTED_ZONE="$ZONE_NAME"
+    if declare -f "multi_get_zone_id" >/dev/null 2>&1; then
+      ZONE_ID=$(multi_get_zone_id "$DOMAIN" 2>/dev/null || echo "")
+      if [[ -n "$ZONE_ID" ]]; then
+        # Extract zone name from zone ID (works for all providers)
+        local ZONE_NAME="$ZONE_ID"
+        # Check if this zone is enabled
+        if is_zone_enabled "$ZONE_NAME"; then
+          HOSTED_ZONE="$ZONE_NAME (enabled)"
+        else
+          HOSTED_ZONE="$ZONE_NAME (disabled)"
+        fi
+      else
+        # Zone ID not found, check if domain is in an enabled zone
+        if is_domain_in_enabled_zone "$DOMAIN"; then
+          HOSTED_ZONE="Zone enabled"
         else
           HOSTED_ZONE="Not found"
         fi
@@ -451,15 +429,12 @@ dns_report() {
     local DOMAIN_STATUS="Not added"
     if [[ "$APP_IS_ADDED" == "true" ]]; then
       # App has been added to DNS, check hosted zone status
-      if [[ "$PROVIDER" == "aws" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
+      if [[ "$PROVIDER" != "None" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
         if [[ -n "$ZONE_ID" ]]; then
           DOMAIN_STATUS="Ready"
         else
           DOMAIN_STATUS="No hosted zone"
         fi
-      elif [[ "$PROVIDER" != "None" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
-        # For other providers, default to ready (they can implement their own logic)
-        DOMAIN_STATUS="Ready"
       else
         DOMAIN_STATUS="Provider not ready"
       fi
@@ -537,43 +512,15 @@ get_records_to_be_deleted() {
   local records_to_be_deleted=()
   for zone in "${zones_to_scan[@]}"; do
     local zone_id
-    zone_id=$(dns_provider_aws_get_hosted_zone_id "$zone" 2>/dev/null || echo "")
-    
+    zone_id=$(multi_get_zone_id "$zone" 2>/dev/null || echo "")
+
     if [[ -z "$zone_id" ]]; then
       continue
     fi
-    
-    # Get all A records in this zone
-    local zone_records
-    zone_records=$(aws route53 list-resource-record-sets \
-      --hosted-zone-id "$zone_id" \
-      --query "ResourceRecordSets[?Type=='A' && !contains(Name, 'www.')].Name" \
-      --output text 2>/dev/null | tr '\t' '\n' || echo "")
-    
-    if [[ -z "$zone_records" ]]; then
-      continue
-    fi
-    
-    # Check each DNS record against current domains
-    while IFS= read -r dns_record; do
-      [[ -z "$dns_record" ]] && continue
-      
-      # Remove trailing dot from Route53 record name
-      dns_record="${dns_record%.}"
-      
-      # Check if this DNS record corresponds to any current domain
-      local should_be_deleted=true
-      for current_domain in "${current_domains[@]}"; do
-        if [[ "$dns_record" == "$current_domain" ]]; then
-          should_be_deleted=false
-          break
-        fi
-      done
-      
-      if [[ "$should_be_deleted" == "true" ]]; then
-        echo "$dns_record"
-      fi
-    done <<< "$zone_records"
+
+    # DNS cleanup candidates feature disabled - needs provider_list_records() interface
+    # See TODO.md Phase 30a: Provider Interface Extension - Record Listing
+    continue
   done
 }
 
