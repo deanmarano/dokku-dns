@@ -449,15 +449,12 @@ dns_report() {
     local DOMAIN_STATUS="Not added"
     if [[ "$APP_IS_ADDED" == "true" ]]; then
       # App has been added to DNS, check hosted zone status
-      if [[ "$PROVIDER" == "aws" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
+      if [[ "$PROVIDER" != "None" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
         if [[ -n "$ZONE_ID" ]]; then
           DOMAIN_STATUS="Ready"
         else
           DOMAIN_STATUS="No hosted zone"
         fi
-      elif [[ "$PROVIDER" != "None" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
-        # For other providers, default to ready (they can implement their own logic)
-        DOMAIN_STATUS="Ready"
       else
         DOMAIN_STATUS="Provider not ready"
       fi
