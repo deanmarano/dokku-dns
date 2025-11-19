@@ -61,6 +61,34 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - **Goal:** Bulk sync operations at the zone level
 
 
+### Phase 30a: Provider Interface Extension - Record Listing (Pre-Release)
+
+**Objective:** Extend provider interface to support listing all DNS records in a zone, enabling DNS cleanup features.
+
+- [ ] **Extend Provider Interface**
+  - [ ] Add `provider_list_records(zone_id)` to providers/INTERFACE.md
+  - [ ] Define input/output format for record listing
+  - [ ] Specify return format: "name type value ttl" one per line
+  - [ ] Document error handling and empty zone behavior
+  - **Location:** `providers/INTERFACE.md`
+
+- [ ] **Implement for All Providers**
+  - [ ] Implement `provider_list_records()` in providers/aws/provider.sh
+  - [ ] Implement `provider_list_records()` in providers/cloudflare/provider.sh
+  - [ ] Implement `provider_list_records()` in providers/digitalocean/provider.sh
+  - [ ] Add tests for each provider implementation
+  - **Goal:** Consistent record listing across all DNS providers
+
+- [ ] **Re-enable DNS Cleanup Candidates Feature**
+  - [ ] Remove `continue` bypass in subcommands/report:548
+  - [ ] Uncomment record listing code in get_records_to_be_deleted()
+  - [ ] Replace `aws route53 list-resource-record-sets` with `provider_list_records()`
+  - [ ] Update to use multi-provider routing
+  - [ ] Test cleanup detection with all providers
+  - **Location:** `subcommands/report` get_records_to_be_deleted() function
+  - **Reference:** Currently disabled at lines 543-558
+
+
 ### Phase 31: Pre-Release Testing & Validation
 
 - [ ] **Create Testing Documentation**
