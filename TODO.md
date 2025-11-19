@@ -185,6 +185,12 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - [ ] Remove "Multi-provider mode activated" messages (it's the only mode)
 
 - [ ] **Remove All Non-Multi-Provider Code**
+  - [ ] **Replace direct `provider_get_zone_id` calls with `multi_get_zone_id` in application code**
+    - [ ] **functions:406** - Checking if skipped domain has a zone (in skipped domains warning section)
+    - [ ] **functions:800** - Getting zone ID for DNS record operations (in DNS sync logic)
+    - **Note:** `provider_get_zone_id` is the provider interface (each provider implements it)
+    - **Note:** `multi_get_zone_id` is the multi-provider router (application code should use this)
+    - **Architecture:** Application → `multi_get_zone_id` → finds provider → `provider_get_zone_id`
   - [ ] Search codebase for `dns_provider_` function calls and replace with `multi_` equivalents
   - [ ] Remove any remaining direct provider-specific function calls (aws_*, cloudflare_*, etc.)
   - [ ] Ensure all subcommands source multi-provider.sh for zone lookup
