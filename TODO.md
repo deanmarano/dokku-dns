@@ -5,19 +5,9 @@ The DNS plugin is in progress! Many core features have been implemented and test
 
 ### Phase 28: Display and Reporting Fixes (Pre-Release)
 
-**Objective:** Fix inconsistent zone detection in status displays and reduce excessive output verbosity.
+**Objective:** Reduce excessive output verbosity in provider verification.
 
-- [ ] **Fix Zone Lookup in Report/Status Commands**
-  - [ ] Fix zone lookup in report subcommand to use same logic as apps:enable
-  - [ ] Update Domain Status Table to reflect actual zone detection results
-  - [ ] Ensure consistency between "checking" phase and status table
-  - [ ] Show actual zone ID or provider in table when zone is found
-  - [ ] Clarify difference between "zone exists" vs "zone enabled for auto-discovery"
-  - **Problem:** `dns:report` shows "No hosted zone" even when zones exist and are enabled
-  - **Location:** `subcommands/report`, `functions:dns_add_app_domains()` status table
-  - **Examples:**
-    - `dns:report website` shows "No hosted zone" for dean.is (zone ZZ36BKMR6SB53 exists)
-    - `dns:apps:enable` shows "✓ dean.is can be managed" but table shows "⚠️ No (no hosted zone)"
+**Note:** Zone lookup fixes completed in PR #66 - see DONE.md Phase 28.
 
 - [ ] **Reduce provider:verify Output Verbosity**
   - [ ] Reduce excessive verbosity (multiple heading levels, redundant messages)
