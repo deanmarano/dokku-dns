@@ -146,8 +146,9 @@ dns_global_report() {
     PROVIDER_SCRIPT="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/providers/$PROVIDER"
     if [[ -f "$PROVIDER_SCRIPT" ]]; then
       source "$PROVIDER_SCRIPT"
-      if [[ "$PROVIDER" == "aws" ]]; then
-        dns_provider_aws_setup_env
+      # Call provider setup if available (generic for all providers)
+      if declare -f "provider_setup_env" >/dev/null 2>&1; then
+        provider_setup_env
       fi
     fi
   fi
@@ -394,8 +395,9 @@ dns_report() {
     PROVIDER_SCRIPT="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/providers/$PROVIDER"
     if [[ -f "$PROVIDER_SCRIPT" ]]; then
       source "$PROVIDER_SCRIPT"
-      if [[ "$PROVIDER" == "aws" ]]; then
-        dns_provider_aws_setup_env
+      # Call provider setup if available (generic for all providers)
+      if declare -f "provider_setup_env" >/dev/null 2>&1; then
+        provider_setup_env
       fi
     fi
   fi
