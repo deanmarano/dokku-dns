@@ -518,44 +518,9 @@ get_records_to_be_deleted() {
       continue
     fi
 
-    # TODO: This feature is temporarily disabled - needs provider interface extension
-    # The provider interface doesn't currently support listing all DNS records in a zone.
-    # Need to add provider_list_records(zone_id) function to INTERFACE.md and implement
-    # for all providers (AWS, Cloudflare, DigitalOcean) before re-enabling this feature.
-    # For now, skip record enumeration to maintain provider-agnostic architecture.
+    # DNS cleanup candidates feature disabled - needs provider_list_records() interface
+    # See TODO.md Phase 30a: Provider Interface Extension - Record Listing
     continue
-
-    # Get all A records in this zone (AWS-SPECIFIC - DISABLED)
-    # local zone_records
-    # zone_records=$(aws route53 list-resource-record-sets \
-    #   --hosted-zone-id "$zone_id" \
-    #   --query "ResourceRecordSets[?Type=='A' && !contains(Name, 'www.')].Name" \
-    #   --output text 2>/dev/null | tr '\t' '\n' || echo "")
-    #
-    # if [[ -z "$zone_records" ]]; then
-    #   continue
-    # fi
-    #
-    # Check each DNS record against current domains (AWS-SPECIFIC - DISABLED)
-    # while IFS= read -r dns_record; do
-    #   [[ -z "$dns_record" ]] && continue
-    #
-    #   # Remove trailing dot from Route53 record name
-    #   dns_record="${dns_record%.}"
-    #
-    #   # Check if this DNS record corresponds to any current domain
-    #   local should_be_deleted=true
-    #   for current_domain in "${current_domains[@]}"; do
-    #     if [[ "$dns_record" == "$current_domain" ]]; then
-    #       should_be_deleted=false
-    #       break
-    #     fi
-    #   done
-    #
-    #   if [[ "$should_be_deleted" == "true" ]]; then
-    #     echo "$dns_record"
-    #   fi
-    # done <<< "$zone_records"
   done
 }
 
