@@ -1,8 +1,10 @@
 # Development History - Completed Phases
 
-This file documents the complete development journey of the Dokku DNS plugin through 24 major phases. This is primarily for contributors and maintainers to understand the technical evolution of the project.
+This file documents the complete development journey of the Dokku DNS plugin. This is primarily for contributors and maintainers to understand the technical evolution of the project.
 
 **For user-facing changes, see [CHANGELOG.md](./CHANGELOG.md)**
+
+**Note**: Phases are listed in completion order, not sequential numbering. Some phases were completed out of numerical order due to development priorities. The current latest completed phase is Phase 28.
 
 ---
 
@@ -1934,3 +1936,65 @@ Provider errors were being silenced by redirecting stderr to `/dev/null`, making
 - DNS_VERBOSE environment variable for even more detailed debugging output
 
 **Related PR:** Merged in earlier Phase 26 work
+
+---
+
+## Phase 28: Fix Zone Lookup in Report/Status Commands - COMPLETED ✅
+
+**Objective**: Fix inconsistent zone detection in status displays where dns:report showed "No hosted zone" even when zones existed and were enabled.
+
+**Problem Solved**:
+The report subcommand and domain status tables were using different zone lookup mechanisms, causing inconsistent results. `dns:report` would show "No hosted zone" for domains while `dns:apps:enable` showed the zone was available. This was due to:
+1. Report using AWS-specific direct zone lookup
+2. Status table not properly checking zone existence
+3. No clear distinction between "zone exists" vs "zone enabled for auto-discovery"
+
+**Implementation**:
+
+1. **Updated Report Subcommand** (subcommands/report)
+   - Replaced AWS-specific zone lookup with multi-provider system
+   - Loaded multi-provider.sh for zone detection
+   - Used `multi_get_zone_id()` for consistent zone lookups
+   - Added proper zone existence checking
+   - Removed AWS-specific code and hardcoded references
+
+2. **Updated Domain Status Table** (functions:dns_add_app_domains)
+   - Fixed zone lookup to use `multi_get_zone_id()` consistently
+   - Added proper zone detection in status table generation
+   - Show actual zone ID or provider when zone is found
+   - Clarified "zone exists" vs "zone enabled" distinction
+   - Ensured consistency between checking phase and status display
+
+3. **Status Display Improvements**
+   - "No (no hosted zone)" - Zone doesn't exist in any provider
+   - "No (zone disabled)" - Zone exists but not enabled for auto-discovery
+   - "Yes" - Zone exists and is enabled
+   - Show zone ID in hover/details when available
+
+**Testing**:
+- ✅ All existing unit tests pass
+- ✅ All integration tests pass
+- ✅ Zone lookup consistency verified across commands
+- ✅ Status table accurately reflects zone state
+
+**Files Changed**:
+1. **subcommands/report** - Multi-provider zone lookup
+2. **functions** - Fixed dns_add_app_domains() zone detection and status table
+
+**Impact**:
+- 🎯 **Consistency**: Report and status displays now show matching zone information
+- 📊 **Clarity**: Clear distinction between "zone exists" and "zone enabled"
+- 🔍 **Visibility**: Users can see actual zone IDs when zones are found
+- 🌐 **Multi-Provider**: Works with AWS, Cloudflare, DigitalOcean
+
+**Deferred to Phase 34**:
+- Complete provider-agnostic refactoring of zones subcommand (test compatibility issues)
+- Complete provider-agnostic refactoring of zones:enable subcommand
+- See TODO.md Phase 34 for detailed notes and commit references
+
+**Deferred to Future PR**:
+- Reduce provider:verify output verbosity
+- Add --verbose flag to providers:verify command
+
+**Related PR:** #66
+
