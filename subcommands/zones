@@ -27,6 +27,12 @@ fi
 
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
 
+# Load multi-provider system
+MULTI_PROVIDER_PATH="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/providers/multi-provider.sh"
+if [[ -f "$MULTI_PROVIDER_PATH" ]]; then
+  source "$MULTI_PROVIDER_PATH"
+fi
+
 service-zones-cmd() {
   #E list DNS zones and their auto-discovery status
   #E dokku $PLUGIN_COMMAND_PREFIX:zones [<zone>]
@@ -37,14 +43,14 @@ service-zones-cmd() {
   #A zone, zone name to show detailed information for (optional)
   declare desc="list DNS zones and their auto-discovery status"
   local cmd="$PLUGIN_COMMAND_PREFIX:zones" argv=("$@")
-  
+
   # Handle Dokku command routing - first argument will be the command name
   if [[ "$1" == "$cmd" ]]; then
     shift 1
   fi
-  
+
   declare ZONE=""
-  
+
   # Check for any flags (which are no longer supported)
   while [[ $# -gt 0 ]]; do
     case $1 in
@@ -61,7 +67,7 @@ service-zones-cmd() {
         ;;
     esac
   done
-  
+
   # Execute actions
   if [[ -n "$ZONE" ]]; then
     zones_show_zone "$ZONE"
@@ -71,44 +77,77 @@ service-zones-cmd() {
 }
 
 zones_list_status() {
-  # AWS is always the provider now
-  local PROVIDER="aws"
-  
   echo
-  dokku_log_info2 "DNS Zones Status (AWS provider)"
-  
-  zones_list_aws_zones
+  dokku_log_info2 "DNS Zones Status"
+
+  # Load provider loader system
+  local LOADER_PATH
+  LOADER_PATH="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/providers/loader.sh"
+  if [[ ! -f "$LOADER_PATH" ]]; then
+    dokku_log_fail "Provider loader system not found"
+  fi
+  source "$LOADER_PATH"
+
+  # Get all available providers
+  local available_providers=()
+  while IFS= read -r provider; do
+    available_providers+=("$provider")
+  done < <(get_available_providers)
+
+  # Check each provider and list zones
+  local working_providers=0
+  for provider in "${available_providers[@]}"; do
+    # Skip test-only providers in normal mode
+    if [[ "$provider" =~ ^(template|mock)$ ]] && [[ -z "${DNS_TEST_MODE:-}" ]]; then
+      continue
+    fi
+
+    # Try to load and validate the provider
+    if load_provider "$provider" 2>/dev/null; then
+      if provider_validate_credentials 2>/dev/null; then
+        zones_list_provider_zones "$provider"
+        working_providers=$((working_providers + 1))
+      fi
+    fi
+  done
+
+  if [[ $working_providers -eq 0 ]]; then
+    dokku_log_info1 "No DNS providers configured with valid credentials"
+    echo
+    dokku_log_info2 "Setup Instructions"
+    dokku_log_info1 "Run: dokku $PLUGIN_COMMAND_PREFIX:providers:verify"
+    dokku_log_info1 "This will show detailed setup instructions for each provider"
+  fi
 }
 
-zones_list_aws_zones() {
-  # Validate AWS dependencies
-  if ! command -v aws >/dev/null 2>&1; then
-    dokku_log_fail "AWS CLI is not installed. Please install aws-cli to use AWS Route53 provider."
-  fi
-  
-  if ! aws sts get-caller-identity >/dev/null 2>&1; then
-    dokku_log_fail "AWS CLI is not configured or credentials are invalid."
-  fi
-  
-  # Check if any zones exist
-  local zone_count
-  zone_count=$(aws route53 list-hosted-zones --query 'length(HostedZones)' --output text 2>/dev/null)
-  
-  if [[ -z "$zone_count" ]] || [[ "$zone_count" == "0" ]]; then
-    dokku_log_info1 "No hosted zones found in Route53"
-    echo
-    dokku_log_info2 "Management Commands"
-    dokku_log_info1 "• Verify AWS setup: dokku $PLUGIN_COMMAND_PREFIX:providers:verify"
+zones_list_provider_zones() {
+  local provider_name="$1"
+
+  echo
+  dokku_log_info2 "Provider: $provider_name"
+
+  # Get zones from provider
+  local zones_list
+  if ! zones_list=$(provider_list_zones 2>/dev/null); then
+    dokku_log_info1 "  No zones found or failed to retrieve zones"
     return 0
   fi
-  
+
+  local zone_count
+  zone_count=$(echo "$zones_list" | wc -l)
+
+  if [[ -z "$zones_list" ]] || [[ "$zone_count" -eq 0 ]]; then
+    dokku_log_info1 "  No zones found for this provider"
+    return 0
+  fi
+
   # Get managed apps for comparison
   local LINKS_FILE="$PLUGIN_DATA_ROOT/LINKS"
   local MANAGED_APPS=""
   if [[ -f "$LINKS_FILE" ]]; then
     MANAGED_APPS=$(cat "$LINKS_FILE" 2>/dev/null || echo "")
   fi
-  
+
   # Get all managed domains
   local ALL_MANAGED_DOMAINS=""
   if [[ -n "$MANAGED_APPS" ]]; then
@@ -122,27 +161,19 @@ zones_list_aws_zones() {
       fi
     done <<< "$MANAGED_APPS"
   fi
-  
-  # Get zone information using AWS CLI queries
-  local zones_data
-  zones_data=$(aws route53 list-hosted-zones --query 'HostedZones[].[Id,Name,ResourceRecordSetCount,Config.Comment]' --output text 2>/dev/null)
-  
-  # Parse and display zones
-  local zone_num=0
-  while IFS=$'\t' read -r zone_id zone_name record_count comment; do
-    [[ -z "$zone_id" ]] && continue
-    
-    # Clean up the data
-    zone_id=${zone_id#/hostedzone/}
-    zone_name=${zone_name%.}
-    [[ "$comment" == "None" ]] && comment=""
-    
-    zone_num=$((zone_num + 1))
-    
+
+  # Display zones
+  while IFS= read -r zone_name; do
+    [[ -z "$zone_name" ]] && continue
+
+    # Get zone ID for this zone
+    local zone_id
+    zone_id=$(provider_get_zone_id "$zone_name" 2>/dev/null || echo "")
+
     # Check if any managed domains belong to this zone
     local managed_in_zone=0
     local zone_domains=""
-    
+
     if [[ -n "$ALL_MANAGED_DOMAINS" ]]; then
       for domain in $ALL_MANAGED_DOMAINS; do
         # Check if domain matches this zone exactly or is a subdomain
@@ -156,65 +187,86 @@ zones_list_aws_zones() {
         fi
       done
     fi
-    
+
     # Check if zone is enabled
     local zone_enabled_status="DISABLED"
     if is_zone_enabled "$zone_name"; then
       zone_enabled_status="ENABLED"
     fi
-    
+
     # Display zone info
     echo
     if [[ $managed_in_zone -gt 0 ]]; then
-      dokku_log_info1 "$zone_enabled_status $zone_name ($zone_id) - ACTIVE"
-      dokku_log_info1 "   Managed domains ($managed_in_zone): $zone_domains"
+      if [[ -n "$zone_id" ]]; then
+        dokku_log_info1 "  $zone_enabled_status $zone_name ($zone_id) - ACTIVE"
+      else
+        dokku_log_info1 "  $zone_enabled_status $zone_name - ACTIVE"
+      fi
+      dokku_log_info1 "     Managed domains ($managed_in_zone): $zone_domains"
     else
-      dokku_log_info1 "$zone_enabled_status $zone_name ($zone_id) - available"
+      if [[ -n "$zone_id" ]]; then
+        dokku_log_info1 "  $zone_enabled_status $zone_name ($zone_id) - available"
+      else
+        dokku_log_info1 "  $zone_enabled_status $zone_name - available"
+      fi
     fi
-    dokku_log_info1 "   Records: $record_count"
-    if [[ -n "$comment" ]] && [[ "$comment" != "null" ]]; then
-      dokku_log_info1 "   Comment: $comment"
-    fi
-  done <<< "$zones_data"
-  
-}
+  done <<< "$zones_list"
 
-zones_list_cloudflare_zones() {
-  dokku_log_warn "Cloudflare zones management not yet implemented"
-  dokku_log_info1 "Use AWS Route53 provider for full zones support"
+  echo
 }
 
 zones_show_zone() {
   local ZONE="$1"
-  
-  # AWS is always the provider now
-  local PROVIDER="aws"
-  
-  # Validate AWS dependencies
-  if ! command -v aws >/dev/null 2>&1; then
-    dokku_log_fail "AWS CLI is not installed. Please install aws-cli to use AWS Route53 provider."
-  fi
-  
-  
-  if ! aws sts get-caller-identity >/dev/null 2>&1; then
-    dokku_log_fail "AWS CLI is not configured or credentials are invalid."
-  fi
-  
+
   echo
   dokku_log_info2 "DNS Zone Details: $ZONE"
-  
-  # Get zone ID and basic info
-  local ZONE_ID
-  ZONE_ID=$(aws route53 list-hosted-zones --query "HostedZones[?Name=='${ZONE}.'].Id" --output text 2>/dev/null | sed 's|/hostedzone/||')
-  
-  if [[ -z "$ZONE_ID" ]] || [[ "$ZONE_ID" == "None" ]]; then
-    dokku_log_fail "Zone '$ZONE' not found in Route53. Available zones:"
-    aws route53 list-hosted-zones --query 'HostedZones[].Name' --output text 2>/dev/null | tr '\t ' '\n' | grep -v '^$' | sed 's/\.$//g' | while read -r zone; do
-      echo "  • $zone"
-    done
-    return 1
+
+  # Load provider loader system
+  local LOADER_PATH
+  LOADER_PATH="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/providers/loader.sh"
+  if [[ ! -f "$LOADER_PATH" ]]; then
+    dokku_log_fail "Provider loader system not found"
   fi
-  
+  source "$LOADER_PATH"
+
+  # Find which provider manages this zone
+  local zone_provider=""
+  local zone_id=""
+
+  # Try each available provider
+  local available_providers=()
+  while IFS= read -r provider; do
+    available_providers+=("$provider")
+  done < <(get_available_providers)
+
+  for provider in "${available_providers[@]}"; do
+    # Skip test-only providers in normal mode
+    if [[ "$provider" =~ ^(template|mock)$ ]] && [[ -z "${DNS_TEST_MODE:-}" ]]; then
+      continue
+    fi
+
+    # Try to load and validate the provider
+    if load_provider "$provider" 2>/dev/null; then
+      if provider_validate_credentials 2>/dev/null; then
+        # Check if this provider has the zone
+        local temp_zone_id
+        temp_zone_id=$(provider_get_zone_id "$ZONE" 2>/dev/null || echo "")
+        if [[ -n "$temp_zone_id" ]]; then
+          zone_provider="$provider"
+          zone_id="$temp_zone_id"
+          break
+        fi
+      fi
+    fi
+  done
+
+  if [[ -z "$zone_provider" ]]; then
+    dokku_log_fail "Zone '$ZONE' not found in any configured provider"
+  fi
+
+  dokku_log_info1 "Provider: $zone_provider"
+  dokku_log_info1 "Zone ID: $zone_id"
+
   # Get Dokku app associations first
   echo
   dokku_log_info2 "Dokku Integration"
@@ -301,41 +353,15 @@ zones_show_zone() {
   else
     dokku_log_info1 "All potential domains for this zone are already managed"
   fi
-  
-  # Show AWS Route53 technical details
+
   echo
-  dokku_log_info2 "AWS Route53 Information"
-  
-  # Get zone details using AWS CLI queries  
-  local record_count comment private_zone
-  record_count=$(aws route53 get-hosted-zone --id "$ZONE_ID" --query 'HostedZone.ResourceRecordSetCount' --output text 2>/dev/null)
-  comment=$(aws route53 get-hosted-zone --id "$ZONE_ID" --query 'HostedZone.Config.Comment' --output text 2>/dev/null)
-  private_zone=$(aws route53 get-hosted-zone --id "$ZONE_ID" --query 'HostedZone.Config.PrivateZone' --output text 2>/dev/null)
-  
-  # Handle None values
-  [[ "$record_count" == "None" ]] && record_count="N/A"
-  [[ "$comment" == "None" ]] && comment=""
-  [[ "$private_zone" == "None" ]] && private_zone="false"
-  
-  dokku_log_info1 "Zone ID: $ZONE_ID"
-  dokku_log_info1 "Zone Name: $ZONE"
-  dokku_log_info1 "Record Count: $record_count"
-  if [[ "$private_zone" == "true" ]]; then
-    dokku_log_info1 "Type: Private Zone"
-  else
-    dokku_log_info1 "Type: Public Zone"
+  dokku_log_info2 "Management Commands"
+  dokku_log_info1 "Enable zone: dokku $PLUGIN_COMMAND_PREFIX:zones:enable $ZONE"
+  dokku_log_info1 "Disable zone: dokku $PLUGIN_COMMAND_PREFIX:zones:disable $ZONE"
+  if [[ ${#potential_domains[@]} -gt 0 ]]; then
+    dokku_log_info1 "Add domains: dokku $PLUGIN_COMMAND_PREFIX:apps:enable <app>"
   fi
-  if [[ -n "$comment" && "$comment" != "null" ]]; then
-    dokku_log_info1 "Comment: $comment"
-  fi
-  
-  # Get nameservers
-  local nameservers
-  nameservers=$(aws route53 get-hosted-zone --id "$ZONE_ID" --query 'DelegationSet.NameServers' --output text 2>/dev/null)
-  if [[ -n "$nameservers" && "$nameservers" != "None" ]]; then
-    dokku_log_info1 "Name Servers: $nameservers"
-  fi
-  
+  echo
 }
 
 service-zones-cmd "$@"

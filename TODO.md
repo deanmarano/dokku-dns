@@ -199,6 +199,28 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - [ ] Remove unused provider-specific helper functions that are duplicates of multi-provider equivalents
   - [ ] Audit all hooks, subcommands, and functions for legacy provider patterns
 
+- [ ] **Complete Provider-Agnostic Refactoring of Zone Subcommands**
+  - [ ] **subcommands/zones** - Partially refactored but needs completion
+    - [x] Removed AWS-specific hardcoded references (lines 74-75, 190-191)
+    - [x] Replaced `zones_list_aws_zones()` with provider-agnostic `zones_list_provider_zones()`
+    - [x] Updated `zones_show_zone()` to use multi-provider system
+    - [ ] **TODO:** Test with multiple providers (Cloudflare, DigitalOcean)
+    - [ ] **TODO:** Add error handling for zones that exist in multiple providers
+    - **Note:** Currently works but only tested with AWS
+  - [ ] **subcommands/zones:enable** - AWS-specific code remains
+    - [ ] **zones_add_zone()** function (lines 90-117) uses AWS CLI directly
+    - [ ] **zones_add_all()** function (lines 122-154) uses AWS CLI directly
+    - [ ] Replace AWS CLI calls with multi-provider system
+    - [ ] Load provider loader system to find which provider manages each zone
+    - [ ] Use `provider_get_zone_id()` through multi-provider routing
+    - [ ] Use `provider_list_zones()` for --all flag
+    - **Problem:** Direct AWS CLI usage prevents other providers from working
+    - **Impact:** zones:enable only works with AWS Route53 currently
+  - [ ] **subcommands/zones:disable** - Check for AWS-specific code
+    - [ ] Review and update to use multi-provider system if needed
+  - [ ] **subcommands/zones:ttl** - Check for AWS-specific code
+    - [ ] Review and update to use multi-provider system if needed
+
 
 ### Phase 35: Code Quality - Low Priority Polish (Post-1.0)
 
