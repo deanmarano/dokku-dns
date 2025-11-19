@@ -76,12 +76,16 @@ service-zones-ttl-cmd() {
       dokku_log_fail "TTL value must be a positive integer (seconds)"
     fi
 
-    if [[ "$TTL_VALUE" -lt 60 ]]; then
-      dokku_log_fail "TTL value must be at least 60 seconds"
+    local min_ttl max_ttl
+    min_ttl=$(get_dns_ttl_config "min")
+    max_ttl=$(get_dns_ttl_config "max")
+
+    if [[ "$TTL_VALUE" -lt "$min_ttl" ]]; then
+      dokku_log_fail "TTL value must be at least $min_ttl seconds"
     fi
 
-    if [[ "$TTL_VALUE" -gt 86400 ]]; then
-      dokku_log_fail "TTL value must be no more than 86400 seconds (24 hours)"
+    if [[ "$TTL_VALUE" -gt "$max_ttl" ]]; then
+      dokku_log_fail "TTL value must be no more than $max_ttl seconds"
     fi
 
     # Remove existing entry for this zone if it exists
