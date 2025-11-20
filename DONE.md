@@ -1939,6 +1939,76 @@ Provider errors were being silenced by redirecting stderr to `/dev/null`, making
 
 ---
 
+## Phase 26c: Fix Post-Create Trigger Domain Detection - COMPLETED ✅ (PR #56)
+
+**Objective**: Fix post-create trigger failing to detect auto-added domains from global vhost.
+
+**Problem Solved**:
+When creating an app with `dokku apps:create my-test-app`, the DNS plugin post-create trigger would say "No domains configured for 'my-test-app' yet" even though Dokku automatically assigns a default domain (e.g., `my-test-app.deanoftech.com`) based on the global vhost.
+
+**The Challenge**: Dokku does NOT fire domain event triggers (`domains-add`, `post-domains-update`) when it auto-assigns the default vhost during app creation. These triggers only fire when you explicitly run `dokku domains:add`. So the `post-create` trigger runs before domains exist, and there's no trigger that fires after Dokku creates the vhost file.
+
+**Solution**: **Predict the default domain** in the `post-create` trigger:
+
+1. Get the global vhost from Dokku (e.g., `deanoftech.com`)
+2. Predict the default domain: `{app}.{global-vhost}` (e.g., `my-test-app.deanoftech.com`)
+3. Check if the predicted domain is in an enabled zone
+4. If yes, automatically add it to DNS management and sync
+
+**Implementation** (post-create:48-84):
+
+```bash
+# Predict the default domain from global vhost
+local PREDICTED_DOMAIN=""
+if command -v dokku >/dev/null 2>&1; then
+  local GLOBAL_VHOST
+  GLOBAL_VHOST=$(dokku domains:report --global --domains-global-vhosts 2>/dev/null | awk '{print $1}' || echo "")
+
+  if [[ -n "$GLOBAL_VHOST" ]]; then
+    PREDICTED_DOMAIN="${APP}.${GLOBAL_VHOST}"
+  fi
+fi
+
+# Check if predicted domain is in an enabled zone
+if ! is_domain_in_enabled_zone "$PREDICTED_DOMAIN"; then
+  dokku_log_info1 "DNS: Predicted domain '$PREDICTED_DOMAIN' is not in an enabled zone. Skipping automatic DNS setup."
+  return 0
+fi
+
+# Auto-add app to DNS management with predicted domain
+dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" "$APP" "$PREDICTED_DOMAIN" >/dev/null 2>&1 || true
+```
+
+**How it Works**:
+
+**During app creation:**
+```bash
+$ dokku apps:create my-test-app
+-----> Creating my-test-app...
+-----> DNS: Predicted domain 'my-test-app.deanoftech.com' is in an enabled zone
+-----> DNS: Record for 'my-test-app.deanoftech.com' created successfully
+```
+
+**When manually adding domains:**
+The `domains-add` trigger still works and will pick up ALL domains for the app (including the auto-assigned one).
+
+**Testing**:
+- ✅ Added integration tests for post-create trigger domain prediction
+- ✅ Verified apps created with `dokku apps:create` get automatic DNS management
+- ✅ Tested with enabled zones - domains auto-managed
+- ✅ Tested without enabled zones - skips auto-setup gracefully
+- ✅ Verified `domains-add` trigger still works for manual additions
+
+**Impact**:
+- 🎯 **Automatic DNS**: Apps get DNS records immediately upon creation (if zone enabled)
+- 📊 **Seamless UX**: No manual `dns:apps:enable` needed for default domains
+- 🔍 **Smart Detection**: Only auto-enables if domain is in an enabled zone
+- ✅ **Backward Compatible**: Existing `domains-add` trigger still works
+
+**Note**: This completes what was originally planned as Phase 29 in the TODO.
+
+---
+
 ## Phase 28: Display and Reporting Fixes - COMPLETED ✅
 
 **Objectives**:

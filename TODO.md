@@ -3,19 +3,6 @@
 The DNS plugin is in progress! Many core features have been implemented and tested. See [DONE.md](./DONE.md) for completed work.
 
 
-### Phase 29: Trigger System Improvements (Pre-Release)
-
-**Objective:** Fix post-create trigger failing to detect auto-added domains from global vhost.
-
-- [ ] **Fix Post-Create Trigger Domain Detection**
-  - [ ] post-create trigger says "No domains configured" but domain exists
-  - [ ] Trigger doesn't detect auto-added domain from global vhost
-  - [ ] Fix is_domain_in_enabled_zone function or post-create timing
-  - [ ] Test: my-test-app.deanoftech.com should be detected in enabled deanoftech.com zone
-  - **Problem:** Trigger runs before domain is fully configured
-  - **Reference:** See `test-output-examples/app-create-trigger-fail.txt`
-
-
 ### Phase 30: Zone Management UX Improvements (Pre-Release)
 
 **Objective:** Improve user experience for zone management with better output and new sync command.
