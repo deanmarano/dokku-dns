@@ -72,8 +72,59 @@ case "\$1" in
     "apps:list")
         cat "\$DOKKU_APPS_FILE" 2>/dev/null || echo "testapp"
         ;;
+    "config:get")
+        # Mock dokku config:get for testing
+        scope="\$2"
+        key="\$3"
+        mock_config_file="\${TEST_TMP_DIR:-/tmp}/mock_dokku_config"
+
+        if [[ "\$scope" == "--global" && -f "\$mock_config_file" ]]; then
+            grep "^\${key}=" "\$mock_config_file" 2>/dev/null | cut -d= -f2-
+        fi
+        ;;
+    "config:set")
+        # Mock dokku config:set for testing
+        scope="\$2"
+        shift 2
+        mock_config_file="\${TEST_TMP_DIR:-/tmp}/mock_dokku_config"
+
+        if [[ "\$scope" == "--global" ]]; then
+            mkdir -p "\$(dirname "\$mock_config_file")"
+            touch "\$mock_config_file"
+
+            for arg in "\$@"; do
+                if [[ "\$arg" =~ ^([^=]+)=(.*)$ ]]; then
+                    key="\${BASH_REMATCH[1]}"
+                    value="\${BASH_REMATCH[2]}"
+
+                    # Remove existing key
+                    if [[ -f "\$mock_config_file" ]]; then
+                        grep -v "^\${key}=" "\$mock_config_file" > "\${mock_config_file}.tmp" 2>/dev/null || touch "\${mock_config_file}.tmp"
+                        mv "\${mock_config_file}.tmp" "\$mock_config_file"
+                    fi
+
+                    # Add new key=value
+                    echo "\${key}=\${value}" >> "\$mock_config_file"
+                fi
+            done
+        fi
+        ;;
+    "config:unset")
+        # Mock dokku config:unset for testing
+        scope="\$2"
+        shift 2
+        mock_config_file="\${TEST_TMP_DIR:-/tmp}/mock_dokku_config"
+
+        if [[ "\$scope" == "--global" && -f "\$mock_config_file" ]]; then
+            for key in "\$@"; do
+                grep -v "^\${key}=" "\$mock_config_file" > "\${mock_config_file}.tmp" 2>/dev/null || touch "\${mock_config_file}.tmp"
+                mv "\${mock_config_file}.tmp" "\$mock_config_file"
+            done
+        fi
+        ;;
     *)
-        echo "Mock dokku: \$*"
+        # Silently ignore unknown commands in tests
+        :
         ;;
 esac
 EOF

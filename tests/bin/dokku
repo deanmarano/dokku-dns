@@ -107,8 +107,59 @@ else
                 echo "nextcloud"
             fi
             ;;
+        "config:get")
+            # Mock dokku config:get for testing
+            _scope="$2"
+            _key="$3"
+            _mock_config_file="${TEST_TMP_DIR:-/tmp}/mock_dokku_config"
+
+            if [[ "$_scope" == "--global" && -f "$_mock_config_file" ]]; then
+                grep "^${_key}=" "$_mock_config_file" 2>/dev/null | cut -d= -f2-
+            fi
+            ;;
+        "config:set")
+            # Mock dokku config:set for testing
+            _scope="$2"
+            shift 2
+            _mock_config_file="${TEST_TMP_DIR:-/tmp}/mock_dokku_config"
+
+            if [[ "$_scope" == "--global" ]]; then
+                mkdir -p "$(dirname "$_mock_config_file")"
+                touch "$_mock_config_file"
+
+                for arg in "$@"; do
+                    if [[ "$arg" =~ ^([^=]+)=(.*)$ ]]; then
+                        _key="${BASH_REMATCH[1]}"
+                        _value="${BASH_REMATCH[2]}"
+
+                        # Remove existing key
+                        if [[ -f "$_mock_config_file" ]]; then
+                            grep -v "^${_key}=" "$_mock_config_file" > "${_mock_config_file}.tmp" 2>/dev/null || touch "${_mock_config_file}.tmp"
+                            mv "${_mock_config_file}.tmp" "$_mock_config_file"
+                        fi
+
+                        # Add new key=value
+                        echo "${_key}=${_value}" >> "$_mock_config_file"
+                    fi
+                done
+            fi
+            ;;
+        "config:unset")
+            # Mock dokku config:unset for testing
+            _scope="$2"
+            shift 2
+            _mock_config_file="${TEST_TMP_DIR:-/tmp}/mock_dokku_config"
+
+            if [[ "$_scope" == "--global" && -f "$_mock_config_file" ]]; then
+                for _key in "$@"; do
+                    grep -v "^${_key}=" "$_mock_config_file" > "${_mock_config_file}.tmp" 2>/dev/null || touch "${_mock_config_file}.tmp"
+                    mv "${_mock_config_file}.tmp" "$_mock_config_file"
+                done
+            fi
+            ;;
         *)
-            echo "Mock dokku: $*"
+            # Silently ignore unknown commands in tests
+            :
             ;;
     esac
 fi
