@@ -51,21 +51,6 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - **Goal:** Bulk sync operations at the zone level
 
 
-### Phase 34: Fix Direct provider_get_zone_id Calls (Pre-Release)
-
-**Objective:** Replace direct provider interface calls with multi-provider router in application code.
-
-- [ ] **functions:406** - Replace `provider_get_zone_id` with `multi_get_zone_id` in skipped domains warning
-- [ ] **functions:800** - Replace `provider_get_zone_id` with `multi_get_zone_id` in DNS sync logic
-- [ ] Verify multi-provider routing works correctly for both call sites
-
-**Effort:** Low (2 specific replacements)
-**Impact:** Fixes architectural violations, ensures proper provider routing
-**Note:** `provider_get_zone_id` is the provider interface (each provider implements it)
-**Note:** `multi_get_zone_id` is the multi-provider router (application code should use this)
-**Architecture:** Application → `multi_get_zone_id` → finds provider → `provider_get_zone_id`
-
-
 ### Phase 35: Add TTL Input Validation (Pre-Release)
 
 **Objective:** Add missing validation to TTL subcommands.
