@@ -51,34 +51,6 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - **Goal:** Bulk sync operations at the zone level
 
 
-### Phase 32: Extract Duplicate Provider Code (Pre-Release) ⚡ QUICK WIN
-
-**Objective:** DRY up duplicated DNS record application logic.
-
-- [ ] Create `apply_dns_record` helper function in adapter.sh
-- [ ] Replace duplicated code in adapter.sh:204-210 and 221-227
-- [ ] Ensure error messages are preserved (not sent to /dev/null)
-- [ ] Add proper error logging for debugging
-
-**Effort:** Low (small refactor, 2 call sites)
-**Impact:** Reduces code duplication, improves maintainability
-
-
-### Phase 33: Remove MULTI_PROVIDER_MODE Flag (Pre-Release) ⚡ QUICK WIN
-
-**Objective:** Remove legacy feature flag that's always enabled.
-
-- [ ] Remove MULTI_PROVIDER_MODE environment variable (always true, legacy code)
-- [ ] Remove all `if [[ "${MULTI_PROVIDER_MODE:-false}" == "true" ]]` conditionals in adapter.sh
-- [ ] Always call multi_* functions (multi_get_zone_id, multi_get_record, etc.)
-- [ ] Delete dead code branches that call provider_* directly (lines 147-155 in adapter.sh)
-- [ ] Update init_provider_system to always use multi-provider routing
-- [ ] Remove "Multi-provider mode activated" messages (it's the only mode)
-
-**Effort:** Low (code deletion, already dead code)
-**Impact:** Simplifies codebase, removes confusing messages
-
-
 ### Phase 34: Fix Direct provider_get_zone_id Calls (Pre-Release)
 
 **Objective:** Replace direct provider interface calls with multi-provider router in application code.
