@@ -51,21 +51,6 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - **Goal:** Bulk sync operations at the zone level
 
 
-### Phase 35: Add TTL Input Validation (Pre-Release)
-
-**Objective:** Add missing validation to TTL subcommands.
-
-- [ ] Add TTL validation to zones:ttl subcommand (currently missing)
-- [ ] Add TTL validation to ttl subcommand (currently missing)
-- [ ] Use DNS_MIN_TTL and DNS_MAX_TTL constants (from Phase 31)
-- [ ] Ensure consistent validation across all entry points
-- [ ] Add user-friendly error messages for invalid TTL values
-
-**Effort:** Low (simple validation checks)
-**Impact:** Prevents invalid TTL values, improves UX
-**Dependency:** Should be done after Phase 31 (TTL constants)
-
-
 ### Phase 36: Pre-Release Testing & Validation
 
 - [ ] **Create Testing Documentation**

@@ -2018,6 +2018,7 @@ TTL (Time-To-Live) values were hardcoded throughout the codebase as magic number
    - Replaced hardcoded validation limits with config lookups
    - Both global TTL and zone-specific TTL use same limits
    - Consistent error messages showing actual limits
+   - **Note**: This completed Phase 35 (TTL Input Validation) as part of Phase 31
 
 4. **Configuration via dokku config**:
    ```bash
