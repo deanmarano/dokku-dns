@@ -67,81 +67,8 @@ crontab() {
 }
 export -f crontab
 
-# Mock dokku config for unit tests
-dokku() {
-  local mock_config_file="${TEST_TMP_DIR:-/tmp}/mock_dokku_config"
-
-  # Only mock if running in unit test mode (no real Dokku available)
-  if [[ -d "/var/lib/dokku" ]] && [[ -w "/var/lib/dokku" ]]; then
-    # Use real dokku if available
-    command dokku "$@"
-    return $?
-  fi
-
-  # Handle dokku config commands
-  if [[ "$1" == "config:get" ]]; then
-    local scope="$2"
-    local key="$3"
-
-    if [[ "$scope" == "--global" ]]; then
-      # Read from mock config file
-      if [[ -f "$mock_config_file" ]]; then
-        grep "^${key}=" "$mock_config_file" 2>/dev/null | cut -d= -f2-
-      fi
-    fi
-    return 0
-  elif [[ "$1" == "config:set" ]]; then
-    local scope="$2"
-    shift 2
-
-    if [[ "$scope" == "--global" ]]; then
-      # Write to mock config file
-      mkdir -p "$(dirname "$mock_config_file")"
-      touch "$mock_config_file"
-
-      # Process key=value pairs
-      for arg in "$@"; do
-        if [[ "$arg" =~ ^([^=]+)=(.*)$ ]]; then
-          local key="${BASH_REMATCH[1]}"
-          local value="${BASH_REMATCH[2]}"
-
-          # Remove existing key if present
-          if [[ -f "$mock_config_file" ]]; then
-            grep -v "^${key}=" "$mock_config_file" > "${mock_config_file}.tmp" 2>/dev/null || touch "${mock_config_file}.tmp"
-            mv "${mock_config_file}.tmp" "$mock_config_file"
-          fi
-
-          # Add new key=value
-          echo "${key}=${value}" >> "$mock_config_file"
-        fi
-      done
-    fi
-    return 0
-  elif [[ "$1" == "config:unset" ]]; then
-    local scope="$2"
-    shift 2
-
-    if [[ "$scope" == "--global" ]]; then
-      # Remove keys from mock config file
-      if [[ -f "$mock_config_file" ]]; then
-        for key in "$@"; do
-          grep -v "^${key}=" "$mock_config_file" > "${mock_config_file}.tmp" 2>/dev/null || touch "${mock_config_file}.tmp"
-          mv "${mock_config_file}.tmp" "$mock_config_file"
-        done
-      fi
-    fi
-    return 0
-  else
-    # For other dokku commands in unit tests, use the real command if available
-    if command -v command >/dev/null 2>&1 && command dokku version >/dev/null 2>&1; then
-      command dokku "$@"
-      return $?
-    fi
-    # No real dokku available - silently fail
-    return 1
-  fi
-}
-export -f dokku
+# NOTE: dokku mock function is defined later in this file (after TEST_BIN_DIR setup)
+# to ensure proper precedence with script-based mocks
 
 # Load test environment overrides for CI/local testing
 if [[ ! -d "/var/lib/dokku" ]] || [[ ! -w "/var/lib/dokku" ]]; then
@@ -182,11 +109,76 @@ if [[ -f "$TEST_BIN_DIR/dokku" ]]; then
   # Also create a function override that works in subshells (for BATS)
   # This function will dynamically choose the correct mock dokku based on environment
   dokku() {
-    # If we're in a mock environment, use the temporary mock dokku
-    if [[ -n "$TEST_TMP_DIR" && -f "$TEST_TMP_DIR/bin/dokku" ]]; then
-      "$TEST_TMP_DIR/bin/dokku" "$@"
+    local mock_config_file="${TEST_TMP_DIR:-/tmp}/mock_dokku_config"
+
+    # Only mock if running in unit test mode (no real Dokku available)
+    if [[ -d "/var/lib/dokku" ]] && [[ -w "/var/lib/dokku" ]]; then
+      # Use real dokku if available
+      command dokku "$@"
+      return $?
+    fi
+
+    # Handle dokku config commands
+    if [[ "$1" == "config:get" ]]; then
+      local scope="$2"
+      local key="$3"
+
+      if [[ "$scope" == "--global" ]]; then
+        # Read from mock config file
+        if [[ -f "$mock_config_file" ]]; then
+          grep "^${key}=" "$mock_config_file" 2>/dev/null | cut -d= -f2-
+        fi
+      fi
+      return 0
+    elif [[ "$1" == "config:set" ]]; then
+      local scope="$2"
+      shift 2
+
+      if [[ "$scope" == "--global" ]]; then
+        # Write to mock config file
+        mkdir -p "$(dirname "$mock_config_file")"
+        touch "$mock_config_file"
+
+        # Process key=value pairs
+        for arg in "$@"; do
+          if [[ "$arg" =~ ^([^=]+)=(.*)$ ]]; then
+            local key="${BASH_REMATCH[1]}"
+            local value="${BASH_REMATCH[2]}"
+
+            # Remove existing key if present
+            if [[ -f "$mock_config_file" ]]; then
+              grep -v "^${key}=" "$mock_config_file" > "${mock_config_file}.tmp" 2>/dev/null || touch "${mock_config_file}.tmp"
+              mv "${mock_config_file}.tmp" "$mock_config_file"
+            fi
+
+            # Add new key=value
+            echo "${key}=${value}" >> "$mock_config_file"
+          fi
+        done
+      fi
+      return 0
+    elif [[ "$1" == "config:unset" ]]; then
+      local scope="$2"
+      shift 2
+
+      if [[ "$scope" == "--global" ]]; then
+        # Remove keys from mock config file
+        if [[ -f "$mock_config_file" ]]; then
+          for key in "$@"; do
+            grep -v "^${key}=" "$mock_config_file" > "${mock_config_file}.tmp" 2>/dev/null || touch "${mock_config_file}.tmp"
+            mv "${mock_config_file}.tmp" "$mock_config_file"
+          done
+        fi
+      fi
+      return 0
     else
-      "$TEST_BIN_DIR/dokku" "$@"
+      # For other dokku commands, use the script-based mocks
+      # If we're in a mock environment, use the temporary mock dokku
+      if [[ -n "$TEST_TMP_DIR" && -f "$TEST_TMP_DIR/bin/dokku" ]]; then
+        "$TEST_TMP_DIR/bin/dokku" "$@"
+      else
+        "$TEST_BIN_DIR/dokku" "$@"
+      fi
     fi
   }
   export -f dokku
