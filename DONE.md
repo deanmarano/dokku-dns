@@ -1989,12 +1989,83 @@ The report subcommand and domain status tables were using different zone lookup 
 
 **Deferred to Phase 34**:
 - Complete provider-agnostic refactoring of zones subcommand (test compatibility issues)
-- Complete provider-agnostic refactoring of zones:enable subcommand
-- See TODO.md Phase 34 for detailed notes and commit references
 
-**Deferred to Future PR**:
-- Reduce provider:verify output verbosity
-- Add --verbose flag to providers:verify command
+---
 
-**Related PR:** #66
+## Phase 31: Define TTL Constants - COMPLETED ✅
 
+**Objective**: Replace hardcoded TTL magic numbers with configurable constants using dokku config.
+
+**Problem Solved**:
+TTL (Time-To-Live) values were hardcoded throughout the codebase as magic numbers (300, 60, 86400), making them difficult to customize and understand. No centralized configuration for TTL defaults and limits.
+
+**Implementation**:
+
+1. **Created `get_dns_ttl_config()` Helper Function** (functions)
+   - Reads TTL configuration from `dokku config:get --global`
+   - Supports three keys: `default`, `min`, `max`
+   - Falls back to sensible defaults if not configured
+   - Default: 300 seconds (5 minutes)
+   - Minimum: 60 seconds (1 minute)
+   - Maximum: 86400 seconds (24 hours)
+
+2. **Updated TTL Retrieval** (functions, providers/adapter.sh)
+   - Replaced hardcoded 300 with `get_dns_ttl_config "default"`
+   - Updated `get_global_ttl()` to use config helper
+   - Added fallback in adapter.sh for domain TTL lookups
+
+3. **Updated TTL Validation** (subcommands/ttl, subcommands/zones:ttl)
+   - Replaced hardcoded validation limits with config lookups
+   - Both global TTL and zone-specific TTL use same limits
+   - Consistent error messages showing actual limits
+
+4. **Configuration via dokku config**:
+   ```bash
+   # Set custom default TTL (5 minutes -> 10 minutes)
+   dokku config:set --global DNS_DEFAULT_TTL=600
+
+   # Set custom minimum (1 minute -> 2 minutes)
+   dokku config:set --global DNS_MIN_TTL=120
+
+   # Set custom maximum (24 hours -> 12 hours)
+   dokku config:set --global DNS_MAX_TTL=43200
+   ```
+
+5. **Comprehensive Testing** (tests/dns_ttl_config.bats)
+   - 11 integration tests covering all configuration scenarios
+   - Tests default values, config reading, validation, precedence
+   - Tests real-time config changes
+   - Mock dokku config commands in unit test environment
+
+6. **Test Infrastructure Improvements**
+   - Added dokku config mock to tests/test_helper.bash
+   - Added config command support to tests/bin/dokku
+   - Added config command support to tests/mock_dokku_environment.bash
+   - Consolidated duplicate dokku() function definitions
+   - Fixed silent handling of unknown commands in mocks
+
+**Testing**:
+- ✅ All existing unit tests pass
+- ✅ All integration tests pass (287 tests)
+- ✅ 11 new TTL configuration tests
+- ✅ Config changes take effect immediately
+- ✅ File-based TTL takes precedence over config default
+
+**Files Changed**:
+1. **functions** - Added `get_dns_ttl_config()`, updated `get_global_ttl()`
+2. **providers/adapter.sh** - Added fallback to config helper
+3. **subcommands/ttl** - Updated validation to use config limits
+4. **subcommands/zones:ttl** - Updated validation to use config limits
+5. **tests/dns_ttl_config.bats** - New comprehensive test file
+6. **tests/test_helper.bash** - Consolidated dokku mock with config support
+7. **tests/bin/dokku** - Added config command mocking
+8. **tests/mock_dokku_environment.bash** - Added config command mocking
+
+**Impact**:
+- 🎯 **Configurability**: TTL defaults and limits now configurable per server
+- 📖 **Clarity**: No more magic numbers in code
+- 🔧 **Maintainability**: Single source of truth for TTL configuration
+- ✅ **Testability**: Comprehensive test coverage for all config scenarios
+- 🌐 **Consistency**: Same config system used globally throughout plugin
+
+**Pull Request**: #68
