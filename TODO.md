@@ -3,22 +3,6 @@
 The DNS plugin is in progress! Many core features have been implemented and tested. See [DONE.md](./DONE.md) for completed work.
 
 
-### Phase 28: Display and Reporting Fixes (Pre-Release) ✅
-
-**Status:** COMPLETE
-
-**Completed Work:**
-- ✅ Zone lookup fixes (PR #66)
-- ✅ Reduce provider:verify output verbosity
-  - Added --verbose flag for detailed output
-  - Default shows concise summary (provider: status, zone count)
-  - Scales well with many providers (1-5+)
-  - Wrapped all detailed output in verbose mode
-  - Intelligent zone display (first 2-3 zones, then "+N more")
-
-See DONE.md for full details.
-
-
 ### Phase 29: Trigger System Improvements (Pre-Release)
 
 **Objective:** Fix post-create trigger failing to detect auto-added domains from global vhost.
