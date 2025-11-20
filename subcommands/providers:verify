@@ -614,6 +614,7 @@ Get a new token from: https://cloud.digitalocean.com/account/api/tokens"
         dokku_log_info1 "Template provider verification shows basic functionality."
         dokku_log_info1 "This is a test provider for development and testing purposes."
       fi
+      return 0
       ;;
 
     mock)
