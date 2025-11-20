@@ -437,7 +437,7 @@ dns_add_app_domains() {
       # Check if it was skipped due to zone being disabled vs no hosted zone
       local ZONE_ID
       local ZONE_EXISTS=1
-      if ZONE_ID=$(provider_get_zone_id "$DOMAIN" 2>/dev/null); then
+      if ZONE_ID=$(multi_get_zone_id "$DOMAIN" 2>/dev/null); then
         ZONE_EXISTS=0
       fi
 
@@ -829,11 +829,11 @@ dns_compare_app_records() {
   while IFS= read -r DOMAIN; do
     [[ -z "$DOMAIN" ]] && continue
 
-    # Get current DNS record
+    # Get current DNS record using multi-provider routing
     local zone_id
-    if zone_id=$(provider_get_zone_id "$DOMAIN" 2>/dev/null); then
+    if zone_id=$(multi_get_zone_id "$DOMAIN" 2>/dev/null); then
       local current_ip
-      current_ip=$(provider_get_record "$zone_id" "$DOMAIN" "A" 2>/dev/null || echo "")
+      current_ip=$(multi_get_record "$zone_id" "$DOMAIN" "A" 2>/dev/null || echo "")
 
       if [[ -z "$current_ip" ]]; then
         # No record exists - needs to be added
