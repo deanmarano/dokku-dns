@@ -3,20 +3,20 @@
 The DNS plugin is in progress! Many core features have been implemented and tested. See [DONE.md](./DONE.md) for completed work.
 
 
-### Phase 28: Display and Reporting Fixes (Pre-Release)
+### Phase 28: Display and Reporting Fixes (Pre-Release) ✅
 
-**Objective:** Reduce excessive output verbosity in provider verification.
+**Status:** COMPLETE
 
-**Note:** Zone lookup fixes completed in PR #66 - see DONE.md Phase 28.
+**Completed Work:**
+- ✅ Zone lookup fixes (PR #66)
+- ✅ Reduce provider:verify output verbosity
+  - Added --verbose flag for detailed output
+  - Default shows concise summary (provider: status, zone count)
+  - Scales well with many providers (1-5+)
+  - Wrapped all detailed output in verbose mode
+  - Intelligent zone display (first 2-3 zones, then "+N more")
 
-- [ ] **Reduce provider:verify Output Verbosity**
-  - [ ] Reduce excessive verbosity (multiple heading levels, redundant messages)
-  - [ ] Condense zone listing (don't show every zone detail in table)
-  - [ ] Remove redundant "checking" messages
-  - [ ] Show summary counts instead of full credential detection lists
-  - [ ] Add --verbose flag for detailed output if needed
-  - **Problem:** `dns:providers:verify` output is excessively verbose
-  - **Reference:** See `test-output-examples/provider-verify-output.txt`
+See DONE.md for full details.
 
 
 ### Phase 29: Trigger System Improvements (Pre-Release)
