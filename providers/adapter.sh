@@ -209,6 +209,8 @@ dns_sync_app() {
         local ttl
         if declare -f get_domain_ttl >/dev/null 2>&1; then
           ttl=$(get_domain_ttl "$app_name" "$domain")
+        elif declare -f get_dns_ttl_config >/dev/null 2>&1; then
+          ttl=$(get_dns_ttl_config "default")
         else
           ttl="300"
         fi
@@ -242,6 +244,8 @@ dns_sync_app() {
         local ttl
         if declare -f get_domain_ttl >/dev/null 2>&1; then
           ttl=$(get_domain_ttl "$app_name" "$domain")
+        elif declare -f get_dns_ttl_config >/dev/null 2>&1; then
+          ttl=$(get_dns_ttl_config "default")
         else
           ttl="300"
         fi
@@ -495,6 +499,8 @@ dns_create_record() {
   if [[ -z "$ttl" ]]; then
     if declare -f get_global_ttl >/dev/null 2>&1; then
       ttl=$(get_global_ttl)
+    elif declare -f get_dns_ttl_config >/dev/null 2>&1; then
+      ttl=$(get_dns_ttl_config "default")
     else
       ttl="300" # Fallback default
     fi

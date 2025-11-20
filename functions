@@ -32,6 +32,40 @@ fi
 # DNS-specific functions
 # These functions are available to other plugins that source this file
 
+# Get DNS TTL configuration value
+# Usage: get_dns_ttl_config <key>
+# Returns: TTL value from dokku config, or default
+get_dns_ttl_config() {
+  local key="$1"
+  local default_value
+
+  case "$key" in
+    default)
+      default_value=300
+      ;;
+    min)
+      default_value=60
+      ;;
+    max)
+      default_value=86400
+      ;;
+    *)
+      echo "$default_value"
+      return 1
+      ;;
+  esac
+
+  # Try to get from global dokku config
+  local config_value
+  config_value=$(dokku config:get --global "DNS_${key^^}_TTL" 2>/dev/null || echo "")
+
+  if [[ -n "$config_value" ]]; then
+    echo "$config_value"
+  else
+    echo "$default_value"
+  fi
+}
+
 # Public API Functions (safe for other plugins to use)
 
 # Get all domains configured for a specific app
@@ -989,7 +1023,7 @@ dns_display_global_pending_changes() {
 
 # Get the global TTL configuration
 # Usage: get_global_ttl
-# Returns: TTL value in seconds (default: 300)
+# Returns: TTL value in seconds (default from get_dns_ttl_config)
 get_global_ttl() {
   local TTL_CONFIG_FILE="$PLUGIN_DATA_ROOT/GLOBAL_TTL"
 
@@ -1002,8 +1036,8 @@ get_global_ttl() {
     fi
   fi
 
-  # Default TTL
-  echo "300"
+  # Default TTL from dokku config
+  get_dns_ttl_config "default"
 }
 
 get_domain_ttl() {
