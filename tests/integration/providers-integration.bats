@@ -26,9 +26,15 @@ setup() {
 }
 
 @test "(dns:providers:verify) shows installation instructions when AWS CLI not available" {
-  run dokku dns:providers:verify
-  # Should show AWS CLI installation instructions when not available
+  run dokku dns:providers:verify --verbose
+  # Should show AWS CLI installation instructions when not available (in verbose mode)
   [[ "$output" =~ (AWS\ CLI\ is\ not\ installed|Please\ install\ it\ first) ]]
+}
+
+@test "(dns:providers:verify) shows error in summary when AWS CLI not available" {
+  run dokku dns:providers:verify
+  # Should show error in summary mode when AWS CLI not available
+  [[ "$output" =~ (aws:.*AWS\ CLI\ not\ installed|No\ providers\ could\ be\ verified) ]]
 }
 
 @test "(providers) cloudflare provider is available in the system" {

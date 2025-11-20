@@ -1939,9 +1939,11 @@ Provider errors were being silenced by redirecting stderr to `/dev/null`, making
 
 ---
 
-## Phase 28: Fix Zone Lookup in Report/Status Commands - COMPLETED ✅
+## Phase 28: Display and Reporting Fixes - COMPLETED ✅
 
-**Objective**: Fix inconsistent zone detection in status displays where dns:report showed "No hosted zone" even when zones existed and were enabled.
+**Objectives**:
+1. Fix inconsistent zone detection in status displays where dns:report showed "No hosted zone" even when zones existed and were enabled.
+2. Reduce excessive output verbosity in provider verification.
 
 **Problem Solved**:
 The report subcommand and domain status tables were using different zone lookup mechanisms, causing inconsistent results. `dns:report` would show "No hosted zone" for domains while `dns:apps:enable` showed the zone was available. This was due to:
@@ -1986,6 +1988,113 @@ The report subcommand and domain status tables were using different zone lookup 
 - 📊 **Clarity**: Clear distinction between "zone exists" and "zone enabled"
 - 🔍 **Visibility**: Users can see actual zone IDs when zones are found
 - 🌐 **Multi-Provider**: Works with AWS, Cloudflare, DigitalOcean
+
+**Deferred to Phase 34**:
+- Complete provider-agnostic refactoring of zones subcommand (test compatibility issues)
+
+### Part 2: Reduce Provider Verification Verbosity
+
+**Problem Solved**:
+The `dns:providers:verify` command output was excessively verbose, showing:
+- Multiple heading levels (=====> vs -----> vs ------->)
+- Redundant sections ("Checking Dependencies", "Current Configuration")
+- Full credential detection lists showing all methods (even failures)
+- Large hosted zones tables showing every zone detail
+- 56 lines of output for a single provider
+- Does not scale well to multiple providers (would be 150+ lines for 3 providers)
+
+**Implementation**:
+
+1. **Added --verbose Flag Support** (subcommands/providers:verify)
+   - Accepts `-v` or `--verbose` flag to show detailed output
+   - Default mode now shows concise summary
+   - Flag parsing before provider verification
+   - Updated help text to document flag
+
+2. **Created Conditional Output Helpers**
+   - `verbose_log_info1()` - Shows info1 only in verbose mode
+   - `verbose_log_info2()` - Shows info2 only in verbose mode
+   - `verbose_echo()` - Shows blank line only in verbose mode
+
+3. **Summary Mode Implementation**
+   - Collect provider status, zone count, zone names during verification
+   - Display one-line summary per provider after verification
+   - Format: `✓ provider: N zones (zone1, zone2, ...)`
+   - Intelligent zone display: show first 2-3, then "+N more" for many
+   - Status symbols: ✓ (success), ✗ (failed), ⚠ (partial)
+   - Shows "Use --verbose for detailed information" hint
+
+4. **Wrapped Verbose Sections**
+   - Dependency checking (only shows if jq missing or verbose)
+   - Provider auto-detection messages
+   - AWS credential detection (all methods)
+   - AWS authentication testing details
+   - AWS account details (ARN, account ID, region)
+   - Route53 permission testing
+   - Hosted zones table
+   - Dokku DNS records discovery
+   - Cloudflare/DigitalOcean token detection
+   - All provider-specific testing details
+
+5. **Summary Data Collection**
+   - Track provider name, status, error message
+   - Count zones and collect zone names
+   - Store in arrays for summary display
+   - Return appropriate exit codes (0=success, 1=failure)
+
+**Output Comparison**:
+
+Before (verbose, ~56 lines per provider):
+```
+=====> Checking Dependencies
+----->   jq: available (jq-1.6)
+
+=====> Auto-detected provider: AWS Route53
+
+=====> Verifying aws provider
+-----> Current Configuration:
+----->   DNS Provider: aws
+=====> AWS Route53 Setup
+----->   AWS CLI: installed (aws-cli/2.27.58)
+-----> Credential Detection:
+----->   ✗ Environment variables: not set
+----->   YES AWS config files: ~/.aws/credentials, ~/.aws/config
+----->   ✗ IAM Role: not available
+[... 40+ more lines ...]
+```
+
+After (summary, ~5 lines total):
+```
+=====> Checking DNS providers...
+
+  ✓ aws: 2 zones (dean.is., deanoftech.com.)
+  ✓ cloudflare: 5 zones (example.com, test.com, ... (+3 more))
+  ✗ digitalocean: authentication failed
+
+Use --verbose for detailed information
+
+-----> DNS Provider Verification Complete
+```
+
+**Testing**:
+- ✅ Summary mode with single provider (aws)
+- ✅ Summary mode with multiple providers (aws, mock, template)
+- ✅ Verbose mode shows full details as before
+- ✅ Specific provider verification (providers:verify aws)
+- ✅ Failed provider shows error in summary
+- ✅ Zone count and names displayed correctly
+- ✅ Shellcheck linting passes
+- ✅ All existing tests pass
+
+**Files Changed**:
+1. **subcommands/providers:verify** - Added --verbose flag, summary mode, conditional output
+
+**Impact**:
+- 🎯 **Scalability**: Output scales to 1-5+ providers without becoming overwhelming
+- 📊 **Clarity**: Quick scanning of provider status at a glance
+- 🔍 **Flexibility**: Detailed output still available with --verbose
+- 🚀 **Performance**: No change - verification still runs same checks
+- 📝 **Usability**: Cleaner output for regular use, details when needed
 
 **Deferred to Phase 34**:
 - Complete provider-agnostic refactoring of zones subcommand (test compatibility issues)

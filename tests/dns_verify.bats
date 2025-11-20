@@ -12,6 +12,14 @@ teardown() {
 @test "(dns:providers:verify) works without configuration" {
   run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify"
   assert_success
+  # Default summary mode should show concise output
+  assert_output_contains "Checking DNS providers"
+  assert_output_contains "DNS Provider Verification Complete"
+}
+
+@test "(dns:providers:verify) verbose mode shows detailed output" {
+  run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify" --verbose
+  assert_success
   assert_output_contains "Checking Dependencies"
   assert_output_contains "jq: available"
   # Should auto-detect configured providers (varies by environment)
@@ -19,15 +27,15 @@ teardown() {
   assert_output_contains "Verifying aws provider"
 }
 
-@test "(dns:providers:verify) shows helpful guidance for single provider" {
+@test "(dns:providers:verify) shows helpful guidance for single provider in verbose mode" {
   cleanup_dns_data
 
   # Save current environment state
   local SAVED_CLOUDFLARE_TOKEN="${CLOUDFLARE_API_TOKEN:-}"
   local SAVED_DIGITALOCEAN_TOKEN="${DIGITALOCEAN_ACCESS_TOKEN:-}"
 
-  # Test with only AWS configured
-  run env -u CLOUDFLARE_API_TOKEN -u DIGITALOCEAN_ACCESS_TOKEN dokku "$PLUGIN_COMMAND_PREFIX:providers:verify"
+  # Test with only AWS configured - use --verbose to see guidance
+  run env -u CLOUDFLARE_API_TOKEN -u DIGITALOCEAN_ACCESS_TOKEN dokku "$PLUGIN_COMMAND_PREFIX:providers:verify" --verbose
   assert_success
   # Should show guidance about adding additional providers
   assert_output_contains "Auto-detected provider: AWS Route53"
@@ -50,13 +58,15 @@ teardown() {
 
   run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify"
   assert_success
-  assert_output_contains "Verifying aws provider"
+  # Summary mode shows provider status
+  assert_output_contains "aws:"
+  assert_output_contains "DNS Provider Verification Complete"
 }
 
 @test "(dns:providers:verify) attempts AWS verification when configured" {
   setup_dns_provider aws
 
-  run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify"
+  run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify" --verbose
   assert_success
 
   # With mock AWS CLI, verification should succeed
@@ -72,7 +82,7 @@ teardown() {
   assert_success
 
   # With mock AWS CLI, should show successful verification
-  assert_output_contains "Verifying aws provider"
+  assert_output_contains "aws:"
   assert_output_contains "DNS Provider Verification Complete"
 }
 
@@ -91,13 +101,15 @@ teardown() {
   # Test with aws provider argument
   run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify" aws
   assert_success
-  assert_output_contains "Verifying aws provider"
+  # Summary mode
+  assert_output_contains "aws:"
+  assert_output_contains "DNS Provider Verification Complete"
 }
 
-@test "(dns:providers:verify) shows credential detection" {
+@test "(dns:providers:verify) shows credential detection in verbose mode" {
   setup_dns_provider aws
 
-  run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify"
+  run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify" --verbose
   assert_success
 
   # Should show detailed credential detection
@@ -107,10 +119,10 @@ teardown() {
   assert_output_contains "IAM Role:"
 }
 
-@test "(dns:providers:verify) shows AWS account details" {
+@test "(dns:providers:verify) shows AWS account details in verbose mode" {
   setup_dns_provider aws
 
-  run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify"
+  run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify" --verbose
   assert_success
 
   # Should show AWS account information
@@ -120,10 +132,10 @@ teardown() {
   assert_output_contains "Region:"
 }
 
-@test "(dns:providers:verify) tests Route53 permissions" {
+@test "(dns:providers:verify) tests Route53 permissions in verbose mode" {
   setup_dns_provider aws
 
-  run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify"
+  run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify" --verbose
   assert_success
 
   # Should test Route53 API access
@@ -132,10 +144,10 @@ teardown() {
   # Note: Other permission tests may only show when zones exist
 }
 
-@test "(dns:providers:verify) shows hosted zones discovery" {
+@test "(dns:providers:verify) shows hosted zones discovery in verbose mode" {
   setup_dns_provider aws
 
-  run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify"
+  run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify" --verbose
   assert_success
 
   # Should show zones discovery
@@ -148,6 +160,15 @@ teardown() {
   # Test with cloudflare provider argument when token is configured (will fail with test token)
   CLOUDFLARE_API_TOKEN="test-token" run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify" cloudflare
   assert_failure
+  # Summary mode shows failure
+  assert_output_contains "cloudflare:"
+  assert_output_contains "authentication failed"
+}
+
+@test "(dns:providers:verify) attempts cloudflare verification in verbose mode" {
+  # Test with cloudflare provider argument when token is configured (will fail with test token)
+  CLOUDFLARE_API_TOKEN="test-token" run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify" cloudflare --verbose
+  assert_failure
   assert_output_contains "Verifying cloudflare provider"
   assert_output_contains "CLOUDFLARE_API_TOKEN: configured"
   assert_output_contains "API authentication failed"
@@ -157,6 +178,15 @@ teardown() {
   # Test with digitalocean provider argument when token is configured (will fail with test token)
   DIGITALOCEAN_ACCESS_TOKEN="test-token" run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify" digitalocean
   assert_failure
+  # Summary mode shows failure
+  assert_output_contains "digitalocean:"
+  assert_output_contains "authentication failed"
+}
+
+@test "(dns:providers:verify) attempts digitalocean verification in verbose mode" {
+  # Test with digitalocean provider argument when token is configured (will fail with test token)
+  DIGITALOCEAN_ACCESS_TOKEN="test-token" run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify" digitalocean --verbose
+  assert_failure
   assert_output_contains "Verifying digitalocean provider"
   assert_output_contains "DIGITALOCEAN_ACCESS_TOKEN: configured"
   assert_output_contains "API authentication failed"
@@ -165,6 +195,17 @@ teardown() {
 @test "(dns:providers:verify) auto-detects multiple providers when configured" {
   # Test auto-detection with multiple providers configured (aws succeeds, others fail with test tokens)
   CLOUDFLARE_API_TOKEN="test-token" DIGITALOCEAN_ACCESS_TOKEN="test-token" run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify"
+  assert_success # Should succeed because AWS verification works
+  # Summary mode shows all providers
+  assert_output_contains "aws:"
+  assert_output_contains "cloudflare:"
+  assert_output_contains "digitalocean:"
+  assert_output_contains "DNS Provider Verification Complete"
+}
+
+@test "(dns:providers:verify) auto-detects multiple providers in verbose mode" {
+  # Test auto-detection with multiple providers configured (aws succeeds, others fail with test tokens)
+  CLOUDFLARE_API_TOKEN="test-token" DIGITALOCEAN_ACCESS_TOKEN="test-token" run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify" --verbose
   assert_success # Should succeed because AWS verification works
   assert_output_contains "Auto-detected providers: aws cloudflare digitalocean"
   assert_output_contains "Verifying aws provider"
@@ -193,6 +234,15 @@ teardown() {
   # Template provider should work in test mode
   DNS_TEST_MODE=1 run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify" template
   assert_success
+  # Summary mode
+  assert_output_contains "template:"
+  assert_output_contains "DNS Provider Verification Complete"
+}
+
+@test "(dns:providers:verify) accepts template provider in test mode verbose" {
+  # Template provider should work in test mode
+  DNS_TEST_MODE=1 run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify" template --verbose
+  assert_success
   assert_output_contains "Verifying template provider"
 }
 
@@ -205,6 +255,29 @@ teardown() {
 
   # Test with clean environment (AWS only)
   run env -u CLOUDFLARE_API_TOKEN -u DIGITALOCEAN_ACCESS_TOKEN dokku "$PLUGIN_COMMAND_PREFIX:providers:verify"
+
+  # Should succeed and show AWS verification
+  assert_success
+  assert_output_contains "aws:"
+  assert_output_contains "DNS Provider Verification Complete"
+
+  # Restore environment
+  if [[ -n "$SAVED_CLOUDFLARE_TOKEN" ]]; then
+    export CLOUDFLARE_API_TOKEN="$SAVED_CLOUDFLARE_TOKEN"
+  fi
+  if [[ -n "$SAVED_DIGITALOCEAN_TOKEN" ]]; then
+    export DIGITALOCEAN_ACCESS_TOKEN="$SAVED_DIGITALOCEAN_TOKEN"
+  fi
+}
+
+@test "(command dispatcher) colon syntax works for providers:verify verbose" {
+  # Test the standard colon syntax that tests use - verbose mode
+  # Save current environment
+  local SAVED_CLOUDFLARE_TOKEN="${CLOUDFLARE_API_TOKEN:-}"
+  local SAVED_DIGITALOCEAN_TOKEN="${DIGITALOCEAN_ACCESS_TOKEN:-}"
+
+  # Test with clean environment (AWS only) - verbose
+  run env -u CLOUDFLARE_API_TOKEN -u DIGITALOCEAN_ACCESS_TOKEN dokku "$PLUGIN_COMMAND_PREFIX:providers:verify" --verbose
 
   # Should succeed and show AWS verification
   assert_success
@@ -224,9 +297,10 @@ teardown() {
   # Test colon syntax with provider argument
   run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify" aws
   assert_success
-  assert_output_contains "Verifying aws provider"
-  # Should not show auto-detection message when specific provider requested
-  # Use assert_output to check that auto-detection message is NOT present
+  # Summary mode
+  assert_output_contains "aws:"
+  assert_output_contains "DNS Provider Verification Complete"
+  # Should not show auto-detection message in summary
   [[ "$output" != *"Auto-detected provider"* ]]
 }
 
@@ -234,7 +308,7 @@ teardown() {
   # Test that the dispatcher properly routes providers:verify commands
   # This test validates the fix where providers:verify was showing help instead of executing
 
-  run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify" aws
+  run dokku "$PLUGIN_COMMAND_PREFIX:providers:verify" aws --verbose
   assert_success
 
   # Should execute the command, not show help

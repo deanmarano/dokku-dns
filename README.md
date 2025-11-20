@@ -164,10 +164,14 @@ By default, adds all domains configured for the app optionally specify specific 
 dokku dns:providers:verify <provider-arg>
 ```
 
+flags:
+
+- `-v|--verbose`: show detailed output (default shows summary only)
+
 Verify `DNS` provider setup and connectivity, discover existing `DNS` records:
 
 ```shell
-dokku dns:providers:verify [provider]
+dokku dns:providers:verify [--verbose] [provider]
 ```
 
 Verify specific provider or all available providers if none specified checks credentials, tests `API` access, shows available zones/domains for each provider:
