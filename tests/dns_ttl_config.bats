@@ -21,21 +21,22 @@ teardown() {
 
   # Clean up global config
   dokku config:unset --global DNS_DEFAULT_TTL DNS_MIN_TTL DNS_MAX_TTL 2>/dev/null || true
+
+  # Clean up mock config file
+  rm -f "${TEST_TMP_DIR:-/tmp}/mock_dokku_config" 2>/dev/null || true
 }
 
 @test "(dns:ttl config) get_dns_ttl_config returns default values" {
-  # Source functions to get access to helper
-  source "$PLUGIN_DIR/functions"
-
-  run get_dns_ttl_config "default"
+  # Test get_dns_ttl_config function
+  run bash -c "source functions && get_dns_ttl_config 'default'"
   assert_success
   assert_output "300"
 
-  run get_dns_ttl_config "min"
+  run bash -c "source functions && get_dns_ttl_config 'min'"
   assert_success
   assert_output "60"
 
-  run get_dns_ttl_config "max"
+  run bash -c "source functions && get_dns_ttl_config 'max'"
   assert_success
   assert_output "86400"
 }
@@ -46,18 +47,16 @@ teardown() {
   dokku config:set --global DNS_MIN_TTL=120
   dokku config:set --global DNS_MAX_TTL=43200
 
-  # Source functions to get access to helper
-  source "$PLUGIN_DIR/functions"
-
-  run get_dns_ttl_config "default"
+  # Test get_dns_ttl_config function
+  run bash -c "source functions && get_dns_ttl_config 'default'"
   assert_success
   assert_output "600"
 
-  run get_dns_ttl_config "min"
+  run bash -c "source functions && get_dns_ttl_config 'min'"
   assert_success
   assert_output "120"
 
-  run get_dns_ttl_config "max"
+  run bash -c "source functions && get_dns_ttl_config 'max'"
   assert_success
   assert_output "43200"
 }

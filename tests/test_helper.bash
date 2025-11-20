@@ -133,10 +133,12 @@ dokku() {
     return 0
   else
     # For other dokku commands in unit tests, use the real command if available
-    if command -v command >/dev/null 2>&1; then
-      command dokku "$@" 2>/dev/null || true
+    if command -v command >/dev/null 2>&1 && command dokku version >/dev/null 2>&1; then
+      command dokku "$@"
+      return $?
     fi
-    return 0
+    # No real dokku available - silently fail
+    return 1
   fi
 }
 export -f dokku
