@@ -282,12 +282,12 @@ dns_add_domains() {
     return 1
   fi
 
-  # Validate each domain has a hosted zone
+  # Validate each domain has a hosted zone using multi-provider routing
   local valid_domains=()
   for domain in "${domains[@]}"; do
     echo "Validating domain: $domain"
 
-    if provider_get_zone_id "$domain" >/dev/null 2>&1; then
+    if multi_get_zone_id "$domain" >/dev/null 2>&1; then
       echo "  ✓ Hosted zone found for $domain"
       valid_domains+=("$domain")
     else
@@ -389,9 +389,9 @@ dns_cleanup_orphaned_records() {
     return 1
   fi
 
-  # Get zone ID
+  # Get zone ID using multi-provider routing
   local zone_id
-  if ! zone_id=$(provider_get_zone_id "$zone_name"); then
+  if ! zone_id=$(multi_get_zone_id "$zone_name"); then
     echo "Zone not found: $zone_name" >&2
     return 1
   fi
