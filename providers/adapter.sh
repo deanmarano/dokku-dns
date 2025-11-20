@@ -16,45 +16,28 @@ fi
 PLUGIN_DATA_ROOT="${DNS_ROOT:-${DOKKU_LIB_ROOT:-/var/lib/dokku}/services/dns}"
 
 # Initialize provider system
+# Always uses multi-provider routing which works with single or multiple providers
 # shellcheck disable=SC2120
 init_provider_system() {
   local provider_name="$1"
+  local PROVIDERS_DIR
+  PROVIDERS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+  # Always load multi-provider system for consistent routing
+  source "$PROVIDERS_DIR/multi-provider.sh"
 
   if [[ -n "$provider_name" ]]; then
-    # Load specific provider (single-provider mode)
+    # Load specific provider
     if ! load_specific_provider "$provider_name"; then
       echo "Failed to load provider: $provider_name" >&2
       return 1
     fi
-  else
-    # Check if multi-provider mode should be enabled
-    local PROVIDERS_DIR
-    PROVIDERS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    local available_providers
-    available_providers=$(get_available_providers | wc -l)
+  fi
 
-    if [[ $available_providers -gt 1 ]]; then
-      # Multi-provider mode: auto-discover zones from all providers
-      source "$PROVIDERS_DIR/multi-provider.sh"
-      if init_multi_provider_system; then
-        export MULTI_PROVIDER_MODE=true
-        echo "Multi-provider mode activated" >&2
-      else
-        echo "Multi-provider discovery failed, falling back to single provider" >&2
-        if ! auto_load_provider; then
-          echo "No working DNS provider found" >&2
-          return 1
-        fi
-        export MULTI_PROVIDER_MODE=false
-      fi
-    else
-      # Single-provider mode: auto-detect best provider
-      if ! auto_load_provider; then
-        echo "No working DNS provider found" >&2
-        return 1
-      fi
-      export MULTI_PROVIDER_MODE=false
-    fi
+  # Initialize multi-provider discovery (works with 1 or more providers)
+  if ! init_multi_provider_system; then
+    echo "Provider initialization failed" >&2
+    return 1
   fi
 
   return 0
@@ -101,6 +84,51 @@ get_server_ip() {
   return 1
 }
 
+# Apply DNS record for a domain
+# Returns: 0 on success, 1 on failure (zone not found), 2 on record creation failure
+apply_dns_record() {
+  local app_name="$1"
+  local domain="$2"
+  local server_ip="$3"
+
+  # Get zone ID using multi-provider routing
+  local zone_id
+  if ! zone_id=$(multi_get_zone_id "$domain" 2>&1); then
+    echo "❌ Failed (no hosted zone found)"
+    return 1
+  fi
+
+  # Get TTL using domain-specific fallback logic
+  local ttl
+  if declare -f get_domain_ttl >/dev/null 2>&1; then
+    ttl=$(get_domain_ttl "$app_name" "$domain")
+  elif declare -f get_dns_ttl_config >/dev/null 2>&1; then
+    ttl=$(get_dns_ttl_config "default")
+  else
+    ttl="300"
+  fi
+
+  # Capture error output for debugging
+  local error_output exit_code
+  error_output=$(multi_create_record "$zone_id" "$domain" "A" "$server_ip" "$ttl" 2>&1)
+  exit_code=$?
+
+  if [[ $exit_code -eq 0 ]]; then
+    echo "✅ Applied"
+    # Track this domain as managed by the plugin
+    if declare -f record_managed_domain >/dev/null 2>&1; then
+      record_managed_domain "$domain" "$zone_id"
+    fi
+    return 0
+  else
+    echo "❌ Failed"
+    if [[ -n "$error_output" ]]; then
+      echo "       Error: $error_output" >&2
+    fi
+    return 2
+  fi
+}
+
 # Sync DNS records for an app (high-level plugin operation)
 dns_sync_app() {
   local app_name="$1"
@@ -135,27 +163,16 @@ dns_sync_app() {
 
     printf "  Checking %s... " "$domain"
 
-    # Get zone ID for this domain
+    # Get zone ID for this domain using multi-provider routing
     local zone_id
-    if [[ "${MULTI_PROVIDER_MODE:-false}" == "true" ]]; then
-      if ! zone_id=$(multi_get_zone_id "$domain"); then
-        echo "❌ No hosted zone found"
-        failed_domains+=("$domain")
-        continue
-      fi
-
-      # Check current record
-      current_ip=$(multi_get_record "$zone_id" "$domain" "A" 2>/dev/null || echo "")
-    else
-      if ! zone_id=$(provider_get_zone_id "$domain"); then
-        echo "❌ No hosted zone found"
-        failed_domains+=("$domain")
-        continue
-      fi
-
-      # Check current record
-      current_ip=$(provider_get_record "$zone_id" "$domain" "A" 2>/dev/null || echo "")
+    if ! zone_id=$(multi_get_zone_id "$domain"); then
+      echo "❌ No hosted zone found"
+      failed_domains+=("$domain")
+      continue
     fi
+
+    # Check current record
+    current_ip=$(multi_get_record "$zone_id" "$domain" "A" 2>/dev/null || echo "")
 
     if [[ -z "$current_ip" ]]; then
       echo "➕ Will create A record"
@@ -196,78 +213,12 @@ dns_sync_app() {
     for domain in "${domains_to_sync[@]}"; do
       printf "  %s... " "$domain"
 
-      # Get zone ID again for this domain
-      local zone_id
-      if [[ "${MULTI_PROVIDER_MODE:-false}" == "true" ]]; then
-        if ! zone_id=$(multi_get_zone_id "$domain" 2>&1); then
-          echo "❌ Failed (no hosted zone found)"
-          domains_failed=$((domains_failed + 1))
-          continue
-        fi
-
-        # Apply the change using domain-specific TTL
-        local ttl
-        if declare -f get_domain_ttl >/dev/null 2>&1; then
-          ttl=$(get_domain_ttl "$app_name" "$domain")
-        elif declare -f get_dns_ttl_config >/dev/null 2>&1; then
-          ttl=$(get_dns_ttl_config "default")
-        else
-          ttl="300"
-        fi
-
-        # Capture error output for debugging
-        local error_output exit_code
-        error_output=$(multi_create_record "$zone_id" "$domain" "A" "$server_ip" "$ttl" 2>&1)
-        exit_code=$?
-        if [[ $exit_code -eq 0 ]]; then
-          echo "✅ Applied"
-          domains_synced=$((domains_synced + 1))
-          # Track this domain as managed by the plugin
-          if declare -f record_managed_domain >/dev/null 2>&1; then
-            record_managed_domain "$domain" "$zone_id"
-          fi
-        else
-          echo "❌ Failed"
-          if [[ -n "$error_output" ]]; then
-            echo "       Error: $error_output" >&2
-          fi
-          domains_failed=$((domains_failed + 1))
-        fi
+      # Apply DNS record using helper function
+      local result
+      if apply_dns_record "$app_name" "$domain" "$server_ip"; then
+        domains_synced=$((domains_synced + 1))
       else
-        if ! zone_id=$(provider_get_zone_id "$domain" 2>&1); then
-          echo "❌ Failed (no hosted zone found)"
-          domains_failed=$((domains_failed + 1))
-          continue
-        fi
-
-        # Apply the change using domain-specific TTL
-        local ttl
-        if declare -f get_domain_ttl >/dev/null 2>&1; then
-          ttl=$(get_domain_ttl "$app_name" "$domain")
-        elif declare -f get_dns_ttl_config >/dev/null 2>&1; then
-          ttl=$(get_dns_ttl_config "default")
-        else
-          ttl="300"
-        fi
-
-        # Capture error output for debugging
-        local error_output exit_code
-        error_output=$(provider_create_record "$zone_id" "$domain" "A" "$server_ip" "$ttl" 2>&1)
-        exit_code=$?
-        if [[ $exit_code -eq 0 ]]; then
-          echo "✅ Applied"
-          domains_synced=$((domains_synced + 1))
-          # Track this domain as managed by the plugin
-          if declare -f record_managed_domain >/dev/null 2>&1; then
-            record_managed_domain "$domain" "$zone_id"
-          fi
-        else
-          echo "❌ Failed"
-          if [[ -n "$error_output" ]]; then
-            echo "       Error: $error_output" >&2
-          fi
-          domains_failed=$((domains_failed + 1))
-        fi
+        domains_failed=$((domains_failed + 1))
       fi
     done
 
@@ -298,31 +249,17 @@ dns_get_domain_status() {
   local domain="$1"
   local server_ip="$2"
 
-  # Get current DNS record IP from provider
+  # Get current DNS record IP from provider using multi-provider routing
   local zone_id current_ip
 
-  # Use multi-provider functions if in multi-provider mode
-  if [[ "${MULTI_PROVIDER_MODE:-false}" == "true" ]]; then
-    if ! zone_id=$(multi_get_zone_id "$domain" 2>/dev/null); then
-      echo "❌" # No zone
-      return 1
-    fi
+  if ! zone_id=$(multi_get_zone_id "$domain" 2>/dev/null); then
+    echo "❌" # No zone
+    return 1
+  fi
 
-    if ! current_ip=$(multi_get_record "$zone_id" "$domain" "A" 2>/dev/null); then
-      echo "❌" # No record
-      return 1
-    fi
-  else
-    # Single provider mode
-    if ! zone_id=$(provider_get_zone_id "$domain" 2>/dev/null); then
-      echo "❌" # No zone
-      return 1
-    fi
-
-    if ! current_ip=$(provider_get_record "$zone_id" "$domain" "A" 2>/dev/null); then
-      echo "❌" # No record
-      return 1
-    fi
+  if ! current_ip=$(multi_get_record "$zone_id" "$domain" "A" 2>/dev/null); then
+    echo "❌" # No record
+    return 1
   fi
 
   if [[ "$current_ip" == "$server_ip" ]]; then
@@ -477,15 +414,9 @@ dns_validate_domain() {
     return 1
   fi
 
-  # Check if any provider can handle this domain
-  if [[ "$MULTI_PROVIDER_MODE" == "true" ]]; then
-    # Multi-provider mode: check which provider can handle this zone
-    source "$PROVIDERS_DIR/multi-provider.sh"
-    find_provider_for_zone "$domain" >/dev/null 2>&1
-  else
-    # Single provider mode: check if the current provider can handle it
-    provider_get_zone_id "$domain" >/dev/null 2>&1
-  fi
+  # Check if any provider can handle this domain using multi-provider routing
+  source "$PROVIDERS_DIR/multi-provider.sh"
+  find_provider_for_zone "$domain" >/dev/null 2>&1
 }
 
 # Create or update a DNS record
@@ -511,28 +442,18 @@ dns_create_record() {
     return 1
   fi
 
-  # Get zone ID for the domain
+  # Get zone ID for the domain using multi-provider routing
   local zone_id
-  if [[ "$MULTI_PROVIDER_MODE" == "true" ]]; then
-    # Multi-provider mode: find the right provider and get zone ID
-    source "$PROVIDERS_DIR/multi-provider.sh"
-    zone_id=$(multi_get_zone_id "$domain")
-  else
-    # Single provider mode
-    zone_id=$(provider_get_zone_id "$domain")
-  fi
+  source "$PROVIDERS_DIR/multi-provider.sh"
+  zone_id=$(multi_get_zone_id "$domain")
 
   if [[ -z "$zone_id" ]]; then
     echo "No zone found for domain: $domain" >&2
     return 1
   fi
 
-  # Create the record using the appropriate provider
-  if [[ "$MULTI_PROVIDER_MODE" == "true" ]]; then
-    multi_create_record "$zone_id" "$domain" "$record_type" "$record_value" "$ttl"
-  else
-    provider_create_record "$zone_id" "$domain" "$record_type" "$record_value" "$ttl"
-  fi
+  # Create the record using multi-provider routing
+  multi_create_record "$zone_id" "$domain" "$record_type" "$record_value" "$ttl"
 }
 
 # Get current value of a DNS record
@@ -545,28 +466,18 @@ dns_get_record() {
     return 1
   fi
 
-  # Get zone ID for the domain
+  # Get zone ID for the domain using multi-provider routing
   local zone_id
-  if [[ "$MULTI_PROVIDER_MODE" == "true" ]]; then
-    # Multi-provider mode: find the right provider and get zone ID
-    source "$PROVIDERS_DIR/multi-provider.sh"
-    zone_id=$(multi_get_zone_id "$domain")
-  else
-    # Single provider mode
-    zone_id=$(provider_get_zone_id "$domain")
-  fi
+  source "$PROVIDERS_DIR/multi-provider.sh"
+  zone_id=$(multi_get_zone_id "$domain")
 
   if [[ -z "$zone_id" ]]; then
     echo "No zone found for domain: $domain" >&2
     return 1
   fi
 
-  # Get the record using the appropriate provider
-  if [[ "$MULTI_PROVIDER_MODE" == "true" ]]; then
-    multi_get_record "$zone_id" "$domain" "$record_type"
-  else
-    provider_get_record "$zone_id" "$domain" "$record_type"
-  fi
+  # Get the record using multi-provider routing
+  multi_get_record "$zone_id" "$domain" "$record_type"
 }
 
 # Delete a DNS record
@@ -579,26 +490,16 @@ dns_delete_record() {
     return 1
   fi
 
-  # Get zone ID for the domain
+  # Get zone ID for the domain using multi-provider routing
   local zone_id
-  if [[ "$MULTI_PROVIDER_MODE" == "true" ]]; then
-    # Multi-provider mode: find the right provider and get zone ID
-    source "$PROVIDERS_DIR/multi-provider.sh"
-    zone_id=$(multi_get_zone_id "$domain")
-  else
-    # Single provider mode
-    zone_id=$(provider_get_zone_id "$domain")
-  fi
+  source "$PROVIDERS_DIR/multi-provider.sh"
+  zone_id=$(multi_get_zone_id "$domain")
 
   if [[ -z "$zone_id" ]]; then
     echo "No zone found for domain: $domain" >&2
     return 1
   fi
 
-  # Delete the record using the appropriate provider
-  if [[ "$MULTI_PROVIDER_MODE" == "true" ]]; then
-    multi_delete_record "$zone_id" "$domain" "$record_type"
-  else
-    provider_delete_record "$zone_id" "$domain" "$record_type"
-  fi
+  # Delete the record using multi-provider routing
+  multi_delete_record "$zone_id" "$domain" "$record_type"
 }

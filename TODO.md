@@ -51,21 +51,6 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - **Goal:** Bulk sync operations at the zone level
 
 
-### Phase 31: Define TTL Constants (Pre-Release) ⚡ QUICK WIN
-
-**Objective:** Extract magic numbers into named constants for better maintainability.
-
-- [ ] Add DNS_DEFAULT_TTL=300 to config file
-- [ ] Add DNS_MIN_TTL=60 to config file
-- [ ] Add DNS_MAX_TTL=86400 to config file
-- [ ] Replace hardcoded "300" in functions:981 with DNS_DEFAULT_TTL
-- [ ] Replace hardcoded TTL values in adapter.sh:202, 218 with DNS_DEFAULT_TTL
-- [ ] Update all TTL validation to use DNS_MIN_TTL and DNS_MAX_TTL constants
-
-**Effort:** Low (simple search and replace)
-**Impact:** Improves code clarity and makes TTL changes easier
-
-
 ### Phase 32: Extract Duplicate Provider Code (Pre-Release) ⚡ QUICK WIN
 
 **Objective:** DRY up duplicated DNS record application logic.
