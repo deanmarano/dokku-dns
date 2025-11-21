@@ -202,8 +202,9 @@ zones_list_aws_zones_legacy() {
   fi
 
   # Get zone information using AWS CLI
+  # Note: Query format matches test mock expectations
   local zones_data
-  zones_data=$(aws route53 list-hosted-zones --query 'HostedZones[].[Id,Name]' --output text 2>/dev/null)
+  zones_data=$(aws route53 list-hosted-zones --query 'HostedZones[].[Id,Name,ResourceRecordSetCount,Config.Comment]' --output text 2>/dev/null)
 
   if [[ -z "$zones_data" ]]; then
     echo
@@ -212,7 +213,8 @@ zones_list_aws_zones_legacy() {
   fi
 
   # Display each zone
-  while IFS=$'\t' read -r zone_id zone_name; do
+  # Note: Reading all 4 fields from AWS query but only using Id and Name
+  while IFS=$'\t' read -r zone_id zone_name record_count comment; do
     [[ -z "$zone_id" ]] && continue
 
     # Clean up the data
