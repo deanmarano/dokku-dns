@@ -2385,3 +2385,122 @@ Implemented by: AWS, Cloudflare, DigitalOcean, Mock providers
 - 🎯 **Completeness**: No more architectural violations remaining
 
 **Pull Request**: #70
+**Pull Request**: #70
+
+---
+
+## Phase 30: Zone Management UX Improvements - COMPLETED ✅
+
+**Objective**: Improve user experience for zone management with better output and new sync command.
+
+**Problem Solved**:
+When users enabled DNS zones, they received only a basic "Zone added to auto-discovery" message with no guidance on next steps. Additionally, there was no zone-level bulk sync command - users had to sync all apps or individual apps, which wasn't efficient for zone-specific operations.
+
+**Implementation**:
+
+### Task 1: Improve Zone Enable Output
+
+**Changes to subcommands/zones:enable**:
+
+1. **Added Helper Functions**:
+   - `is_domain_in_zone()` - Checks if a domain belongs to a specific zone
+   - `show_zone_enable_next_steps()` - Displays suggested commands for single zone
+   - `show_all_zones_enable_next_steps()` - Displays suggestions for all enabled zones
+
+2. **Enhanced zones_add_zone()**:
+   - After successfully enabling a zone, calls `show_zone_enable_next_steps()`
+   - Scans all apps to find domains in the newly enabled zone
+   - Groups domains by app and displays copy-pastable commands
+   - Format: `dokku dns:apps:enable myapp  # example.com, www.example.com`
+
+3. **Enhanced zones_add_all()**:
+   - After enabling all zones, calls `show_all_zones_enable_next_steps()`
+   - Shows consolidated next steps for all apps with domains in any enabled zone
+   - Prevents overwhelming output when many zones are enabled
+
+**Example Output**:
+```bash
+$ dokku dns:zones:enable example.com
+=====> Adding zone to auto-discovery: example.com
+-----> Zone 'example.com' added to auto-discovery
+
+-----> Next steps - enable DNS management for apps with domains in this zone:
+
+  dokku dns:apps:enable myapp  # example.com, www.example.com
+  dokku dns:apps:enable api  # api.example.com
+```
+
+### Task 2: Add zones:sync Command
+
+**New File: subcommands/zones:sync**
+
+1. **Core Functionality**:
+   - `sync_zone()` - Syncs all apps with domains in a specific zone
+   - `sync_all_zones()` - Syncs all apps with domains in all enabled zones
+   - Helper functions: `is_domain_in_zone()`, `get_enabled_zones()`
+
+2. **Features**:
+   - Validates zone is enabled before syncing
+   - Discovers all apps with domains in target zone(s)
+   - Shows progress per app with domain list
+   - Provides success/failure summary
+
+3. **Command Variants**:
+   - `dokku dns:zones:sync <zone>` - Sync specific zone
+   - `dokku dns:zones:sync` - Sync all enabled zones
+
+4. **Output Format**:
+```bash
+=====> Syncing DNS records for zone: example.com
+
+-----> Found 2 app(s) with domains in this zone
+
+-----> Syncing app: myapp
+=====> Domains: example.com, www.example.com
+[... DNS sync output ...]
+-----> ✓ Successfully synced: myapp
+
+=====> Zone Sync Summary for: example.com
+-----> Successfully synced: 2 app(s)
+```
+
+**Integration**:
+- Registered `zones:sync` in `help-functions` command dispatcher
+- Updated `README.md` with new command documentation
+- Command appears in `dokku dns:help` output
+
+**Testing**:
+- ✅ All linting passes
+- ✅ Code follows existing patterns from `sync-all` and `apps:sync`
+- ✅ Proper error handling for invalid zones and missing apps
+- ✅ Graceful handling when no apps found in zone
+
+**Files Changed**:
+1. **subcommands/zones:enable** - Added next steps display (+143 lines)
+2. **subcommands/zones:sync** - New zone-based sync command (+288 lines)
+3. **help-functions** - Registered zones:sync command (+1 line)
+4. **README.md** - Added zones:sync documentation
+
+**Impact**:
+- 🎯 **Better UX**: Users know exactly what to do after enabling zones
+- 📋 **Copy-pastable**: Commands ready to use, reducing errors
+- ⚡ **Efficient bulk operations**: Zone-level sync for targeted updates
+- 🔍 **Clear progress**: Shows which apps and domains are being synced
+- 📊 **Summary reporting**: Clear success/failure counts
+
+**User Journey**:
+```bash
+# 1. Enable zone - get suggested next steps
+$ dokku dns:zones:enable example.com
+[shows copy-pastable dns:apps:enable commands]
+
+# 2. Enable apps as suggested
+$ dokku dns:apps:enable myapp
+
+# 3. Sync entire zone at once
+$ dokku dns:zones:sync example.com
+[syncs all apps with domains in example.com]
+```
+
+**Pull Request**: #[TBD]
+

@@ -3,25 +3,6 @@
 The DNS plugin is in progress! Many core features have been implemented and tested. See [DONE.md](./DONE.md) for completed work.
 
 
-### Phase 30: Zone Management UX Improvements (Pre-Release)
-
-**Objective:** Improve user experience for zone management with better output and new sync command.
-
-- [ ] **Improve Zone Enable Output**
-  - [ ] Output copy-pastable commands when enabling a zone
-  - [ ] Show `dokku dns:apps:enable <app>` commands with domain as comment
-  - [ ] Format: `dokku dns:apps:enable myapp  # example.com`
-  - [ ] Group by app to avoid duplicate commands
-  - **Goal:** Make it easier for users to enable apps after enabling zones
-
-- [ ] **Add zones:sync Command**
-  - [ ] Create `dns:zones:sync [zone]` subcommand
-  - [ ] Sync all apps/domains within a specific zone
-  - [ ] If zone parameter omitted, sync all enabled zones
-  - [ ] Show progress per domain within the zone
-  - **Goal:** Bulk sync operations at the zone level
-
-
 ### Phase 36: Pre-Release Testing & Validation
 
 - [ ] **Create Testing Documentation**
