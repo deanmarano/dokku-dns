@@ -2723,3 +2723,92 @@ The Phase 39 audit is excellent news - 3 out of 5 zone subcommands are already m
 
 **Pull Request**: #74 (combined with Phase 35)
 
+
+---
+
+## Phase 36: Create Common Functions File - COMPLETED ✅
+
+**Objective**: Eliminate duplicate logging function definitions across 20+ files.
+
+**Problem Solved**:
+Throughout the codebase, 23 files had duplicate definitions of fallback logging functions (`dokku_log_info1`, `dokku_log_info2`, `dokku_log_warn`, `dokku_log_fail`). This created maintenance overhead and inconsistency risks.
+
+**Implementation**:
+
+1. **Created `common-functions` file**:
+   - Centralized fallback logging function definitions
+   - Located in plugin root directory
+   - Contains all four standard logging functions
+   - Functions only defined if not already available from Dokku
+
+2. **Updated 23 files** to use common-functions:
+   - **Subcommands** (18 files): zones:enable, zones:sync, zones:disable, zones:ttl, zones, providers:verify, ttl, report, sync:deletions, apps:report, apps, apps:enable, apps:disable, apps:sync, triggers:enable, triggers:disable, triggers, version, cron, sync-all
+   - **Hooks** (2 files): post-domains-update, post-delete
+   - **Core files** (2 files): help-functions, functions
+   - **Already updated** (1 file): subcommands/zones:enable (done manually first)
+
+3. **Replaced duplicate code**:
+   - **Before**: Each file had 16 lines of duplicate logging function definitions
+   - **After**: Each file has 1 line sourcing common-functions
+   - **Lines removed**: ~368 lines of duplicate code across 23 files
+   - **Lines added**: 1 common-functions file (20 lines) + 23 source lines
+
+**Pattern Replaced**:
+
+**Old pattern (16 lines per file)**:
+```bash
+# Define missing functions if needed
+if ! declare -f dokku_log_info1 >/dev/null 2>&1; then
+  dokku_log_info1() { echo "-----> $*"; }
+fi
+
+if ! declare -f dokku_log_info2 >/dev/null 2>&1; then
+  dokku_log_info2() { echo "=====> $*"; }
+fi
+
+if ! declare -f dokku_log_warn >/dev/null 2>&1; then
+  dokku_log_warn() { echo " !     $*"; }
+fi
+
+if ! declare -f dokku_log_fail >/dev/null 2>&1; then
+  dokku_log_fail() { echo " !     $*" >&2; exit 1; }
+fi
+
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
+```
+
+**New pattern (1 line + functions source)**:
+```bash
+# Load common fallback functions
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/common-functions"
+
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
+```
+
+**Files Changed**:
+- **common-functions** - New file with centralized logging functions (+20 lines)
+- **23 files** - Updated to source common-functions (-368 lines, +23 lines)
+
+**Testing**:
+- ✅ All linting passes (shellcheck)
+- ✅ No syntax errors in any updated file
+- ✅ Logging functions still work correctly (fallback when Dokku not available)
+
+**Impact**:
+- 📉 **Reduced duplication**: Eliminated ~368 lines of duplicate code
+- 🔧 **Easier maintenance**: Single source of truth for logging functions
+- ✅ **Consistent behavior**: All files use identical logging implementations
+- 📖 **Cleaner code**: Each file 15 lines shorter and easier to read
+- 🎯 **DRY principle**: "Don't Repeat Yourself" - achieved!
+
+**Code Metrics**:
+- **Files updated**: 23
+- **Duplicate lines removed**: ~368 lines
+- **Net reduction**: ~345 lines
+- **Maintenance burden**: Reduced from 23 files to 1 file
+
+**Conclusion**:
+Phase 36 successfully consolidated all logging function definitions into a single common-functions file, eliminating significant code duplication and improving maintainability. Any future changes to logging behavior now only need to be made in one place.
+
+**Pull Request**: #[TBD]
+

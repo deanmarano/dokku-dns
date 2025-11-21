@@ -8,12 +8,15 @@ if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
   source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
 fi
 
+# Load common fallback functions
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/common-functions"
+
 # Define missing functions if needed
 if ! declare -f verify_app_name >/dev/null 2>&1; then
   verify_app_name() {
     local app="$1"
     [[ -n "$app" ]] || { echo " !     Please specify an app name" >&2; exit 1; }
-    
+
     # Check if app exists (only if dokku command is available)
     if command -v dokku >/dev/null 2>&1; then
       if ! dokku apps:list 2>/dev/null | grep -q "^$app$"; then
@@ -21,22 +24,6 @@ if ! declare -f verify_app_name >/dev/null 2>&1; then
       fi
     fi
   }
-fi
-
-if ! declare -f dokku_log_info1 >/dev/null 2>&1; then
-  dokku_log_info1() { echo "-----> $*"; }
-fi
-
-if ! declare -f dokku_log_info2 >/dev/null 2>&1; then
-  dokku_log_info2() { echo "=====> $*"; }
-fi
-
-if ! declare -f dokku_log_warn >/dev/null 2>&1; then
-  dokku_log_warn() { echo " !     $*"; }
-fi
-
-if ! declare -f dokku_log_fail >/dev/null 2>&1; then
-  dokku_log_fail() { echo " !     $*" >&2; exit 1; }
 fi
 
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
