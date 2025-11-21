@@ -77,6 +77,31 @@ ZONES_DATA
     "route53 list-hosted-zones --query HostedZones[].Name --output text")
         echo -e "example.com.\ttest.org."
         ;;
+    "route53 list-hosted-zones --output json")
+        cat << 'JSON_ZONES'
+{
+  "HostedZones": [
+    {
+      "Id": "/hostedzone/Z123456789ABCDEF",
+      "Name": "example.com.",
+      "ResourceRecordSetCount": 5,
+      "Config": {
+        "Comment": "Primary domain zone",
+        "PrivateZone": false
+      }
+    },
+    {
+      "Id": "/hostedzone/Z987654321ZYXWVU",
+      "Name": "test.org.",
+      "ResourceRecordSetCount": 3,
+      "Config": {
+        "PrivateZone": false
+      }
+    }
+  ]
+}
+JSON_ZONES
+        ;;
     "route53 list-resource-record-sets --hosted-zone-id Z123456789ABCDEF --query ResourceRecordSets[?Type==\`A\`].Name --output text")
         echo -e "app1.example.com.\tapi.example.com.\twww.example.com."
         ;;
@@ -301,7 +326,6 @@ EOF
 
 @test "(dns:zones) works with AWS provider (always configured)" {
   create_mock_aws
-  setup_multi_provider_test_data "aws" "example.com" "test.org"
 
   dns_zones
   assert_success
@@ -311,7 +335,6 @@ EOF
 @test "(dns:zones) lists AWS zones when provider configured" {
   setup_mock_provider "aws"
   create_mock_aws
-  setup_multi_provider_test_data "aws" "example.com" "test.org"
 
   dns_zones
   assert_success
@@ -323,7 +346,6 @@ EOF
 
 @test "(dns:zones) AWS zones work properly" {
   create_mock_aws
-  setup_multi_provider_test_data "aws" "example.com" "test.org"
 
   dns_zones
   assert_success
@@ -332,7 +354,6 @@ EOF
 
 @test "(dns:zones) works with AWS provider only" {
   create_mock_aws
-  setup_multi_provider_test_data "aws" "example.com" "test.org"
 
   dns_zones
   assert_success
@@ -423,7 +444,6 @@ EOF
 @test "(dns:zones) shows management commands" {
   setup_mock_provider "aws"
   create_mock_aws
-  setup_multi_provider_test_data "aws" "example.com" "test.org"
 
   dns_zones
   assert_success
@@ -432,7 +452,6 @@ EOF
 @test "(dns:zones) handles zones with managed domains" {
   setup_mock_provider "aws"
   create_mock_aws
-  setup_multi_provider_test_data "aws" "example.com" "test.org"
 
   # Setup some managed domains
   mkdir -p "$PLUGIN_DATA_ROOT/app1"
@@ -619,7 +638,6 @@ assert_file_contains() {
 @test "(dns:zones) shows zones status by default" {
   setup_mock_provider "aws"
   create_mock_aws
-  setup_multi_provider_test_data "aws" "example.com" "test.org"
 
   dns_zones
   assert_success
