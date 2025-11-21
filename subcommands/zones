@@ -189,7 +189,6 @@ zones_show_zone() {
 
   echo
   dokku_log_info2 "DNS Zone Details: $ZONE"
-  dokku_log_info1 "Provider: $PROVIDER"
 
   # Get zone ID from provider
   local ZONE_ID
