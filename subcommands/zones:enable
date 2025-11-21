@@ -27,6 +27,143 @@ fi
 
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
 
+# Check if a domain belongs to a specific zone
+# Usage: is_domain_in_zone <domain> <zone>
+# Returns: 0 if domain is in zone, 1 if not
+is_domain_in_zone() {
+  local DOMAIN="$1"
+  local ZONE="$2"
+
+  # Check if domain matches this zone exactly or is a subdomain
+  if [[ "$DOMAIN" == "$ZONE" ]] || [[ "$DOMAIN" == *".$ZONE" ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+# Show suggested next steps after enabling a zone
+# Usage: show_zone_enable_next_steps <zone>
+show_zone_enable_next_steps() {
+  local ZONE="$1"
+
+  # Get all apps
+  local apps
+  if ! command -v dokku >/dev/null 2>&1; then
+    return 0  # Skip if dokku command not available
+  fi
+
+  apps=$(dokku apps:list 2>/dev/null | tail -n +2 || echo "")
+
+  if [[ -z "$apps" ]]; then
+    return 0  # No apps to check
+  fi
+
+  # Build a map of app -> domains in this zone
+  declare -A app_domains_map
+  local found_any=false
+
+  while IFS= read -r app; do
+    [[ -z "$app" ]] && continue
+
+    # Get domains for this app
+    local domains
+    domains=$(get_app_domains "$app" 2>/dev/null || echo "")
+
+    # Find domains that are in this zone
+    local zone_domains=()
+    while IFS= read -r domain; do
+      [[ -z "$domain" ]] && continue
+
+      if is_domain_in_zone "$domain" "$ZONE"; then
+        zone_domains+=("$domain")
+        found_any=true
+      fi
+    done <<< "$domains"
+
+    # Store domains for this app if any found
+    if [[ ${#zone_domains[@]} -gt 0 ]]; then
+      app_domains_map["$app"]="${zone_domains[*]}"
+    fi
+  done <<< "$apps"
+
+  # Display suggestions if we found any apps with domains in this zone
+  if [[ "$found_any" == "true" ]]; then
+    echo
+    dokku_log_info1 "Next steps - enable DNS management for apps with domains in this zone:"
+    echo
+
+    for app in "${!app_domains_map[@]}"; do
+      local domains="${app_domains_map[$app]}"
+      # Convert space-separated domains to comma-separated for comment
+      local domain_comment="${domains// /, }"
+      echo "  dokku dns:apps:enable $app  # $domain_comment"
+    done
+
+    echo
+  fi
+}
+
+# Show suggested next steps for all enabled zones
+# Usage: show_all_zones_enable_next_steps
+show_all_zones_enable_next_steps() {
+  # Get all apps
+  local apps
+  if ! command -v dokku >/dev/null 2>&1; then
+    return 0  # Skip if dokku command not available
+  fi
+
+  apps=$(dokku apps:list 2>/dev/null | tail -n +2 || echo "")
+
+  if [[ -z "$apps" ]]; then
+    return 0  # No apps to check
+  fi
+
+  # Build a map of app -> domains in any enabled zone
+  declare -A app_domains_map
+  local found_any=false
+
+  while IFS= read -r app; do
+    [[ -z "$app" ]] && continue
+
+    # Get domains for this app
+    local domains
+    domains=$(get_app_domains "$app" 2>/dev/null || echo "")
+
+    # Find domains that are in any enabled zone
+    local zone_domains=()
+    while IFS= read -r domain; do
+      [[ -z "$domain" ]] && continue
+
+      if is_domain_in_enabled_zone "$domain"; then
+        zone_domains+=("$domain")
+        found_any=true
+      fi
+    done <<< "$domains"
+
+    # Store domains for this app if any found
+    if [[ ${#zone_domains[@]} -gt 0 ]]; then
+      app_domains_map["$app"]="${zone_domains[*]}"
+    fi
+  done <<< "$apps"
+
+  # Display suggestions if we found any apps with domains in enabled zones
+  if [[ "$found_any" == "true" ]]; then
+    echo
+    dokku_log_info1 "Next steps - enable DNS management for apps with domains in enabled zones:"
+    echo
+
+    for app in "${!app_domains_map[@]}"; do
+      local domains="${app_domains_map[$app]}"
+      # Convert space-separated domains to comma-separated for comment
+      local domain_comment="${domains// /, }"
+      echo "  dokku dns:apps:enable $app  # $domain_comment"
+    done
+
+    echo
+  fi
+}
+
 service-zones-enable-cmd() {
   #E enable DNS zone for automatic app domain management
   #E dokku $PLUGIN_COMMAND_PREFIX:zones:enable example.com
@@ -112,8 +249,11 @@ zones_add_zone() {
   
   # Mark zone as enabled for auto-discovery
   zones_set_enabled "$ZONE"
-  
+
   dokku_log_info1 "Zone '$ZONE' added to auto-discovery"
+
+  # Show suggested next steps for apps with domains in this zone
+  show_zone_enable_next_steps "$ZONE"
 }
 
 zones_add_all() {
@@ -144,13 +284,16 @@ zones_add_all() {
   for zone in $ZONES; do
     dokku_log_info1 "Adding zone: $zone"
     zones_processed=$((zones_processed + 1))
-    
+
     # Add this zone to auto-discovery
     zones_set_enabled "$zone"
     echo
   done
-  
+
   dokku_log_info1 "Zones added to auto-discovery: $zones_processed"
+
+  # Show suggested next steps for all apps with domains in enabled zones
+  show_all_zones_enable_next_steps
 }
 
 service-zones-enable-cmd "$@"
