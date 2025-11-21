@@ -3,24 +3,6 @@
 The DNS plugin is in progress! Many core features have been implemented and tested. See [DONE.md](./DONE.md) for completed work.
 
 
-### Phase 35: Audit Legacy Provider Patterns (Post-1.0)
-
-**Objective:** Find and catalog remaining legacy provider-specific code.
-
-- [ ] Search codebase for `dns_provider_` function calls
-- [ ] Search for direct provider function calls (aws_*, cloudflare_*, digitalocean_*)
-- [ ] Find `dns_provider_aws_get_hosted_zone_id` calls
-- [ ] Find `dns_provider_aws_*` calls
-- [ ] Audit all hooks for legacy provider patterns
-- [ ] Audit all subcommands for legacy provider patterns
-- [ ] Audit functions file for legacy provider patterns
-- [ ] Document all findings with file:line references
-
-**Effort:** Medium (thorough search required)
-**Impact:** Creates roadmap for complete multi-provider migration
-**Note:** This is discovery work - actual fixes in later phases
-
-
 ### Phase 36: Create Common Functions File (Post-1.0)
 
 **Objective:** Eliminate duplicate logging function definitions across 10+ files.
