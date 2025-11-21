@@ -8,6 +8,9 @@ if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
   source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
 fi
 
+# Load logging fallback functions
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/log-functions"
+
 dns-triggers-disable-cmd() {
   declare desc="disable automatic DNS management for app lifecycle events"
   
