@@ -1,0 +1,288 @@
+#!/usr/bin/env bash
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+# Load dokku functions if available
+if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
+  source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
+fi
+
+# Define missing functions if needed
+if ! declare -f dokku_log_info1 >/dev/null 2>&1; then
+  dokku_log_info1() { echo "-----> $*"; }
+fi
+
+if ! declare -f dokku_log_info2 >/dev/null 2>&1; then
+  dokku_log_info2() { echo "=====> $*"; }
+fi
+
+if ! declare -f dokku_log_warn >/dev/null 2>&1; then
+  dokku_log_warn() { echo " !     $*"; }
+fi
+
+if ! declare -f dokku_log_fail >/dev/null 2>&1; then
+  dokku_log_fail() { echo " !     $*" >&2; exit 1; }
+fi
+
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
+
+# Check if a domain belongs to a specific zone
+# Usage: is_domain_in_zone <domain> <zone>
+# Returns: 0 if domain is in zone, 1 if not
+is_domain_in_zone() {
+  local DOMAIN="$1"
+  local ZONE="$2"
+
+  # Check if domain matches this zone exactly or is a subdomain
+  if [[ "$DOMAIN" == "$ZONE" ]] || [[ "$DOMAIN" == *".$ZONE" ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+# Get list of enabled zones
+# Usage: get_enabled_zones
+# Returns: newline-separated list of enabled zone names
+get_enabled_zones() {
+  local ENABLED_ZONES_FILE="$PLUGIN_DATA_ROOT/ENABLED_ZONES"
+
+  if [[ -f "$ENABLED_ZONES_FILE" ]] && [[ -s "$ENABLED_ZONES_FILE" ]]; then
+    cat "$ENABLED_ZONES_FILE"
+  fi
+}
+
+# Sync all apps with domains in a specific zone
+# Usage: sync_zone <zone>
+sync_zone() {
+  local ZONE="$1"
+
+  # Verify zone is enabled
+  local ENABLED_ZONES_FILE="$PLUGIN_DATA_ROOT/ENABLED_ZONES"
+  if [[ ! -f "$ENABLED_ZONES_FILE" ]] || ! grep -q "^$ZONE$" "$ENABLED_ZONES_FILE"; then
+    dokku_log_fail "Zone '$ZONE' is not enabled. Enable it first: dokku $PLUGIN_COMMAND_PREFIX:zones:enable $ZONE"
+  fi
+
+  dokku_log_info2 "Syncing DNS records for zone: $ZONE"
+  echo
+
+  # Get all apps
+  local apps
+  if ! command -v dokku >/dev/null 2>&1; then
+    dokku_log_fail "dokku command not available"
+  fi
+
+  apps=$(dokku apps:list 2>/dev/null | tail -n +2 || echo "")
+
+  if [[ -z "$apps" ]]; then
+    dokku_log_info1 "No apps found"
+    return 0
+  fi
+
+  # Find apps with domains in this zone
+  local apps_to_sync=()
+  local app_domain_map=()
+
+  while IFS= read -r app; do
+    [[ -z "$app" ]] && continue
+
+    # Get domains for this app
+    local domains
+    domains=$(get_app_domains "$app" 2>/dev/null || echo "")
+
+    # Find domains that are in this zone
+    local zone_domains=()
+    while IFS= read -r domain; do
+      [[ -z "$domain" ]] && continue
+
+      if is_domain_in_zone "$domain" "$ZONE"; then
+        zone_domains+=("$domain")
+      fi
+    done <<< "$domains"
+
+    # Store apps with domains in this zone
+    if [[ ${#zone_domains[@]} -gt 0 ]]; then
+      apps_to_sync+=("$app")
+      app_domain_map+=("$app:${zone_domains[*]}")
+    fi
+  done <<< "$apps"
+
+  if [[ ${#apps_to_sync[@]} -eq 0 ]]; then
+    dokku_log_info1 "No apps found with domains in zone '$ZONE'"
+    return 0
+  fi
+
+  dokku_log_info1 "Found ${#apps_to_sync[@]} app(s) with domains in this zone"
+  echo
+
+  # Sync each app
+  local success_count=0
+  local fail_count=0
+
+  for app in "${apps_to_sync[@]}"; do
+    # Find domains for this app from the map
+    local app_domains=""
+    for entry in "${app_domain_map[@]}"; do
+      if [[ "$entry" == "$app:"* ]]; then
+        app_domains="${entry#*:}"
+        break
+      fi
+    done
+
+    dokku_log_info1 "Syncing app: $app"
+    dokku_log_info2 "Domains: ${app_domains// /, }"
+
+    # Sync the app using dns_app function from functions file
+    if dns_app "$app"; then
+      success_count=$((success_count + 1))
+      dokku_log_info1 "✓ Successfully synced: $app"
+    else
+      fail_count=$((fail_count + 1))
+      dokku_log_warn "✗ Failed to sync: $app"
+    fi
+    echo
+  done
+
+  # Summary
+  dokku_log_info2 "Zone Sync Summary for: $ZONE"
+  dokku_log_info1 "Successfully synced: $success_count app(s)"
+
+  if [[ $fail_count -gt 0 ]]; then
+    dokku_log_warn "Failed to sync: $fail_count app(s)"
+    return 1
+  fi
+
+  return 0
+}
+
+# Sync all apps with domains in all enabled zones
+# Usage: sync_all_zones
+sync_all_zones() {
+  local enabled_zones
+  enabled_zones=$(get_enabled_zones)
+
+  if [[ -z "$enabled_zones" ]]; then
+    dokku_log_fail "No zones are enabled. Enable zones first: dokku $PLUGIN_COMMAND_PREFIX:zones:enable <zone>"
+  fi
+
+  # Count enabled zones
+  local zone_count
+  zone_count=$(echo "$enabled_zones" | wc -l)
+
+  dokku_log_info2 "Syncing DNS records for all enabled zones ($zone_count zone(s))"
+  echo
+
+  # Get all apps
+  local apps
+  if ! command -v dokku >/dev/null 2>&1; then
+    dokku_log_fail "dokku command not available"
+  fi
+
+  apps=$(dokku apps:list 2>/dev/null | tail -n +2 || echo "")
+
+  if [[ -z "$apps" ]]; then
+    dokku_log_info1 "No apps found"
+    return 0
+  fi
+
+  # Find apps with domains in any enabled zone
+  local apps_to_sync=()
+  declare -A app_domains_map
+
+  while IFS= read -r app; do
+    [[ -z "$app" ]] && continue
+
+    # Get domains for this app
+    local domains
+    domains=$(get_app_domains "$app" 2>/dev/null || echo "")
+
+    # Find domains that are in any enabled zone
+    local zone_domains=()
+    while IFS= read -r domain; do
+      [[ -z "$domain" ]] && continue
+
+      if is_domain_in_enabled_zone "$domain"; then
+        zone_domains+=("$domain")
+      fi
+    done <<< "$domains"
+
+    # Store apps with domains in enabled zones
+    if [[ ${#zone_domains[@]} -gt 0 ]]; then
+      apps_to_sync+=("$app")
+      app_domains_map["$app"]="${zone_domains[*]}"
+    fi
+  done <<< "$apps"
+
+  if [[ ${#apps_to_sync[@]} -eq 0 ]]; then
+    dokku_log_info1 "No apps found with domains in enabled zones"
+    return 0
+  fi
+
+  dokku_log_info1 "Found ${#apps_to_sync[@]} app(s) with domains in enabled zones"
+  echo
+
+  # Sync each app
+  local success_count=0
+  local fail_count=0
+
+  for app in "${apps_to_sync[@]}"; do
+    local app_domains="${app_domains_map[$app]}"
+
+    dokku_log_info1 "Syncing app: $app"
+    dokku_log_info2 "Domains: ${app_domains// /, }"
+
+    # Sync the app using dns_app function from functions file
+    if dns_app "$app"; then
+      success_count=$((success_count + 1))
+      dokku_log_info1 "✓ Successfully synced: $app"
+    else
+      fail_count=$((fail_count + 1))
+      dokku_log_warn "✗ Failed to sync: $app"
+    fi
+    echo
+  done
+
+  # Summary
+  dokku_log_info2 "All Zones Sync Summary"
+  dokku_log_info1 "Successfully synced: $success_count app(s)"
+
+  if [[ $fail_count -gt 0 ]]; then
+    dokku_log_warn "Failed to sync: $fail_count app(s)"
+    return 1
+  fi
+
+  return 0
+}
+
+service-zones-sync-cmd() {
+  #E synchronize DNS records for apps within a specific zone or all enabled zones
+  #E dokku $PLUGIN_COMMAND_PREFIX:zones:sync [zone]
+  #E sync all apps/domains within the specified zone
+  #E if zone parameter is omitted, sync all apps in all enabled zones
+  #E shows progress per app and domain within the zone
+  #A zone, zone name to sync (optional - omit to sync all enabled zones)
+  declare desc="synchronize DNS records for apps within a zone"
+  local cmd="$PLUGIN_COMMAND_PREFIX:zones:sync" argv=("$@")
+
+  # Handle Dokku command routing - first argument will be the command name
+  if [[ "$1" == "$cmd" ]]; then
+    shift 1
+  fi
+
+  declare ZONE=""
+
+  # Parse optional zone argument
+  if [[ $# -gt 0 ]]; then
+    ZONE="$1"
+  fi
+
+  # Sync based on whether zone was specified
+  if [[ -n "$ZONE" ]]; then
+    sync_zone "$ZONE"
+  else
+    sync_all_zones
+  fi
+}
+
+service-zones-sync-cmd "$@"
