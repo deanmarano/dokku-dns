@@ -126,6 +126,7 @@ dns:version                                        # show DNS plugin version and
 dns:zones [<zone>]                                 # list DNS zones and their auto-discovery status
 dns:zones:disable <zone>                           # disable DNS zone and remove managed domains
 dns:zones:enable <zone>                            # enable DNS zone for automatic app domain management
+dns:zones:sync <zone>                              # synchronize DNS records for apps within a zone
 dns:zones:ttl <zone>                               # get or set TTL (time-to-live) for a DNS zone in seconds
 ```
 
