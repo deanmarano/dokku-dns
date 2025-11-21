@@ -3,7 +3,7 @@
 The DNS plugin is in progress! Many core features have been implemented and tested. See [DONE.md](./DONE.md) for completed work.
 
 
-### Phase 40: Audit Legacy Provider Patterns (Post-1.0)
+### Phase 35: Audit Legacy Provider Patterns (Post-1.0)
 
 **Objective:** Find and catalog remaining legacy provider-specific code.
 
@@ -21,7 +21,7 @@ The DNS plugin is in progress! Many core features have been implemented and test
 **Note:** This is discovery work - actual fixes in later phases
 
 
-### Phase 41: Create Common Functions File (Post-1.0)
+### Phase 36: Create Common Functions File (Post-1.0)
 
 **Objective:** Eliminate duplicate logging function definitions across 10+ files.
 
@@ -34,7 +34,7 @@ The DNS plugin is in progress! Many core features have been implemented and test
 **Impact:** Reduces code duplication, ensures consistent logging behavior
 
 
-### Phase 42: Refactor zones Subcommand to Multi-Provider (Post-1.0)
+### Phase 37: Refactor zones Subcommand to Multi-Provider (Post-1.0)
 
 **Objective:** Make zones subcommand work with all providers, not just AWS.
 
@@ -53,7 +53,7 @@ The DNS plugin is in progress! Many core features have been implemented and test
 **Note:** Attempted in commit 50655bd but reverted in ce59bcb due to test failures
 
 
-### Phase 43: Refactor zones:enable to Multi-Provider (Post-1.0)
+### Phase 38: Refactor zones:enable to Multi-Provider (Post-1.0)
 
 **Objective:** Make zones:enable work with all providers, not just AWS.
 
@@ -71,7 +71,7 @@ The DNS plugin is in progress! Many core features have been implemented and test
 **Impact:** Enables zone management for Cloudflare and DigitalOcean
 
 
-### Phase 44: Audit Other Zone Subcommands (Post-1.0)
+### Phase 39: Audit Other Zone Subcommands (Post-1.0)
 
 **Objective:** Check zones:disable and zones:ttl for AWS-specific code.
 
@@ -84,7 +84,7 @@ The DNS plugin is in progress! Many core features have been implemented and test
 **Impact:** Ensures all zone subcommands support multiple providers
 
 
-### Phase 45: Code Polish - Logging Verbosity (Post-1.0)
+### Phase 40: Code Polish - Logging Verbosity (Post-1.0)
 
 **Objective:** Reduce excessive logging in dns_add_app_domains function.
 
@@ -97,7 +97,7 @@ The DNS plugin is in progress! Many core features have been implemented and test
 **Impact:** Improves code readability, optional verbose output
 
 
-### Phase 46: Simplify Complex Conditionals (Post-1.0)
+### Phase 41: Simplify Complex Conditionals (Post-1.0)
 
 **Objective:** Reduce nesting depth and complexity in validation logic.
 
@@ -111,7 +111,7 @@ The DNS plugin is in progress! Many core features have been implemented and test
 **Impact:** Improves code readability and maintainability
 
 
-### Phase 36: Pre-Release Testing & Validation
+### Phase 42: Pre-Release Testing & Validation
 
 - [ ] **Create Testing Documentation**
   - [ ] Create TESTING.md with manual test procedures for all providers
@@ -136,7 +136,7 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - [ ] Test sync-all command with multiple apps and providers
 
 
-### Phase 37: 1.0 Release
+### Phase 43: 1.0 Release
 
 - [ ] **GitHub Release Infrastructure**
   - [ ] Create semantic version tagging strategy (v1.0.0)
@@ -154,7 +154,7 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - [ ] Set up performance monitoring and error tracking
 
 
-### Phase 38: Community & Support (Post-Release)
+### Phase 44: Community & Support (Post-Release)
 
 - [ ] **Community Announcements**
   - [ ] Post to Dokku community forum
@@ -175,7 +175,7 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - [ ] Design feature request evaluation and roadmap integration
 
 
-### Phase 47: Improve Provider Documentation (Post-1.0)
+### Phase 45: Improve Provider Documentation (Post-1.0)
 
 **Objective:** Add detailed comments to complex provider code.
 
@@ -188,7 +188,7 @@ The DNS plugin is in progress! Many core features have been implemented and test
 **Impact:** Improves code comprehension for contributors
 
 
-### Phase 48: Standardize Function Naming (Post-1.0)
+### Phase 46: Standardize Function Naming (Post-1.0)
 
 **Objective:** Create consistent naming conventions across the codebase.
 
@@ -205,7 +205,7 @@ The DNS plugin is in progress! Many core features have been implemented and test
 **Impact:** Improves code consistency and clarity
 
 
-### Phase 49: Add ShellCheck Directives (Post-1.0)
+### Phase 47: Add ShellCheck Directives (Post-1.0)
 
 **Objective:** Document why specific shellcheck warnings are disabled.
 
@@ -218,7 +218,7 @@ The DNS plugin is in progress! Many core features have been implemented and test
 **Impact:** Improves code quality awareness, helps future contributors
 
 
-### Phase 50: Standardize Shell Quoting (Post-1.0)
+### Phase 48: Standardize Shell Quoting (Post-1.0)
 
 **Objective:** Ensure all variables are properly quoted to prevent word splitting.
 
