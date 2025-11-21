@@ -118,7 +118,12 @@
       "Bash(./commands dns help)",
       "Bash(env PLUGIN_DATA_ROOT=\"/tmp/dns-test\" ./commands dns providers:verify)",
       "Bash(env:*)",
-      "Bash(gh pr list:*)"
+      "Bash(gh pr list:*)",
+      "Bash(while read f)",
+      "Bash(do if grep -q \"source.*functions\"\"$\" \"$f\")",
+      "Bash(then echo \"$f\")",
+      "Bash(fi)",
+      "Bash(done)"
     ],
     "deny": [],
     "ask": [],

@@ -8,9 +8,6 @@ if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
   source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
 fi
 
-# Load common fallback functions
-source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/common-functions"
-
 service-version-cmd() {
   #E show DNS plugin version and dependency versions
   #E dokku $PLUGIN_COMMAND_PREFIX:version

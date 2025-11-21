@@ -14,11 +14,8 @@ if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
   source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
 fi
 
-# Load common fallback functions
-TRIGGER_BASE_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$TRIGGER_BASE_PATH/common-functions"
-
 # Load plugin functions
+TRIGGER_BASE_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$TRIGGER_BASE_PATH/functions"
 
 # Main trigger logic

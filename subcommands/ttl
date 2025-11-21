@@ -11,9 +11,6 @@ if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
   source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
 fi
 
-# Load common fallback functions
-source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/common-functions"
-
 dns-ttl-cmd() {
   declare desc="get or set the global DNS record TTL (time-to-live) in seconds"
   declare cmd="dns:ttl"

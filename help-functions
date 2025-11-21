@@ -8,8 +8,8 @@ if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
   source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
 fi
 
-# Load common fallback functions
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common-functions"
+# Load logging fallback functions
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/log-functions"
 
 SUBCOMMAND_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/subcommands"
 export SUBCOMMAND_ROOT

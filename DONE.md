@@ -2735,13 +2735,13 @@ Throughout the codebase, 23 files had duplicate definitions of fallback logging 
 
 **Implementation**:
 
-1. **Created `common-functions` file**:
+1. **Created `log-functions` file**:
    - Centralized fallback logging function definitions
    - Located in plugin root directory
    - Contains all four standard logging functions
    - Functions only defined if not already available from Dokku
 
-2. **Updated 23 files** to use common-functions:
+2. **Updated 23 files** to use log-functions:
    - **Subcommands** (18 files): zones:enable, zones:sync, zones:disable, zones:ttl, zones, providers:verify, ttl, report, sync:deletions, apps:report, apps, apps:enable, apps:disable, apps:sync, triggers:enable, triggers:disable, triggers, version, cron, sync-all
    - **Hooks** (2 files): post-domains-update, post-delete
    - **Core files** (2 files): help-functions, functions
@@ -2749,9 +2749,9 @@ Throughout the codebase, 23 files had duplicate definitions of fallback logging 
 
 3. **Replaced duplicate code**:
    - **Before**: Each file had 16 lines of duplicate logging function definitions
-   - **After**: Each file has 1 line sourcing common-functions
+   - **After**: Files indirectly load log-functions through the functions file
    - **Lines removed**: ~368 lines of duplicate code across 23 files
-   - **Lines added**: 1 common-functions file (20 lines) + 23 source lines
+   - **Lines added**: 1 log-functions file (20 lines)
 
 **Pattern Replaced**:
 
@@ -2777,17 +2777,16 @@ fi
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
 ```
 
-**New pattern (1 line + functions source)**:
+**New pattern (indirect loading through functions file)**:
 ```bash
-# Load common fallback functions
-source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/common-functions"
-
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
 ```
 
+Note: The `functions` file automatically sources `log-functions`, so files that source `functions` get logging functions automatically without redundant sourcing.
+
 **Files Changed**:
-- **common-functions** - New file with centralized logging functions (+20 lines)
-- **23 files** - Updated to source common-functions (-368 lines, +23 lines)
+- **log-functions** - New file with centralized logging functions (+20 lines)
+- **23 files** - Updated to remove duplicate code and use log-functions (-368 lines)
 
 **Testing**:
 - ✅ All linting passes (shellcheck)

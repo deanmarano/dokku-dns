@@ -8,9 +8,6 @@ if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
   source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
 fi
 
-# Load common fallback functions
-source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/common-functions"
-
 # Load provider functions for zone lookup
 PLUGIN_BASE_PATH="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")"
 if [[ -f "$PLUGIN_BASE_PATH/providers/multi-provider.sh" ]]; then

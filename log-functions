@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Common fallback functions for dokku-dns plugin
-# These functions are used when Dokku's common functions are not available
+# Logging fallback functions for dokku-dns plugin
+# These functions are used when Dokku's logging functions are not available
 
 # Define fallback logging functions if not already defined by Dokku
 if ! declare -f dokku_log_info1 >/dev/null 2>&1; then
