@@ -6,8 +6,8 @@
 PROVIDERS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$PROVIDERS_DIR/loader.sh"
 
-# Get plugin data root
-PLUGIN_DATA_ROOT="${DNS_ROOT:-${DOKKU_LIB_ROOT:-/var/lib/dokku}/services/dns}"
+# Get plugin data root (use existing value if set, otherwise use default)
+PLUGIN_DATA_ROOT="${PLUGIN_DATA_ROOT:-${DNS_ROOT:-${DOKKU_LIB_ROOT:-/var/lib/dokku}/services/dns}}"
 
 # Directory to store provider/zone mappings (persistent across invocations)
 MULTI_PROVIDER_DATA="$PLUGIN_DATA_ROOT/.multi-provider"
