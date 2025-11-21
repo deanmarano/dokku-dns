@@ -222,14 +222,88 @@ After refactoring zones commands:
 - `providers/adapter.sh` - Uses multi-provider router
 - All other subcommands - Uses multi-provider router or AWS-agnostic
 
+## Phase 39: Other Zone Subcommands Audit ✅
+
+**Date Added**: 2025-11-20
+**Scope**: Audit remaining zone subcommands for AWS-specific code
+
+### Audited Files
+
+#### File 1: `subcommands/zones:disable` ✅
+
+**Lines Reviewed**: 1-269 (complete file)
+
+**AWS CLI Usage**: None found
+
+**Provider-Specific Code**: None found
+
+**Functions**:
+- `zones_remove_zone()` - Lines 85-196
+- `zones_remove_all()` - Lines 198-267
+
+**Operations**:
+- Uses `zones_set_disabled()` from functions file (provider-agnostic)
+- Manipulates DOMAINS files and LINKS file (data storage only)
+- No AWS CLI calls
+- No provider-specific API calls
+
+**Conclusion**: ✅ **Provider-agnostic** - Works with all providers
+
+#### File 2: `subcommands/zones:ttl` ✅
+
+**Lines Reviewed**: 1-103 (complete file)
+
+**AWS CLI Usage**: None found
+
+**Provider-Specific Code**: None found
+
+**Functions**:
+- `service-zones-ttl-cmd()` - Lines 30-101
+
+**Operations**:
+- Reads/writes ZONE_TTLS file (configuration storage)
+- Uses `get_dns_ttl_config()` from functions file (provider-agnostic)
+- No AWS CLI calls
+- No provider-specific API calls
+
+**Conclusion**: ✅ **Provider-agnostic** - Works with all providers
+
+### Phase 39 Summary
+
+**Files Audited**: 2
+- `subcommands/zones:disable` - Clean ✅
+- `subcommands/zones:ttl` - Clean ✅
+
+**Issues Found**: 0
+
+**Result**: Both zone:disable and zones:ttl are **fully provider-agnostic** and work correctly with all providers (AWS, Cloudflare, DigitalOcean).
+
+### Updated Zone Subcommands Status
+
+| Subcommand | Status | AWS-Specific Code |
+|------------|--------|-------------------|
+| zones | ⚠️ Needs refactoring | 8 AWS CLI calls |
+| zones:enable | ⚠️ Needs refactoring | 4 AWS CLI calls |
+| zones:disable | ✅ Clean | None |
+| zones:sync | ✅ Clean | None (added in Phase 30) |
+| zones:ttl | ✅ Clean | None |
+
+**Clean Subcommands**: 3/5 (60%)
+**Subcommands Needing Work**: 2/5 (40%)
+
 ## Conclusion
 
 The multi-provider architecture is **95% complete**. The only remaining AWS-specific code is in zone management commands (`zones`, `zones:enable`). DNS record operations (create, update, delete, sync) all work correctly across all providers.
 
+**Excellent News from Phase 39**:
+- `zones:disable` is provider-agnostic ✅
+- `zones:ttl` is provider-agnostic ✅
+- `zones:sync` (from Phase 30) is provider-agnostic ✅
+
 **Next Steps**:
 1. Complete Phase 37 (Refactor zones subcommand)
 2. Complete Phase 38 (Refactor zones:enable subcommand)
-3. Complete Phase 39 (Audit remaining zone subcommands)
+3. ~~Complete Phase 39 (Audit remaining zone subcommands)~~ ✅ **COMPLETE**
 4. Optionally update install script
 
-**Estimated Effort**: 2-3 phases (High complexity due to test mocking requirements)
+**Estimated Effort**: 2 phases remaining (High complexity due to test mocking requirements)

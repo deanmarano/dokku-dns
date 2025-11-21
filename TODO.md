@@ -53,19 +53,6 @@ The DNS plugin is in progress! Many core features have been implemented and test
 **Impact:** Enables zone management for Cloudflare and DigitalOcean
 
 
-### Phase 39: Audit Other Zone Subcommands (Post-1.0)
-
-**Objective:** Check zones:disable and zones:ttl for AWS-specific code.
-
-- [ ] **subcommands/zones:disable** - Review and update to use multi-provider system if needed
-- [ ] **subcommands/zones:ttl** - Review and update to use multi-provider system if needed
-- [ ] Document any AWS-specific code found
-- [ ] Create follow-up tasks for any refactoring needed
-
-**Effort:** Low (audit only, fixes may be needed)
-**Impact:** Ensures all zone subcommands support multiple providers
-
-
 ### Phase 40: Code Polish - Logging Verbosity (Post-1.0)
 
 **Objective:** Reduce excessive logging in dns_add_app_domains function.
