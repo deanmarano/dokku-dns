@@ -58,23 +58,24 @@ service-zones-cmd() {
 }
 
 zones_list_status() {
-  echo
-  dokku_log_info2 "DNS Zones Status (All Providers)"
-
   # Try multi-provider discovery first
   if discover_all_providers 2>/dev/null; then
+    echo
+    dokku_log_info2 "DNS Zones Status (All Providers)"
     zones_list_all_zones
     return 0
   fi
 
   # Fallback: Check if AWS CLI is available (for test compatibility)
   if command -v aws >/dev/null 2>&1 && aws sts get-caller-identity >/dev/null 2>&1; then
-    dokku_log_info2 "Provider: aws (legacy mode)"
+    echo
+    dokku_log_info2 "DNS Zones Status (AWS provider)"
     zones_list_aws_zones_legacy
     return 0
   fi
 
   # No providers available
+  echo
   dokku_log_warn "No DNS providers configured or accessible"
   echo
   dokku_log_info2 "Management Commands"
