@@ -211,64 +211,45 @@ zones_add_zone() {
 
   dokku_log_info2 "Adding zone to auto-discovery: $ZONE"
 
-  # Try multi-provider discovery first
-  if discover_all_providers 2>/dev/null; then
-    # Find which provider manages this zone
-    local PROVIDER
-    PROVIDER=$(find_provider_for_zone "$ZONE" 2>/dev/null)
-
-    if [[ -z "$PROVIDER" ]]; then
-      dokku_log_fail "Zone '$ZONE' not found in any configured provider. Available zones:"
-      # List all available zones from all providers
-      for provider_file in "$MULTI_PROVIDER_DATA/providers"/*; do
-        [[ ! -f "$provider_file" ]] && continue
-        local provider_name
-        provider_name=$(basename "$provider_file")
-        echo "  Provider: $provider_name"
-        while IFS= read -r zone; do
-          [[ -n "$zone" ]] && echo "    • $zone"
-        done < "$provider_file"
-      done
-      return 1
-    fi
-
-    # Load the provider and verify zone exists
-    if ! load_provider "$PROVIDER" 2>/dev/null; then
-      dokku_log_fail "Failed to load provider: $PROVIDER"
-    fi
-
-    local ZONE_ID
-    ZONE_ID=$(provider_get_zone_id "$ZONE" 2>/dev/null)
-
-    if [[ -z "$ZONE_ID" ]]; then
-      dokku_log_fail "Failed to verify zone '$ZONE' in provider $PROVIDER"
-    fi
-
-    # Mark zone as enabled for auto-discovery
-    zones_set_enabled "$ZONE"
-
-    dokku_log_info1 "Zone '$ZONE' added to auto-discovery (provider: $PROVIDER)"
-  # Fallback: Check if AWS CLI is available (for test compatibility)
-  elif command -v aws >/dev/null 2>&1 && aws sts get-caller-identity >/dev/null 2>&1; then
-    # Verify zone exists using AWS CLI directly
-    local ZONE_ID
-    ZONE_ID=$(aws route53 list-hosted-zones --query "HostedZones[?Name=='${ZONE}.'].Id" --output text 2>/dev/null | sed 's|/hostedzone/||')
-
-    if [[ -z "$ZONE_ID" ]] || [[ "$ZONE_ID" == "None" ]]; then
-      dokku_log_fail "Zone '$ZONE' not found in Route53. Available zones:"
-      aws route53 list-hosted-zones --query 'HostedZones[].Name' --output text 2>/dev/null | sed 's/\.$//g' | while read -r zone; do
-        echo "  • $zone"
-      done
-      return 1
-    fi
-
-    # Mark zone as enabled for auto-discovery
-    zones_set_enabled "$ZONE"
-
-    dokku_log_info1 "Zone '$ZONE' added to auto-discovery (provider: aws - legacy mode)"
-  else
+  if ! discover_all_providers 2>/dev/null; then
     dokku_log_fail "No DNS providers configured or accessible. Please configure at least one DNS provider."
   fi
+
+  # Find which provider manages this zone
+  local PROVIDER
+  PROVIDER=$(find_provider_for_zone "$ZONE" 2>/dev/null)
+
+  if [[ -z "$PROVIDER" ]]; then
+    dokku_log_fail "Zone '$ZONE' not found in any configured provider. Available zones:"
+    # List all available zones from all providers
+    for provider_file in "$MULTI_PROVIDER_DATA/providers"/*; do
+      [[ ! -f "$provider_file" ]] && continue
+      local provider_name
+      provider_name=$(basename "$provider_file")
+      echo "  Provider: $provider_name"
+      while IFS= read -r zone; do
+        [[ -n "$zone" ]] && echo "    • $zone"
+      done < "$provider_file"
+    done
+    return 1
+  fi
+
+  # Load the provider and verify zone exists
+  if ! load_provider "$PROVIDER" 2>/dev/null; then
+    dokku_log_fail "Failed to load provider: $PROVIDER"
+  fi
+
+  local ZONE_ID
+  ZONE_ID=$(provider_get_zone_id "$ZONE" 2>/dev/null)
+
+  if [[ -z "$ZONE_ID" ]]; then
+    dokku_log_fail "Failed to verify zone '$ZONE' in provider $PROVIDER"
+  fi
+
+  # Mark zone as enabled for auto-discovery
+  zones_set_enabled "$ZONE"
+
+  dokku_log_info1 "Zone '$ZONE' added to auto-discovery (provider: $PROVIDER)"
 
   # Show suggested next steps for apps with domains in this zone
   show_zone_enable_next_steps "$ZONE"
@@ -277,48 +258,31 @@ zones_add_zone() {
 zones_add_all() {
   dokku_log_info2 "Adding all zones to auto-discovery"
 
-  local zones_processed=0
-
-  # Try multi-provider discovery first
-  if discover_all_providers 2>/dev/null; then
-    # Iterate through all providers and enable their zones
-    for provider_file in "$MULTI_PROVIDER_DATA/providers"/*; do
-      [[ ! -f "$provider_file" ]] && continue
-
-      local provider_name
-      provider_name=$(basename "$provider_file")
-
-      # Get zones for this provider
-      while IFS= read -r zone; do
-        [[ -z "$zone" ]] && continue
-
-        dokku_log_info1 "Adding zone: $zone (provider: $provider_name)"
-        zones_processed=$((zones_processed + 1))
-
-        # Add this zone to auto-discovery
-        zones_set_enabled "$zone"
-        echo
-      done < "$provider_file"
-    done
-  # Fallback: Check if AWS CLI is available (for test compatibility)
-  elif command -v aws >/dev/null 2>&1 && aws sts get-caller-identity >/dev/null 2>&1; then
-    # Get all zones using AWS CLI directly
-    local ZONES
-    ZONES=$(aws route53 list-hosted-zones --query 'HostedZones[].Name' --output text 2>/dev/null | tr '\t' ' ' | sed 's/\.$//g')
-
-    if [[ -n "$ZONES" ]]; then
-      for zone in $ZONES; do
-        dokku_log_info1 "Adding zone: $zone (provider: aws - legacy mode)"
-        zones_processed=$((zones_processed + 1))
-
-        # Add this zone to auto-discovery
-        zones_set_enabled "$zone"
-        echo
-      done
-    fi
-  else
+  if ! discover_all_providers 2>/dev/null; then
     dokku_log_fail "No DNS providers configured or accessible. Please configure at least one DNS provider."
   fi
+
+  local zones_processed=0
+
+  # Iterate through all providers and enable their zones
+  for provider_file in "$MULTI_PROVIDER_DATA/providers"/*; do
+    [[ ! -f "$provider_file" ]] && continue
+
+    local provider_name
+    provider_name=$(basename "$provider_file")
+
+    # Get zones for this provider
+    while IFS= read -r zone; do
+      [[ -z "$zone" ]] && continue
+
+      dokku_log_info1 "Adding zone: $zone (provider: $provider_name)"
+      zones_processed=$((zones_processed + 1))
+
+      # Add this zone to auto-discovery
+      zones_set_enabled "$zone"
+      echo
+    done < "$provider_file"
+  done
 
   if [[ $zones_processed -eq 0 ]]; then
     dokku_log_info1 "No zones found in any configured provider"
