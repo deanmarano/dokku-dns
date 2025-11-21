@@ -301,24 +301,29 @@ EOF
 
 @test "(dns:zones) works with AWS provider (always configured)" {
   create_mock_aws
+  setup_multi_provider_test_data "aws" "example.com" "test.org"
+
   dns_zones
   assert_success
-  assert_output_contains "AWS"
+  assert_output_contains "aws"
 }
 
 @test "(dns:zones) lists AWS zones when provider configured" {
   setup_mock_provider "aws"
   create_mock_aws
+  setup_multi_provider_test_data "aws" "example.com" "test.org"
 
   dns_zones
   assert_success
-  assert_output_contains "DNS Zones Status (AWS provider)"
+  assert_output_contains "DNS Zones Status (All Providers)"
+  assert_output_contains "Provider: aws"
   assert_output_contains "example.com"
   assert_output_contains "test.org"
 }
 
 @test "(dns:zones) AWS zones work properly" {
   create_mock_aws
+  setup_multi_provider_test_data "aws" "example.com" "test.org"
 
   dns_zones
   assert_success
@@ -327,10 +332,11 @@ EOF
 
 @test "(dns:zones) works with AWS provider only" {
   create_mock_aws
+  setup_multi_provider_test_data "aws" "example.com" "test.org"
 
   dns_zones
   assert_success
-  assert_output_contains "AWS"
+  assert_output_contains "aws"
 }
 
 @test "(dns:zones:enable) requires zone name argument" {
@@ -417,6 +423,7 @@ EOF
 @test "(dns:zones) shows management commands" {
   setup_mock_provider "aws"
   create_mock_aws
+  setup_multi_provider_test_data "aws" "example.com" "test.org"
 
   dns_zones
   assert_success
@@ -425,6 +432,7 @@ EOF
 @test "(dns:zones) handles zones with managed domains" {
   setup_mock_provider "aws"
   create_mock_aws
+  setup_multi_provider_test_data "aws" "example.com" "test.org"
 
   # Setup some managed domains
   mkdir -p "$PLUGIN_DATA_ROOT/app1"
@@ -611,6 +619,7 @@ assert_file_contains() {
 @test "(dns:zones) shows zones status by default" {
   setup_mock_provider "aws"
   create_mock_aws
+  setup_multi_provider_test_data "aws" "example.com" "test.org"
 
   dns_zones
   assert_success
