@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Logging fallback functions for dokku-dns plugin
+# These functions are used when Dokku's logging functions are not available
+
+# Define fallback logging functions if not already defined by Dokku
+if ! declare -f dokku_log_info1 >/dev/null 2>&1; then
+  dokku_log_info1() { echo "-----> $*"; }
+fi
+
+if ! declare -f dokku_log_info2 >/dev/null 2>&1; then
+  dokku_log_info2() { echo "=====> $*"; }
+fi
+
+if ! declare -f dokku_log_warn >/dev/null 2>&1; then
+  dokku_log_warn() { echo " !     $*"; }
+fi
+
+if ! declare -f dokku_log_fail >/dev/null 2>&1; then
+  dokku_log_fail() { echo " !     $*" >&2; exit 1; }
+fi

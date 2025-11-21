@@ -31,7 +31,7 @@ The plugin is built as a shell-based Dokku service plugin that manages DNS confi
 
 **Configuration Files:**
 - `config` - Plugin configuration with environment variables and constants
-- `common-functions` - Shared utility functions across all subcommands
+- `log-functions` - Fallback logging functions (dokku_log_info1, etc.)
 - `functions` - Main service logic (create, start, stop, link, unlink operations)
 
 **Service Structure:**
@@ -97,7 +97,7 @@ dokku dns:help                                     # Show all available commands
 2. **plugin.toml** - Update plugin description and metadata
 3. **functions** - DNS-specific logic for domain management
 4. **subcommands/** - Adapt each subcommand for DNS functionality
-5. **common-functions** - Add DNS-specific utility functions
+5. **log-functions** - Fallback logging functions for compatibility
 
 ## DNS Backend Integration
 

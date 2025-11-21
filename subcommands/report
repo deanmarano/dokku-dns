@@ -22,18 +22,6 @@ if ! declare -f verify_app_name >/dev/null 2>&1; then
   }
 fi
 
-if ! declare -f dokku_log_info1 >/dev/null 2>&1; then
-  dokku_log_info1() { echo "-----> $*"; }
-fi
-
-if ! declare -f dokku_log_info2 >/dev/null 2>&1; then
-  dokku_log_info2() { echo "=====> $*"; }
-fi
-
-if ! declare -f dokku_log_warn >/dev/null 2>&1; then
-  dokku_log_warn() { echo " !     $*"; }
-fi
-
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
 
 service-report-cmd() {

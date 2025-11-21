@@ -3,19 +3,6 @@
 The DNS plugin is in progress! Many core features have been implemented and tested. See [DONE.md](./DONE.md) for completed work.
 
 
-### Phase 36: Create Common Functions File (Post-1.0)
-
-**Objective:** Eliminate duplicate logging function definitions across 10+ files.
-
-- [ ] Create new `common-functions` file with standard fallback functions
-- [ ] Move dokku_log_info1, dokku_log_info2, dokku_log_warn, dokku_log_fail definitions
-- [ ] Update all files to source common-functions instead of duplicating
-- [ ] Remove duplicate function definitions from commands, subcommands, hooks
-
-**Effort:** Medium (many files to update)
-**Impact:** Reduces code duplication, ensures consistent logging behavior
-
-
 ### Phase 37: Refactor zones Subcommand to Multi-Provider (Post-1.0)
 
 **Objective:** Make zones subcommand work with all providers, not just AWS.

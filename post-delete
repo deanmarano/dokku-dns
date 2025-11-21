@@ -14,19 +14,6 @@ if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
   source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
 fi
 
-# Define missing functions if needed
-if ! declare -f dokku_log_info1 >/dev/null 2>&1; then
-  dokku_log_info1() { echo "-----> $*"; }
-fi
-
-if ! declare -f dokku_log_info2 >/dev/null 2>&1; then
-  dokku_log_info2() { echo "=====> $*"; }
-fi
-
-if ! declare -f dokku_log_warn >/dev/null 2>&1; then
-  dokku_log_warn() { echo " !     $*"; }
-fi
-
 # Load plugin functions
 TRIGGER_BASE_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$TRIGGER_BASE_PATH/functions"

@@ -8,14 +8,8 @@ if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
   source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
 fi
 
-# Define missing functions if needed (for testing)
-if ! declare -f dokku_log_info1 >/dev/null 2>&1; then
-  dokku_log_info1() { echo "-----> $*"; }
-fi
-
-if ! declare -f dokku_log_info2 >/dev/null 2>&1; then
-  dokku_log_info2() { echo "=====> $*"; }
-fi
+# Load logging fallback functions
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/log-functions"
 
 dns-triggers-enable-cmd() {
   declare desc="enable automatic DNS management for app lifecycle events"
