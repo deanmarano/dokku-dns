@@ -220,7 +220,7 @@ zones_add_zone() {
   PROVIDER=$(find_provider_for_zone "$ZONE" 2>/dev/null)
 
   if [[ -z "$PROVIDER" ]]; then
-    dokku_log_fail "Zone '$ZONE' not found in any configured provider. Available zones:"
+    echo " !     Zone '$ZONE' not found in any configured provider. Available zones:"
     # List all available zones from all providers
     for provider_file in "$MULTI_PROVIDER_DATA/providers"/*; do
       [[ ! -f "$provider_file" ]] && continue
@@ -231,7 +231,7 @@ zones_add_zone() {
         [[ -n "$zone" ]] && echo "    • $zone"
       done < "$provider_file"
     done
-    return 1
+    exit 1
   fi
 
   # Load the provider and verify zone exists
