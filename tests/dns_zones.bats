@@ -398,7 +398,7 @@ EOF
 
   dns_zones_add "nonexistent.com"
   assert_failure
-  assert_output_contains "Zone 'nonexistent.com' not found in Route53"
+  assert_output_contains "Zone 'nonexistent.com' not found in any configured provider"
 }
 
 @test "(dns:zones:enable) works with valid zone" {
@@ -479,7 +479,7 @@ EOF
 
   dns_zones nonexistent.com
   assert_failure
-  assert_output_contains "Zone 'nonexistent.com' not found in Route53"
+  assert_output_contains "Zone 'nonexistent.com' not found in any configured provider"
 }
 
 @test "(dns:zones) handles unknown flag" {
