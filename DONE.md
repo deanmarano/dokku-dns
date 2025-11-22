@@ -2811,3 +2811,149 @@ Phase 36 successfully consolidated all logging function definitions into a singl
 
 **Pull Request**: #[TBD]
 
+## Phase 37 & 38: Refactor zones Commands to Multi-Provider - COMPLETED ✅
+
+**Completion Date**: 2025-11-21  
+**Phases Combined**: Phase 37 (zones subcommand) + Phase 38 (zones:enable subcommand)  
+**Why Combined**: Both phases refactored zone management commands to use multi-provider system
+
+**Objective**: Make `zones` and `zones:enable` commands work with all DNS providers (AWS Route53, Cloudflare, DigitalOcean), not just AWS.
+
+**Problem Solved**:
+The `zones` and `zones:enable` subcommands were hardcoded to use AWS Route53 only, with direct AWS CLI calls throughout the code. This prevented users with Cloudflare or DigitalOcean DNS from managing their zones through the plugin.
+
+**Implementation**:
+
+### Phase 37: zones Subcommand
+
+1. **Added multi-provider sourcing**:
+   - Loaded `providers/multi-provider.sh` system
+   - Enabled provider discovery and zone routing
+
+2. **Replaced `zones_list_status()` function**:
+   - **Before**: Hardcoded "AWS provider" message, called AWS-specific function
+   - **After**: Calls `discover_all_providers()` to find all configured providers
+   - Shows "All Providers" instead of just AWS
+
+3. **Replaced `zones_list_aws_zones()` with `zones_list_all_zones()`**:
+   - **Before**: Direct AWS CLI calls to `aws route53 list-hosted-zones`
+   - **After**: Iterates through discovered provider files in `$MULTI_PROVIDER_DATA/providers/*`
+   - For each provider, loads it and displays its zones
+   - Shows provider name alongside each zone group
+
+4. **Removed `zones_list_cloudflare_zones()` stub**:
+   - Eliminated warning function that said Cloudflare not supported
+   - No longer needed with multi-provider support
+
+5. **Updated `zones_show_zone()` function**:
+   - **Before**: Hardcoded AWS provider, AWS CLI validation, direct AWS CLI calls
+   - **After**: Uses `find_provider_for_zone()` to locate zone's provider dynamically
+   - Uses `provider_get_zone_id()` instead of AWS CLI
+   - Shows provider name in zone details
+   - Removed AWS-specific information (record count, nameservers, private zone status)
+
+### Phase 38: zones:enable Subcommand
+
+1. **Added multi-provider sourcing**:
+   - Same as Phase 37 - loaded multi-provider system
+
+2. **Refactored `zones_add_zone()` function**:
+   - **Before**: AWS dependency validation, direct `aws route53 list-hosted-zones` calls
+   - **After**: Calls `discover_all_providers()` to verify zone exists
+   - Uses `find_provider_for_zone()` to determine which provider manages the zone
+   - Uses `provider_get_zone_id()` through provider interface
+   - Shows provider name when zone is enabled
+
+3. **Refactored `zones_add_all()` function**:
+   - **Before**: Direct `aws route53 list-hosted-zones` to get all AWS zones
+   - **After**: Iterates through all provider files in `$MULTI_PROVIDER_DATA/providers/*`
+   - Enables zones from all configured providers, not just AWS
+   - Shows provider name for each zone being enabled
+
+**Changes Summary**:
+
+**Files Modified**:
+- `subcommands/zones` - Complete multi-provider refactor
+- `subcommands/zones:enable` - Complete multi-provider refactor
+
+**Functions Replaced**:
+- `zones_list_aws_zones()` → `zones_list_all_zones()` (provider-agnostic)
+- `zones_list_cloudflare_zones()` → removed (no longer needed)
+- Updated: `zones_list_status()`, `zones_show_zone()`, `zones_add_zone()`, `zones_add_all()`
+
+**AWS CLI Calls Eliminated**:
+- `aws route53 list-hosted-zones` - 7 occurrences removed
+- `aws route53 get-hosted-zone` - 4 occurrences removed
+- `aws sts get-caller-identity` - 4 occurrences removed
+
+**Multi-Provider Functions Used**:
+- `discover_all_providers()` - Auto-discovers all configured providers and their zones
+- `find_provider_for_zone()` - Determines which provider manages a specific zone
+- `provider_get_zone_id()` - Gets zone ID through provider interface
+- Provider file iteration - Reads from `$MULTI_PROVIDER_DATA/providers/*`
+
+**Testing**:
+- ✅ Linting passes (shellcheck)
+- ✅ No syntax errors
+- ⏳ Integration tests to be updated for multi-provider scenarios
+
+**Impact**:
+
+- 🌍 **Multi-provider support**: Users can now manage zones from AWS, Cloudflare, and DigitalOcean
+- 🔄 **Automatic detection**: Plugin discovers which provider manages each zone
+- 📊 **Unified interface**: Same commands work across all providers
+- 🎯 **Provider transparency**: User sees which provider manages each zone
+- 🔧 **Future-proof**: Easy to add new providers without changing zone commands
+
+**Architecture Improvement**:
+
+**Before (AWS-only)**:
+```
+zones commands → AWS CLI → AWS Route53 only
+```
+
+**After (Multi-provider)**:
+```
+zones commands → discover_all_providers() → {AWS, Cloudflare, DigitalOcean}
+               → find_provider_for_zone() → correct provider
+               → provider interface → provider-specific API
+```
+
+**Example Usage**:
+
+```bash
+# List all zones from all providers
+$ dokku dns:zones
+DNS Zones Status (All Providers)
+
+Provider: aws
+  ENABLED example.com (Z123ABC) - ACTIVE
+    Managed domains (2): www.example.com, api.example.com
+
+Provider: cloudflare  
+  ENABLED test.io (abc123) - available
+
+# Enable a zone (automatically detects provider)
+$ dokku dns:zones:enable example.com
+Adding zone to auto-discovery: example.com
+Zone 'example.com' added to auto-discovery (provider: aws)
+
+# Enable all zones from all providers
+$ dokku dns:zones:enable --all
+Adding all zones to auto-discovery
+Adding zone: example.com (provider: aws)
+Adding zone: test.io (provider: cloudflare)
+Zones added to auto-discovery: 2
+```
+
+**Metrics**:
+- **Providers supported**: 3 (AWS Route53, Cloudflare, DigitalOcean)
+- **AWS-only dependencies removed**: 15 direct AWS CLI calls
+- **Functions refactored**: 6
+- **Code now provider-agnostic**: 100% of zone management commands
+
+**Conclusion**:
+Phases 37 & 38 successfully transformed the zone management commands from AWS-only to fully multi-provider. Users can now manage zones across multiple DNS providers using the same commands, with automatic provider detection and routing. This eliminates vendor lock-in and provides flexibility for teams using multiple DNS providers.
+
+**Pull Request**: #[TBD]
+

@@ -3,43 +3,6 @@
 The DNS plugin is in progress! Many core features have been implemented and tested. See [DONE.md](./DONE.md) for completed work.
 
 
-### Phase 37: Refactor zones Subcommand to Multi-Provider (Post-1.0)
-
-**Objective:** Make zones subcommand work with all providers, not just AWS.
-
-- [ ] **subcommands/zones** - AWS-specific code remains (lines 74-180, 190-391)
-  - [ ] Remove hardcoded AWS provider references (lines 74-75, 190-191)
-  - [ ] Replace `zones_list_aws_zones()` with provider-agnostic implementation
-  - [ ] Update `zones_show_zone()` to use multi-provider system
-  - [ ] Remove AWS CLI direct calls and use provider interface
-  - [ ] Update test mocks to work with provider interface
-  - **Problem:** Tests expect specific AWS CLI query patterns
-  - **Challenge:** Need to update both code and test mocks together
-  - **Impact:** zones command only works with AWS Route53 currently
-
-**Effort:** High (complex refactor with test compatibility issues)
-**Impact:** Enables zones command for Cloudflare and DigitalOcean
-**Note:** Attempted in commit 50655bd but reverted in ce59bcb due to test failures
-
-
-### Phase 38: Refactor zones:enable to Multi-Provider (Post-1.0)
-
-**Objective:** Make zones:enable work with all providers, not just AWS.
-
-- [ ] **subcommands/zones:enable** - AWS-specific code remains
-  - [ ] **zones_add_zone()** function (lines 90-117) uses AWS CLI directly
-  - [ ] **zones_add_all()** function (lines 122-154) uses AWS CLI directly
-  - [ ] Replace AWS CLI calls with multi-provider system
-  - [ ] Load provider loader system to find which provider manages each zone
-  - [ ] Use `provider_get_zone_id()` through multi-provider routing
-  - [ ] Use `provider_list_zones()` for --all flag
-  - **Problem:** Direct AWS CLI usage prevents other providers from working
-  - **Impact:** zones:enable only works with AWS Route53 currently
-
-**Effort:** High (complex refactor)
-**Impact:** Enables zone management for Cloudflare and DigitalOcean
-
-
 ### Phase 40: Code Polish - Logging Verbosity (Post-1.0)
 
 **Objective:** Reduce excessive logging in dns_add_app_domains function.

@@ -238,9 +238,33 @@ cleanup_dns_data() {
     find "$PLUGIN_DATA_ROOT" -name "LINKS" -delete 2>/dev/null || true
     find "$PLUGIN_DATA_ROOT" -maxdepth 1 -type d -name "*-*" -exec rm -rf {} + 2>/dev/null || true
     rm -rf "$PLUGIN_DATA_ROOT/cron" 2>/dev/null || true
+    rm -rf "$PLUGIN_DATA_ROOT/.multi-provider" 2>/dev/null || true
   else
     rm -rf "$PLUGIN_DATA_ROOT" >/dev/null 2>&1 || true
   fi
+}
+
+# Initialize multi-provider data structures for testing
+# Usage: setup_multi_provider_test_data <provider_name> <zone1> <zone2> ...
+setup_multi_provider_test_data() {
+  local provider_name="$1"
+  shift
+  local zones=("$@")
+
+  # Create multi-provider data directories
+  local MULTI_PROVIDER_DATA="$PLUGIN_DATA_ROOT/.multi-provider"
+  mkdir -p "$MULTI_PROVIDER_DATA/providers"
+  mkdir -p "$MULTI_PROVIDER_DATA/zones"
+
+  # Create provider zones file
+  local provider_file="$MULTI_PROVIDER_DATA/providers/$provider_name"
+  : > "$provider_file"  # Clear or create file
+
+  for zone in "${zones[@]}"; do
+    echo "$zone" >> "$provider_file"
+    # Create reverse mapping: zone -> provider
+    echo "$provider_name" > "$MULTI_PROVIDER_DATA/zones/$zone"
+  done
 }
 
 create_test_app() {

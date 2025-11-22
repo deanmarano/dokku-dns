@@ -77,6 +77,31 @@ ZONES_DATA
     "route53 list-hosted-zones --query HostedZones[].Name --output text")
         echo -e "example.com.\ttest.org."
         ;;
+    "route53 list-hosted-zones --output json")
+        cat << 'JSON_ZONES'
+{
+  "HostedZones": [
+    {
+      "Id": "/hostedzone/Z123456789ABCDEF",
+      "Name": "example.com.",
+      "ResourceRecordSetCount": 5,
+      "Config": {
+        "Comment": "Primary domain zone",
+        "PrivateZone": false
+      }
+    },
+    {
+      "Id": "/hostedzone/Z987654321ZYXWVU",
+      "Name": "test.org.",
+      "ResourceRecordSetCount": 3,
+      "Config": {
+        "PrivateZone": false
+      }
+    }
+  ]
+}
+JSON_ZONES
+        ;;
     "route53 list-resource-record-sets --hosted-zone-id Z123456789ABCDEF --query ResourceRecordSets[?Type==\`A\`].Name --output text")
         echo -e "app1.example.com.\tapi.example.com.\twww.example.com."
         ;;
@@ -301,9 +326,10 @@ EOF
 
 @test "(dns:zones) works with AWS provider (always configured)" {
   create_mock_aws
+
   dns_zones
   assert_success
-  assert_output_contains "AWS"
+  assert_output_contains "aws"
 }
 
 @test "(dns:zones) lists AWS zones when provider configured" {
@@ -312,7 +338,8 @@ EOF
 
   dns_zones
   assert_success
-  assert_output_contains "DNS Zones Status (AWS provider)"
+  assert_output_contains "DNS Zones Status (All Providers)"
+  assert_output_contains "Provider: aws"
   assert_output_contains "example.com"
   assert_output_contains "test.org"
 }
@@ -330,7 +357,7 @@ EOF
 
   dns_zones
   assert_success
-  assert_output_contains "AWS"
+  assert_output_contains "aws"
 }
 
 @test "(dns:zones:enable) requires zone name argument" {
@@ -371,7 +398,7 @@ EOF
 
   dns_zones_add "nonexistent.com"
   assert_failure
-  assert_output_contains "Zone 'nonexistent.com' not found in Route53"
+  assert_output_contains "Zone 'nonexistent.com' not found in any configured provider"
 }
 
 @test "(dns:zones:enable) works with valid zone" {
@@ -452,7 +479,7 @@ EOF
 
   dns_zones nonexistent.com
   assert_failure
-  assert_output_contains "Zone 'nonexistent.com' not found in Route53"
+  assert_output_contains "Zone 'nonexistent.com' not found in any configured provider"
 }
 
 @test "(dns:zones) handles unknown flag" {
