@@ -66,19 +66,6 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - [ ] Design feature request evaluation and roadmap integration
 
 
-### Phase 45: Improve Provider Documentation (Post-1.0)
-
-**Objective:** Add detailed comments to complex provider code.
-
-- [x] Add detailed comments to providers/aws/provider.sh:8-28
-- [x] Document complex regex patterns and jq operations
-- [x] Add function-level documentation for internal helpers
-- [x] Document expected inputs, outputs, and side effects
-
-**Effort:** Low (documentation only)
-**Impact:** Improves code comprehension for contributors
-
-
 ### Phase 46: Standardize Function Naming (Post-1.0)
 
 **Objective:** Create consistent naming conventions across the codebase.
