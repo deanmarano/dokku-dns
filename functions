@@ -423,8 +423,8 @@ dns_add_app_domains() {
     if [[ ! -f "$PROVIDER_SCRIPT" ]]; then
       dokku_log_warn "Provider script not found - adding all new domains without validation"
     else
-      log_domain_check "Provider system not available or not configured - adding all new domains without zone validation"
-      log_domain_check "Run 'dokku $PLUGIN_COMMAND_PREFIX:providers:verify' to configure provider credentials for zone validation"
+      dokku_log_info1 "Provider system not available or not configured - adding all new domains without zone validation"
+      dokku_log_info1 "Run 'dokku $PLUGIN_COMMAND_PREFIX:providers:verify' to configure provider credentials for zone validation"
     fi
     VALID_DOMAINS=("${NEW_DOMAINS[@]}")
   fi
