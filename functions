@@ -395,7 +395,7 @@ dns_add_app_domains() {
 
   if [[ -f "$ADAPTER_PATH" ]] && [[ "$PROVIDER_AVAILABLE" == "true" ]]; then
     # Provider system is available - check zones for domain validation
-    log_domain_check "Provider system ready - checking zones for new domains..."
+    dokku_log_info1 "Provider system ready - checking zones for new domains..."
 
     for DOMAIN in "${NEW_DOMAINS[@]}"; do
       [[ -z "$DOMAIN" ]] && continue
