@@ -15,23 +15,6 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/log-functions"
 # DNS-specific functions
 # These functions are available to other plugins that source this file
 
-# Check if verbose logging is enabled
-# Returns: 0 if enabled, 1 if not
-is_verbose_enabled() {
-  [[ "${DNS_VERBOSE:-}" == "1" ]] || [[ "${DNS_VERBOSE:-}" == "true" ]]
-}
-
-# Conditional verbose logging for domain operations
-# Usage: log_domain_check <message>
-# Only outputs if DNS_VERBOSE is set to 1 or true
-log_domain_check() {
-  local message="$1"
-
-  if is_verbose_enabled; then
-    dokku_log_info1 "$message"
-  fi
-}
-
 # Get DNS TTL configuration value
 # Usage: get_dns_ttl_config <key>
 # Returns: TTL value from dokku config, or default
@@ -340,7 +323,7 @@ dns_add_app_domains() {
 
   # Show status of already-added domains
   if [[ ${#ALREADY_ADDED_DOMAINS[@]} -gt 0 ]]; then
-    log_domain_check "Already added domains for app '$APP':"
+    dokku_log_info1 "Already added domains for app '$APP':"
     for DOMAIN in "${ALREADY_ADDED_DOMAINS[@]}"; do
       # Only show if it's in the current request
       local SHOW_DOMAIN=false
@@ -352,12 +335,10 @@ dns_add_app_domains() {
       done
 
       if [[ "$SHOW_DOMAIN" == true ]]; then
-        log_domain_check "  ✓ $DOMAIN (already in DNS management)"
+        dokku_log_info1 "  ✓ $DOMAIN (already in DNS management)"
       fi
     done
-    if is_verbose_enabled; then
-      echo
-    fi
+    echo
   fi
 
   # If no new domains to add, show message and exit
@@ -370,19 +351,17 @@ dns_add_app_domains() {
     return 0
   fi
 
-  log_domain_check "Processing ${#NEW_DOMAINS[@]} new domain(s) for app '$APP':"
+  dokku_log_info1 "Processing ${#NEW_DOMAINS[@]} new domain(s) for app '$APP':"
   for domain in "${NEW_DOMAINS[@]}"; do
-    log_domain_check "  • $domain"
+    dokku_log_info1 "  • $domain"
   done
-  if is_verbose_enabled; then
-    echo
-  fi
+  echo
 
   # Filter new domains to only include those with hosted zones
   local VALID_DOMAINS=()
   local SKIPPED_DOMAINS=()
 
-  log_domain_check "Filtering domains - Using provider system, New domains: ${#NEW_DOMAINS[@]}"
+  dokku_log_info1 "Filtering domains - Using provider system, New domains: ${#NEW_DOMAINS[@]}"
 
   # Load provider adapter system
   local ADAPTER_PATH
@@ -405,28 +384,32 @@ dns_add_app_domains() {
     for DOMAIN in "${NEW_DOMAINS[@]}"; do
       [[ -z "$DOMAIN" ]] && continue
 
-      log_domain_check "Checking domain: $DOMAIN"
+      dokku_log_info1 "Checking domain: $DOMAIN"
       # Check if domain can be managed by any provider
       if dns_validate_domain "$DOMAIN"; then
         # Check if this domain is in an enabled zone
         if is_domain_in_enabled_zone "$DOMAIN"; then
           VALID_DOMAINS+=("$DOMAIN")
-          log_domain_check "✓ $DOMAIN can be managed (zone enabled)"
+          dokku_log_info1 "✓ $DOMAIN can be managed (zone enabled)"
         else
           SKIPPED_DOMAINS+=("$DOMAIN")
-          log_domain_check "✗ $DOMAIN can be managed but zone is not enabled for auto-discovery"
+          dokku_log_info1 "✗ $DOMAIN can be managed but zone is not enabled for auto-discovery"
         fi
       else
         SKIPPED_DOMAINS+=("$DOMAIN")
-        log_domain_check "✗ $DOMAIN cannot be managed (no provider zone found)"
+        dokku_log_info1 "✗ $DOMAIN cannot be managed (no provider zone found)"
       fi
-      log_domain_check "Finished checking domain: $DOMAIN"
+      dokku_log_info1 "Finished checking domain: $DOMAIN"
     done
-    log_domain_check "Completed zone checks for all domains"
+    dokku_log_info1 "Completed zone checks for all domains"
   else
-    # Provider system not available/configured - skip validation
-    dokku_log_info1 "Provider system not available or not configured - adding all new domains without zone validation"
-    dokku_log_info1 "Run 'dokku $PLUGIN_COMMAND_PREFIX:providers:verify' to configure provider credentials for zone validation"
+    # Provider system not available/configured or provider script missing - skip validation
+    if [[ ! -f "$PROVIDER_SCRIPT" ]]; then
+      dokku_log_warn "Provider script not found - adding all new domains without validation"
+    else
+      dokku_log_info1 "Provider system not available or not configured - adding all new domains without zone validation"
+      dokku_log_info1 "Run 'dokku $PLUGIN_COMMAND_PREFIX:providers:verify' to configure provider credentials for zone validation"
+    fi
     VALID_DOMAINS=("${NEW_DOMAINS[@]}")
   fi
 
