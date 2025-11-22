@@ -174,6 +174,9 @@ zones_show_zone() {
   fi
 
   # Find provider for this zone
+  # Note: || true is required because with set -eo pipefail, command substitution
+  # in assignments will exit if the command returns non-zero. find_provider_for_zone
+  # returns 1 when zone is not found, which is a valid case we handle below.
   local PROVIDER
   PROVIDER=$(find_provider_for_zone "$ZONE" 2>/dev/null || true)
 
@@ -188,7 +191,6 @@ zones_show_zone() {
 
   echo
   dokku_log_info2 "DNS Zone Details: $ZONE"
-  dokku_log_info1 "Provider: $PROVIDER"
 
   # Get zone ID from provider
   local ZONE_ID

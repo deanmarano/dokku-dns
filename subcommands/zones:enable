@@ -216,6 +216,9 @@ zones_add_zone() {
   fi
 
   # Find which provider manages this zone
+  # Note: || true is required because with set -eo pipefail, command substitution
+  # in assignments will exit if the command returns non-zero. find_provider_for_zone
+  # returns 1 when zone is not found, which is a valid case we handle below.
   local PROVIDER
   PROVIDER=$(find_provider_for_zone "$ZONE" 2>/dev/null || true)
 
