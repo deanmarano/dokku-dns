@@ -18,12 +18,12 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/log-functions"
 # Check if verbose logging is enabled
 # Returns: 0 if enabled, 1 if not
 is_verbose_enabled() {
-  [[ "${DNS_VERBOSE:-}" == "1" ]] || [[ "${DNS_VERBOSE:-}" == "true" ]]
+  [[ "${VERBOSE:-false}" == "true" ]]
 }
 
 # Conditional verbose logging for domain operations
 # Usage: log_domain_check <message>
-# Only outputs if DNS_VERBOSE is set to 1 or true
+# Only outputs if --verbose flag is set
 log_domain_check() {
   local message="$1"
 
