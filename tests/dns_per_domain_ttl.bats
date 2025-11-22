@@ -37,7 +37,8 @@ teardown() {
   run dns_cmd apps:enable ttl-test-app test1.example.com --ttl 1800
   # Command may exit with 1 due to no hosted zones, but should show TTL in output
   assert_output_contains "Adding specified domains for app 'ttl-test-app' with TTL 1800 seconds"
-  assert_output_contains "test1.example.com" 7
+  # Note: Reduced from 7 to 3 due to verbose logging being conditional (DNS_VERBOSE)
+  assert_output_contains "test1.example.com" 3
 
   cleanup_test_app ttl-test-app
 }
@@ -155,8 +156,9 @@ teardown() {
   run dns_cmd apps:enable ttl-test-app test1.example.com test2.example.com --ttl 900
   # Command may exit with 1 due to no hosted zones, but should show TTL in output
   assert_output_contains "Adding specified domains for app 'ttl-test-app' with TTL 900 seconds"
-  assert_output_contains "test1.example.com" 7
-  assert_output_contains "test2.example.com" 7
+  # Note: Reduced from 7 to 3 due to verbose logging being conditional (DNS_VERBOSE)
+  assert_output_contains "test1.example.com" 3
+  assert_output_contains "test2.example.com" 3
 
   cleanup_test_app ttl-test-app
 }
