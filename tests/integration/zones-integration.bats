@@ -22,10 +22,11 @@ teardown() {
   [[ "$output" =~ (Zones|zone|DISABLED|aws|provider|AWS\ CLI) ]]
 }
 
-@test "(dns:zones) shows AWS CLI requirement when not configured" {
+@test "(dns:zones) shows provider information" {
   run dokku dns:zones
-  # Command may fail if AWS CLI not available, that's expected
-  assert_output --partial "AWS"
+  # Should show provider information (mock, aws, or other providers)
+  assert_success
+  assert_output --regexp "(provider|Provider|PROVIDER|mock|aws)"
 }
 
 @test "(dns:zones:enable) requires zone name argument" {
@@ -135,15 +136,12 @@ teardown() {
   assert_output --partial "Removing all zones from auto-discovery"
 }
 
-@test "(dns:zones:enable) shows AWS CLI requirement when not available" {
-  # Only run if AWS CLI is NOT available
-  if command -v aws >/dev/null 2>&1 && aws sts get-caller-identity >/dev/null 2>&1; then
-    skip "AWS CLI is available and configured"
-  fi
-
+@test "(dns:zones:enable) works with available providers" {
+  # With multi-provider system, this should work with any available provider (mock, aws, etc.)
   run dokku dns:zones:enable example.com
-  # Should fail and show AWS CLI requirement
-  assert_output --partial "AWS CLI is not installed"
+  # Should succeed with any available provider
+  assert_success
+  assert_output --partial "added to auto-discovery"
 }
 
 @test "(dns:zones:disable) works without AWS CLI" {
@@ -157,15 +155,12 @@ teardown() {
   assert_output --partial "removed from auto-discovery"
 }
 
-@test "(dns:zones:enable --all) shows AWS CLI requirement when not available" {
-  # Only run if AWS CLI is NOT available
-  if command -v aws >/dev/null 2>&1 && aws sts get-caller-identity >/dev/null 2>&1; then
-    skip "AWS CLI is available and configured"
-  fi
-
+@test "(dns:zones:enable --all) works with available providers" {
+  # With multi-provider system, this should work with any available provider (mock, aws, etc.)
   run dokku dns:zones:enable --all
-  # Should fail and show AWS CLI requirement
-  assert_output --partial "AWS CLI is not installed"
+  # Should succeed with any available provider
+  assert_success
+  assert_output --partial "Adding all zones to auto-discovery"
 }
 
 @test "(dns:zones:disable --all) works without AWS CLI" {
