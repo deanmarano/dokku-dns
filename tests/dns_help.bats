@@ -49,7 +49,7 @@ teardown() {
   run dokku "$PLUGIN_COMMAND_PREFIX:help" "apps:enable"
   assert_success
   assert_output_contains "usage"
-  assert_output_contains "dns:apps:enable" 5
+  assert_output_contains "dns:apps:enable" 6
   assert_output_contains "enable DNS management for an application" 2
 }
 

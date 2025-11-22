@@ -7,13 +7,13 @@ The DNS plugin is in progress! Many core features have been implemented and test
 
 **Objective:** Reduce excessive logging in dns_add_app_domains function.
 
-- [ ] Extract logging from functions:347-397 (dns_add_app_domains)
-- [ ] Create `log_domain_check` helper for conditional verbose logging
-- [ ] Add DNS_VERBOSE environment variable support
-- [ ] Reduce function to <80 lines by extracting logging
+- [x] Extract logging from functions:347-397 (dns_add_app_domains)
+- [x] Create `log_domain_check` helper for conditional verbose logging
+- [x] Add --verbose flag support to dns:apps:enable
+- [x] Add is_verbose_enabled helper to reduce duplication
 
 **Effort:** Medium (requires careful refactoring)
-**Impact:** Improves code readability, optional verbose output
+**Impact:** Improves code readability, optional verbose output with --verbose flag
 
 
 ### Phase 41: Simplify Complex Conditionals (Post-1.0)
