@@ -40,7 +40,6 @@ teardown() {
   [[ "$output" =~ example\.com ]]
   [[ "$output" =~ api\.example\.com ]]
   assert_output_contains "No (zone disabled)" 2 # Both domains in same zone - multi-provider finds parent zone
-  # Note: "Provider system ready" message is now verbose-only (DNS_VERBOSE=1)
   assert_output_contains "Status Legend:"
   assert_output_contains "✅ Points to server IP"
   assert_output_contains "⚠️  Points to different IP"
@@ -55,7 +54,6 @@ teardown() {
   assert_output_contains "Domain Status Table for app 'my-app':"
   [[ "$output" =~ example\.com ]]
   assert_output_contains "No (zone disabled)" 1 # Enabled column - appears in table
-  # Note: "Provider system ready" message is now verbose-only (DNS_VERBOSE=1)
   assert_output_contains "Status Legend:"
 }
 
@@ -66,7 +64,6 @@ teardown() {
   assert_output_contains "Domain Status Table for app 'my-app':"
   [[ "$output" =~ example\.com ]]
   [[ "$output" =~ api\.example\.com ]]
-  # Note: "Provider system ready" message is now verbose-only (DNS_VERBOSE=1)
 }
 
 @test "(dns:apps:enable) handles app with no domains gracefully" {
