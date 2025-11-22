@@ -420,7 +420,7 @@ dns_add_app_domains() {
     log_domain_check "Completed zone checks for all domains"
   else
     # Provider system not available/configured or provider script missing - skip validation
-    if [[ ! -f "$PROVIDER_SCRIPT" ]]; then
+    if [[ ! -f "$ADAPTER_PATH" ]]; then
       dokku_log_warn "Provider script not found - adding all new domains without validation"
     else
       dokku_log_info1 "Provider system not available or not configured - adding all new domains without zone validation"
