@@ -4,7 +4,7 @@ This file documents the complete development journey of the Dokku DNS plugin. Th
 
 **For user-facing changes, see [CHANGELOG.md](./CHANGELOG.md)**
 
-**Note**: Phases are listed in completion order, not sequential numbering. Some phases were completed out of numerical order due to development priorities. The current latest completed phase is Phase 28.
+**Note**: Phases are listed in completion order, not sequential numbering. Some phases were completed out of numerical order due to development priorities. The current latest completed phase is Phase 41.
 
 ---
 
@@ -2957,3 +2957,80 @@ Phases 37 & 38 successfully transformed the zone management commands from AWS-on
 
 **Pull Request**: #[TBD]
 
+
+---
+
+## Phase 40: Code Polish - Logging Verbosity - COMPLETED ✅
+
+**Objective:** Reduce excessive logging in dns_add_app_domains function.
+
+**Completed Tasks:**
+- [x] Extract logging from functions:347-397 (dns_add_app_domains)
+- [x] Create `log_domain_check` helper for conditional verbose logging
+- [x] Add --verbose flag support to dns:apps:enable
+- [x] Add is_verbose_enabled helper to reduce duplication
+
+**Implementation Details:**
+- Added `is_verbose_enabled()` helper function to check VERBOSE variable
+- Added `log_domain_check()` helper for conditional verbose logging
+- Added `--verbose/-v` flag to `dns:apps:enable` subcommand
+- Made domain checking progress messages verbose-only
+- Kept essential informational messages always visible
+- Consistent with existing `dns:providers:verify --verbose` pattern
+
+**Benefits:**
+- Cleaner output during normal operations
+- Optional detailed logging with `--verbose` flag
+- Better user experience with reduced noise
+- Debugging capabilities preserved when needed
+
+**Effort:** Medium (requires careful refactoring)
+**Impact:** Improves code readability, optional verbose output with --verbose flag
+
+**Pull Request**: #81
+
+---
+
+## Phase 41: Simplify Complex Conditionals - COMPLETED ✅
+
+**Objective:** Reduce nesting depth and complexity in validation logic.
+
+**Completed Tasks:**
+- [x] Refactor functions:363-397 to use early returns
+- [x] Extract validation logic to separate functions
+- [x] Create `handle_no_provider_validation` helper
+- [x] Create `validate_domains_with_provider` helper
+- [x] Create `report_skipped_domains` helper
+- [x] Reduce nesting depth in complex conditionals
+- [x] Add shellcheck directives for nameref usage
+
+**Implementation Details:**
+
+Created three new helper functions:
+1. **`handle_no_provider_validation()`** - Handles domain validation when provider system is unavailable
+2. **`validate_domains_with_provider()`** - Validates domains using provider system with zone checks, using early returns to reduce nesting
+3. **`report_skipped_domains()`** - Reports skipped domains with simplified conditional logic
+
+**Refactoring Improvements:**
+- Reduced nesting depth from 4+ levels to 2 levels maximum
+- Applied early return pattern for clearer control flow
+- Extracted complex conditionals into focused helper functions
+- Added shellcheck directives (SC2178) for nameref array usage with explanatory comments
+
+**Code Quality Metrics:**
+- **Lines refactored**: 80+ lines
+- **Nesting depth reduction**: From 4+ to 2 levels
+- **New helper functions**: 3
+- **Shellcheck warnings**: 0 (properly documented)
+
+**Benefits:**
+- Better separation of concerns
+- Easier to understand and maintain
+- Simpler to test individual validation logic
+- Reduced cognitive complexity
+- All functionality preserved (behavior unchanged)
+
+**Effort:** Medium (refactoring complex logic)
+**Impact:** Improves code readability and maintainability
+
+**Pull Request**: #82

@@ -2,36 +2,6 @@
 
 The DNS plugin is in progress! Many core features have been implemented and tested. See [DONE.md](./DONE.md) for completed work.
 
-
-### Phase 40: Code Polish - Logging Verbosity (Post-1.0)
-
-**Objective:** Reduce excessive logging in dns_add_app_domains function.
-
-- [x] Extract logging from functions:347-397 (dns_add_app_domains)
-- [x] Create `log_domain_check` helper for conditional verbose logging
-- [x] Add --verbose flag support to dns:apps:enable
-- [x] Add is_verbose_enabled helper to reduce duplication
-
-**Effort:** Medium (requires careful refactoring)
-**Impact:** Improves code readability, optional verbose output with --verbose flag
-
-
-### Phase 41: Simplify Complex Conditionals (Post-1.0)
-
-**Objective:** Reduce nesting depth and complexity in validation logic.
-
-- [x] Refactor functions:363-397 to use early returns
-- [x] Extract validation logic to separate functions
-- [x] Create `handle_no_provider_validation` helper
-- [x] Create `validate_domains_with_provider` helper
-- [x] Create `report_skipped_domains` helper
-- [x] Reduce nesting depth in complex conditionals
-- [x] Add shellcheck directives for nameref usage
-
-**Effort:** Medium (refactoring complex logic)
-**Impact:** Improves code readability and maintainability
-
-
 ### Phase 42: Pre-Release Testing & Validation
 
 - [ ] **Create Testing Documentation**
