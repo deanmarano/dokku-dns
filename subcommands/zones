@@ -175,7 +175,7 @@ zones_show_zone() {
 
   # Find provider for this zone
   local PROVIDER
-  PROVIDER=$(find_provider_for_zone "$ZONE" 2>/dev/null)
+  PROVIDER=$(find_provider_for_zone "$ZONE" 2>/dev/null || true)
 
   if [[ -z "$PROVIDER" ]]; then
     dokku_log_fail "Zone '$ZONE' not found in any configured provider"

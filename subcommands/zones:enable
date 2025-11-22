@@ -217,7 +217,7 @@ zones_add_zone() {
 
   # Find which provider manages this zone
   local PROVIDER
-  PROVIDER=$(find_provider_for_zone "$ZONE" 2>/dev/null)
+  PROVIDER=$(find_provider_for_zone "$ZONE" 2>/dev/null || true)
 
   if [[ -z "$PROVIDER" ]]; then
     echo " !     Zone '$ZONE' not found in any configured provider. Available zones:"
