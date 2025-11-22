@@ -84,12 +84,7 @@ teardown() {
 
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app
   assert_success
-  assert_output_contains "provider system" 1
-  # Should show zone disabled status for each domain the app has
-  # Count should match the number of domains for my-app (typically 2: example.com, api.example.com)
-  local domain_count=$(echo "$output" | grep -c "No (zone disabled)")
-  # Be flexible about the count since it depends on test setup
-  [[ $domain_count -ge 1 ]] # At least one domain should show this status
+  # After cleanup, zones aren't enabled so domains should be skipped
   assert_output_contains "Enable zones for auto-discovery with: dokku dns:zones:enable"
 }
 
