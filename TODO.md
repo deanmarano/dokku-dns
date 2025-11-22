@@ -70,10 +70,10 @@ The DNS plugin is in progress! Many core features have been implemented and test
 
 **Objective:** Add detailed comments to complex provider code.
 
-- [ ] Add detailed comments to providers/aws/provider.sh:8-28
-- [ ] Document complex regex patterns and jq operations
-- [ ] Add function-level documentation for internal helpers
-- [ ] Document expected inputs, outputs, and side effects
+- [x] Add detailed comments to providers/aws/provider.sh:8-28
+- [x] Document complex regex patterns and jq operations
+- [x] Add function-level documentation for internal helpers
+- [x] Document expected inputs, outputs, and side effects
 
 **Effort:** Low (documentation only)
 **Impact:** Improves code comprehension for contributors
