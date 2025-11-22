@@ -278,6 +278,81 @@ dns_app() {
   fi
 }
 
+# Handle domain validation when provider system is not available
+# Sets VALID_DOMAINS to all NEW_DOMAINS without validation
+handle_no_provider_validation() {
+  # shellcheck disable=SC2178  # nameref is intentionally used to reference array
+  local -n new_domains_ref=$1
+  # shellcheck disable=SC2178  # nameref is intentionally used to reference array
+  local -n valid_domains_ref=$2
+
+  dokku_log_info1 "Provider system not available or not configured - adding all new domains without zone validation"
+  dokku_log_info1 "Run 'dokku $PLUGIN_COMMAND_PREFIX:providers:verify' to configure provider credentials for zone validation"
+
+  valid_domains_ref=("${new_domains_ref[@]}")
+}
+
+# Validate domains using provider system
+# Populates VALID_DOMAINS and SKIPPED_DOMAINS arrays based on zone availability
+validate_domains_with_provider() {
+  # shellcheck disable=SC2178  # nameref is intentionally used to reference array
+  local -n new_domains_ref=$1
+  # shellcheck disable=SC2178  # nameref is intentionally used to reference array
+  local -n valid_domains_ref=$2
+  # shellcheck disable=SC2178  # nameref is intentionally used to reference array
+  local -n skipped_domains_ref=$3
+
+  dokku_log_info1 "Provider system ready - checking zones for new domains..."
+
+  for DOMAIN in "${new_domains_ref[@]}"; do
+    [[ -z "$DOMAIN" ]] && continue
+
+    log_domain_check "Checking domain: $DOMAIN"
+
+    if ! dns_validate_domain "$DOMAIN"; then
+      skipped_domains_ref+=("$DOMAIN")
+      log_domain_check "✗ $DOMAIN cannot be managed (no provider zone found)"
+      log_domain_check "Finished checking domain: $DOMAIN"
+      continue
+    fi
+
+    if ! is_domain_in_enabled_zone "$DOMAIN"; then
+      skipped_domains_ref+=("$DOMAIN")
+      log_domain_check "✗ $DOMAIN can be managed but zone is not enabled for auto-discovery"
+      log_domain_check "Finished checking domain: $DOMAIN"
+      continue
+    fi
+
+    valid_domains_ref+=("$DOMAIN")
+    log_domain_check "✓ $DOMAIN can be managed (zone enabled)"
+    log_domain_check "Finished checking domain: $DOMAIN"
+  done
+
+  log_domain_check "Completed zone checks for all domains"
+}
+
+# Report domains that were skipped during validation
+# Shows appropriate message based on whether zone exists but is disabled vs no zone found
+report_skipped_domains() {
+  # shellcheck disable=SC2178  # nameref is intentionally used to reference array
+  local -n skipped_domains_ref=$1
+
+  [[ ${#skipped_domains_ref[@]} -eq 0 ]] && return 0
+
+  dokku_log_warn "Skipping domains without hosted zones or disabled zones:"
+
+  for DOMAIN in "${skipped_domains_ref[@]}"; do
+    local ZONE_ID
+    # Check if zone exists but is disabled vs no zone found
+    if ZONE_ID=$(multi_get_zone_id "$DOMAIN" 2>/dev/null) && [[ -n "$ZONE_ID" ]]; then
+      dokku_log_info1 "  ❌ $DOMAIN (zone not enabled for auto-discovery)"
+    else
+      dokku_log_info1 "  ❌ $DOMAIN (no hosted zone found)"
+    fi
+  done
+  echo
+}
+
 dns_add_app_domains() {
   local APP="$1"
   local TTL="$2"
@@ -388,67 +463,24 @@ dns_add_app_domains() {
   local ADAPTER_PATH
   ADAPTER_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/providers/adapter.sh"
 
-  # Check if any provider is available and configured
+  # Check if provider system is available and configured
   local PROVIDER_AVAILABLE=false
   if [[ -f "$ADAPTER_PATH" ]]; then
     source "$ADAPTER_PATH"
-    # Try to initialize provider system to check availability
     if init_provider_system >/dev/null 2>&1; then
       PROVIDER_AVAILABLE=true
     fi
   fi
 
-  if [[ -f "$ADAPTER_PATH" ]] && [[ "$PROVIDER_AVAILABLE" == "true" ]]; then
-    # Provider system is available - check zones for domain validation
-    dokku_log_info1 "Provider system ready - checking zones for new domains..."
-
-    for DOMAIN in "${NEW_DOMAINS[@]}"; do
-      [[ -z "$DOMAIN" ]] && continue
-
-      log_domain_check "Checking domain: $DOMAIN"
-      # Check if domain can be managed by any provider
-      if dns_validate_domain "$DOMAIN"; then
-        # Check if this domain is in an enabled zone
-        if is_domain_in_enabled_zone "$DOMAIN"; then
-          VALID_DOMAINS+=("$DOMAIN")
-          log_domain_check "✓ $DOMAIN can be managed (zone enabled)"
-        else
-          SKIPPED_DOMAINS+=("$DOMAIN")
-          log_domain_check "✗ $DOMAIN can be managed but zone is not enabled for auto-discovery"
-        fi
-      else
-        SKIPPED_DOMAINS+=("$DOMAIN")
-        log_domain_check "✗ $DOMAIN cannot be managed (no provider zone found)"
-      fi
-      log_domain_check "Finished checking domain: $DOMAIN"
-    done
-    log_domain_check "Completed zone checks for all domains"
+  # Use early return pattern: handle no provider case first, then normal case
+  if [[ ! -f "$ADAPTER_PATH" ]] || [[ "$PROVIDER_AVAILABLE" != "true" ]]; then
+    handle_no_provider_validation NEW_DOMAINS VALID_DOMAINS
   else
-    # Provider system not available/configured - skip validation
-    dokku_log_info1 "Provider system not available or not configured - adding all new domains without zone validation"
-    dokku_log_info1 "Run 'dokku $PLUGIN_COMMAND_PREFIX:providers:verify' to configure provider credentials for zone validation"
-    VALID_DOMAINS=("${NEW_DOMAINS[@]}")
+    validate_domains_with_provider NEW_DOMAINS VALID_DOMAINS SKIPPED_DOMAINS
   fi
 
   # Report skipped domains
-  if [[ ${#SKIPPED_DOMAINS[@]} -gt 0 ]]; then
-    dokku_log_warn "Skipping domains without hosted zones or disabled zones:"
-    for DOMAIN in "${SKIPPED_DOMAINS[@]}"; do
-      # Check if it was skipped due to zone being disabled vs no hosted zone
-      local ZONE_ID
-      local ZONE_EXISTS=1
-      if ZONE_ID=$(multi_get_zone_id "$DOMAIN" 2>/dev/null); then
-        ZONE_EXISTS=0
-      fi
-
-      if [[ $ZONE_EXISTS -eq 0 ]] && [[ -n "$ZONE_ID" ]]; then
-        dokku_log_info1 "  ❌ $DOMAIN (zone not enabled for auto-discovery)"
-      else
-        dokku_log_info1 "  ❌ $DOMAIN (no hosted zone found)"
-      fi
-    done
-    echo
-  fi
+  report_skipped_domains SKIPPED_DOMAINS
 
   # Always show status table for all requested domains
   echo

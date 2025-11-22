@@ -20,11 +20,13 @@ The DNS plugin is in progress! Many core features have been implemented and test
 
 **Objective:** Reduce nesting depth and complexity in validation logic.
 
-- [ ] Refactor functions:363-397 to use early returns
-- [ ] Extract validation logic to separate functions
-- [ ] Create `handle_no_provider_validation` helper
-- [ ] Create `validate_domains_with_provider` helper
-- [ ] Reduce nesting depth in complex conditionals
+- [x] Refactor functions:363-397 to use early returns
+- [x] Extract validation logic to separate functions
+- [x] Create `handle_no_provider_validation` helper
+- [x] Create `validate_domains_with_provider` helper
+- [x] Create `report_skipped_domains` helper
+- [x] Reduce nesting depth in complex conditionals
+- [x] Add shellcheck directives for nameref usage
 
 **Effort:** Medium (refactoring complex logic)
 **Impact:** Improves code readability and maintainability
