@@ -15,14 +15,19 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/log-functions"
 # DNS-specific functions
 # These functions are available to other plugins that source this file
 
+# Check if verbose logging is enabled
+# Returns: 0 if enabled, 1 if not
+is_verbose_enabled() {
+  [[ "${DNS_VERBOSE:-}" == "1" ]] || [[ "${DNS_VERBOSE:-}" == "true" ]]
+}
+
 # Conditional verbose logging for domain operations
 # Usage: log_domain_check <message>
 # Only outputs if DNS_VERBOSE is set to 1 or true
 log_domain_check() {
   local message="$1"
 
-  # Check if verbose logging is enabled
-  if [[ "${DNS_VERBOSE:-}" == "1" ]] || [[ "${DNS_VERBOSE:-}" == "true" ]]; then
+  if is_verbose_enabled; then
     dokku_log_info1 "$message"
   fi
 }
@@ -350,7 +355,7 @@ dns_add_app_domains() {
         log_domain_check "  ✓ $DOMAIN (already in DNS management)"
       fi
     done
-    if [[ "${DNS_VERBOSE:-}" == "1" ]] || [[ "${DNS_VERBOSE:-}" == "true" ]]; then
+    if is_verbose_enabled; then
       echo
     fi
   fi
@@ -369,7 +374,7 @@ dns_add_app_domains() {
   for domain in "${NEW_DOMAINS[@]}"; do
     log_domain_check "  • $domain"
   done
-  if [[ "${DNS_VERBOSE:-}" == "1" ]] || [[ "${DNS_VERBOSE:-}" == "true" ]]; then
+  if is_verbose_enabled; then
     echo
   fi
 
