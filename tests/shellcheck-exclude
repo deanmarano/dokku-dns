@@ -1,6 +1,110 @@
-# SC1090 - Can't follow non-constant source. Use a directive to specify location - https://github.com/koalaman/shellcheck/wiki/SC1090
-# SC1091 - Not following - <https://github.com/koalaman/shellcheck/wiki/SC1091>
-# SC2034 - Variable appears unused. Verify it or export it - https://github.com/koalaman/shellcheck/wiki/SC2034
-# SC2206 - Quote to prevent word splitting/globbing, or split robustly with mapfile or read -a - https://github.com/koalaman/shellcheck/wiki/SC2206
-# SC2207 - Prefer mapfile or read -a to split command output (or quote to avoid splitting) - https://github.com/koalaman/shellcheck/wiki/SC2207
-# SC2220 - Invalid flags are not handled. Add a *) case - https://github.com/koalaman/shellcheck/wiki/SC2220
+# ShellCheck Exclusions
+#
+# This file documents shellcheck warnings that are globally disabled for this codebase.
+# Each exclusion includes a detailed explanation of why the check is disabled.
+#
+# Format: # SC#### - Description - Link - Reason for exclusion
+#
+
+# SC1090 - Can't follow non-constant source. Use a directive to specify location
+# https://github.com/koalaman/shellcheck/wiki/SC1090
+#
+# Why disabled:
+#   This codebase uses dynamic sourcing patterns extensively, particularly:
+#   - Provider loading: source "$(dirname...)/providers/$provider/provider.sh"
+#   - Plugin architecture: source paths determined at runtime
+#   - Dokku integration: sourcing from PLUGIN_CORE_AVAILABLE_PATH
+#
+#   These patterns are intentional and necessary for:
+#   - Multi-provider architecture (AWS, Cloudflare, DigitalOcean)
+#   - Dynamic plugin loading based on configuration
+#   - Integration with Dokku's plugin system
+#
+#   Adding directives for each dynamic source would clutter the code and provide
+#   minimal value since the sourced files are validated through integration testing.
+
+# SC1091 - Not following (file not specified or couldn't be found)
+# https://github.com/koalaman/shellcheck/wiki/SC1091
+#
+# Why disabled:
+#   Related to SC1090. ShellCheck cannot follow sources when:
+#   - Paths are constructed dynamically
+#   - Files are in Dokku's plugin directory (not available during linting)
+#   - Provider modules are selected at runtime
+#
+#   Examples that trigger this:
+#   - source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
+#   - source "$(dirname...)/providers/adapter.sh"
+#
+#   The sourced files exist and are tested, but aren't available to shellcheck
+#   during static analysis. Integration tests verify all source statements work.
+
+# SC2034 - Variable appears unused. Verify it or export it
+# https://github.com/koalaman/shellcheck/wiki/SC2034
+#
+# Why disabled:
+#   Many variables in this codebase are:
+#   - Used by sourced scripts (not visible to shellcheck)
+#   - Part of Dokku's plugin API (consumed by Dokku core)
+#   - Configuration variables read by provider modules
+#
+#   Examples:
+#   - PLUGIN_* variables: Used by Dokku core plugin system
+#   - PROVIDER_* variables: Consumed by provider modules
+#   - Variables in config files: Sourced and used elsewhere
+#
+#   These are intentionally defined but appear unused in static analysis.
+#   Exporting everything would pollute the environment and isn't always desired.
+
+# SC2206 - Quote to prevent word splitting/glob, or use mapfile/read -a
+# https://github.com/koalaman/shellcheck/wiki/SC2206
+#
+# Why disabled:
+#   This codebase uses array assignment patterns like:
+#     ARRAY=($variable)
+#     ARRAY=($(command))
+#
+#   These patterns are used intentionally for:
+#   - Splitting whitespace-separated values into arrays
+#   - Converting command output to array elements
+#   - Compatibility with older bash versions (mapfile requires bash 4+)
+#
+#   While mapfile is recommended, it's not available in bash 3.x (macOS default).
+#   The word-splitting behavior is intentional and expected.
+#
+#   TODO (Phase 48): Audit these usages and migrate to safer alternatives where
+#   possible, while maintaining bash 3.x compatibility.
+
+# SC2207 - Prefer mapfile or read -a to split command output
+# https://github.com/koalaman/shellcheck/wiki/SC2207
+#
+# Why disabled:
+#   Similar to SC2206. This warns about:
+#     array=($(command))
+#
+#   Disabled for the same reasons as SC2206:
+#   - Bash 3.x compatibility (mapfile not available)
+#   - Intentional word-splitting of command output
+#   - Existing pattern used throughout the codebase
+#
+#   TODO (Phase 48): Consider refactoring to use `while IFS= read -r` loops
+#   or conditional mapfile usage with fallback for bash 3.x.
+
+# SC2220 - Invalid flags are not handled. Add a *) case
+# https://github.com/koalaman/shellcheck/wiki/SC2220
+#
+# Why disabled:
+#   Some case statements intentionally don't handle all possible inputs:
+#   - Flag parsing where unrecognized flags are passed through
+#   - Switch statements where default behavior is to do nothing
+#   - Cases where invalid input should fall through to return/exit
+#
+#   Examples:
+#   - Argument parsing: Unknown flags may be intentionally ignored
+#   - Provider selection: Missing provider handled after case statement
+#
+#   Adding `*)` cases everywhere would require error handling in places where
+#   silent fall-through is the desired behavior.
+#
+#   TODO: Audit case statements to determine which should have explicit *) cases
+#   for better error messages, and which are intentionally permissive.
