@@ -71,9 +71,6 @@
 #
 #   While mapfile is recommended, it's not available in bash 3.x (macOS default).
 #   The word-splitting behavior is intentional and expected.
-#
-#   TODO (Phase 48): Audit these usages and migrate to safer alternatives where
-#   possible, while maintaining bash 3.x compatibility.
 
 # SC2207 - Prefer mapfile or read -a to split command output
 # https://github.com/koalaman/shellcheck/wiki/SC2207
@@ -86,9 +83,6 @@
 #   - Bash 3.x compatibility (mapfile not available)
 #   - Intentional word-splitting of command output
 #   - Existing pattern used throughout the codebase
-#
-#   TODO (Phase 48): Consider refactoring to use `while IFS= read -r` loops
-#   or conditional mapfile usage with fallback for bash 3.x.
 
 # SC2220 - Invalid flags are not handled. Add a *) case
 # https://github.com/koalaman/shellcheck/wiki/SC2220
@@ -105,6 +99,3 @@
 #
 #   Adding `*)` cases everywhere would require error handling in places where
 #   silent fall-through is the desired behavior.
-#
-#   TODO: Audit case statements to determine which should have explicit *) cases
-#   for better error messages, and which are intentionally permissive.
