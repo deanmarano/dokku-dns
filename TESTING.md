@@ -2,9 +2,12 @@
 
 This document provides comprehensive manual testing procedures for the Dokku DNS plugin across all supported providers.
 
+> **Automated Testing**: The manual procedures in this guide have been automated as runnable test scripts. See [scripts/manual-tests/README.md](scripts/manual-tests/README.md) for automated testing options.
+
 ## Table of Contents
 
 - [Overview](#overview)
+- [Automated Testing](#automated-testing)
 - [Test Environment Setup](#test-environment-setup)
 - [AWS Route53 Testing](#aws-route53-testing)
 - [Cloudflare Testing](#cloudflare-testing)
@@ -29,6 +32,43 @@ This document provides comprehensive manual testing procedures for the Dokku DNS
 - Valid credentials for at least one DNS provider
 - Test domains with hosted zones configured
 - At least one Dokku app deployed
+
+---
+
+## Automated Testing
+
+The manual testing procedures in this guide have been converted into automated test scripts located in `scripts/manual-tests/`.
+
+### Quick Start
+
+```bash
+# Run all AWS Route53 tests
+./scripts/manual-tests/test-aws-route53.sh test.example.com
+
+# Run all Cloudflare tests
+./scripts/manual-tests/test-cloudflare.sh test.example.com
+
+# Run all configured provider tests
+./scripts/manual-tests/run-all-tests.sh \
+  --aws-domain test.example.com \
+  --cf-domain test.cloudflare.com
+```
+
+### Features
+
+The automated test scripts provide:
+
+- **Automated CRUD testing** for all providers (AWS, Cloudflare, DigitalOcean)
+- **Multi-provider routing** verification
+- **Pass/fail reporting** with detailed logs
+- **Automatic cleanup** of test resources
+- **DNS resolution verification** (optional)
+- **Color-coded output** for easy reading
+
+### Documentation
+
+For detailed information about the automated test scripts, see:
+- [scripts/manual-tests/README.md](scripts/manual-tests/README.md) - Complete automated testing guide
 
 ---
 

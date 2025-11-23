@@ -12,6 +12,15 @@ The DNS plugin is in progress! Many core features have been implemented and test
   - [x] Include test result logging template with pass/fail criteria
   - [x] Document common troubleshooting scenarios and solutions
 
+- [x] **Create Automated Test Scripts**
+  - [x] Create test library with shared utilities (test-lib.sh)
+  - [x] Implement AWS Route53 CRUD test script
+  - [x] Implement Cloudflare CRUD test script
+  - [x] Implement DigitalOcean CRUD test script
+  - [x] Implement multi-provider routing test script
+  - [x] Create test runner orchestration script
+  - [x] Document test script usage in scripts/manual-tests/README.md
+
 - [ ] **Provider Integration Testing**
   - [ ] Execute AWS Route53 CRUD operations on production server
   - [ ] Execute Cloudflare CRUD operations on production server
