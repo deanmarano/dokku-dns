@@ -12,7 +12,7 @@ Seamlessly manage DNS records for your Dokku applications across multiple cloud 
 - 🎯 **Zone-Based Routing**: Intelligent routing of domains to appropriate DNS providers
 - ⚡ **Batch Operations**: Efficient bulk DNS updates across all your apps
 - 🕒 **TTL Management**: Flexible TTL configuration at global, zone, and domain levels
-- 🛡️ **Production Ready**: Comprehensive error handling, retry logic, and extensive testing
+- 🛡️ **Robust Error Handling**: Comprehensive error handling, retry logic, and extensive testing
 - 📊 **Rich Reporting**: Clear status reports with visual indicators and troubleshooting info
 
 ## 🚀 Quick Start (3 minutes)
