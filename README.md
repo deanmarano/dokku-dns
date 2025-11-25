@@ -56,14 +56,10 @@ dokku dns:triggers:enable
 - ✅ **Automatically create DNS records** pointing to your server
 - ✅ **Automatically queue cleanup** when you remove domains or destroy apps
 
-### Example: Deploy an App with Automatic DNS
+### Example: Add Domains to Your Existing Apps
 
 ```shell
-# Create and deploy your app
-dokku apps:create myapp
-git push dokku main
-
-# Add domains - DNS records are created automatically!
+# Add domains to your existing app - DNS records are created automatically!
 dokku domains:add myapp example.com
 dokku domains:add myapp www.example.com
 
