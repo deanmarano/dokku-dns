@@ -11,11 +11,9 @@ Seamlessly manage DNS records for your Dokku applications across multiple cloud 
 - 🔄 **Lifecycle Integration**: Hooks into Dokku's app lifecycle (create, domains add/remove, destroy) for seamless DNS management
 - 🎯 **Zone-Based Routing**: Intelligent routing of domains to appropriate DNS providers
 - ⚡ **Batch Operations**: Efficient bulk DNS updates across all your apps
-- 🕒 **TTL Management**: Flexible TTL configuration at global, zone, and domain levels
-- 🛡️ **Robust Error Handling**: Comprehensive error handling, retry logic, and extensive testing
-- 📊 **Rich Reporting**: Clear status reports with visual indicators and troubleshooting info
+- 🕒 **TTL Management**: Flexible TTL configuration at global, zone, and domain levels (default: 300 seconds)
 
-## 🚀 Quick Start (3 minutes)
+## 🚀 Quick Start
 
 ### 1. Install the Plugin
 
