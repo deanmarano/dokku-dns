@@ -19,12 +19,8 @@ $ dokku apps:destroy my-test-app
        Unlinking from recipebook
        Unlinking from recipes-db
        Unlinking from nextcloud-redis
-=====> DNS: Cleaning up DNS management for app 'my-test-app'
------> DNS: Removing DNS management for domains:
------>   • my-test-app.deanoftech.com
------> DNS: App 'my-test-app' removed from DNS management
------> DNS: Domains queued for cleanup: my-test-app.deanoftech.com
------> DNS: Run 'dokku dns:sync:deletions' to clean up orphaned DNS records
+-----> DNS: Removed 'my-test-app' from management (my-test-app.deanoftech.com)
+       Run 'dokku dns:sync:deletions' to clean up orphaned records
 -----> Updated schedule file
 -----> Cleaning up...
 -----> Retiring old containers and images

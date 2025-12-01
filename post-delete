@@ -39,8 +39,6 @@ main() {
     return 0
   fi
 
-  dokku_log_info2 "DNS: Cleaning up DNS management for app '$APP'"
-
   # Get domains that were managed before removal
   local APP_DOMAINS_FILE="$PLUGIN_DATA_ROOT/$APP/DOMAINS"
   local managed_domains=()
@@ -49,13 +47,6 @@ main() {
     while IFS= read -r domain; do
       [[ -n "$domain" ]] && managed_domains+=("$domain")
     done <"$APP_DOMAINS_FILE"
-  fi
-
-  if [[ ${#managed_domains[@]} -gt 0 ]]; then
-    dokku_log_info1 "DNS: Removing DNS management for domains:"
-    for domain in "${managed_domains[@]}"; do
-      dokku_log_info1 "  • $domain"
-    done
   fi
 
   # Remove app from DNS management
@@ -97,11 +88,10 @@ main() {
       fi
     done
 
-    dokku_log_info1 "DNS: App '$APP' removed from DNS management"
-    dokku_log_info1 "DNS: Domains queued for cleanup: ${managed_domains[*]}"
-    dokku_log_info1 "DNS: Run 'dokku $PLUGIN_COMMAND_PREFIX:sync:deletions' to clean up orphaned DNS records"
+    dokku_log_info1 "DNS: Removed '$APP' from management (${managed_domains[*]})"
+    dokku_log_info1 "     Run 'dokku $PLUGIN_COMMAND_PREFIX:sync:deletions' to clean up orphaned records"
   else
-    dokku_log_info1 "DNS: App '$APP' removed from DNS management (no domains were managed)"
+    dokku_log_info1 "DNS: Removed '$APP' from management (no domains were managed)"
   fi
 }
 
