@@ -6,20 +6,18 @@ Seamlessly manage DNS records for your Dokku applications across multiple cloud 
 
 ## ✨ Key Features
 
+- 🤖 **Fully Automatic**: Enable triggers once, never think about DNS again - records are created, updated, and cleaned up automatically
 - 🚀 **Multi-Provider Support**: AWS Route53, Cloudflare, DigitalOcean, and extensible architecture for more providers
-- 🔄 **Automatic Sync**: DNS records update automatically when you add domains or deploy apps
+- 🔄 **Lifecycle Integration**: Hooks into Dokku's app lifecycle (create, domains add/remove, destroy) for seamless DNS management
 - 🎯 **Zone-Based Routing**: Intelligent routing of domains to appropriate DNS providers
 - ⚡ **Batch Operations**: Efficient bulk DNS updates across all your apps
-- 🕒 **TTL Management**: Flexible TTL configuration at global, zone, and domain levels
-- 🛡️ **Production Ready**: Comprehensive error handling, retry logic, and extensive testing
-- 📊 **Rich Reporting**: Clear status reports with visual indicators and troubleshooting info
+- 🕒 **TTL Management**: Flexible TTL configuration at global, zone, and domain levels (default: 300 seconds)
 
-## 🚀 Quick Start (5 minutes)
+## 🚀 Quick Start
 
 ### 1. Install the Plugin
 
 ```shell
-# Install from GitHub
 sudo dokku plugin:install https://github.com/deanmarano/dokku-dns.git --name dns
 ```
 
@@ -27,76 +25,118 @@ sudo dokku plugin:install https://github.com/deanmarano/dokku-dns.git --name dns
 
 **Option A: AWS Route53**
 ```shell
-# Configure AWS credentials (choose one method)
 dokku config:set --global AWS_ACCESS_KEY_ID=your_key AWS_SECRET_ACCESS_KEY=your_secret
-# OR use AWS CLI: aws configure
-# OR use IAM roles (recommended for EC2/ECS)
-
-# Verify provider setup and discover zones
 dokku dns:providers:verify aws
 ```
 
 **Option B: Cloudflare**
 ```shell
-# Set up Cloudflare API token
 dokku config:set --global CLOUDFLARE_API_TOKEN=your_api_token
-
-# Verify provider setup and discover zones
 dokku dns:providers:verify cloudflare
 ```
 
 **Option C: DigitalOcean**
 ```shell
-# Set up DigitalOcean API token
 dokku config:set --global DIGITALOCEAN_ACCESS_TOKEN=your_api_token
-
-# Verify provider setup and discover zones
 dokku dns:providers:verify digitalocean
 ```
 
-### 3. Enable DNS Zones
+### 3. Enable Automatic DNS Management
 
 ```shell
-# List available zones discovered from your provider
-dokku dns:zones
-
-# Enable zones you want to manage (e.g., example.com)
+# Enable zones you want to manage
 dokku dns:zones:enable example.com
 
-# Enable automatic triggers for seamless management
+# Enable automatic triggers (RECOMMENDED)
 dokku dns:triggers:enable
 ```
 
-### 4. Add Your App Domains
+🎉 **That's it!** DNS is now fully automatic. The plugin will:
+- ✅ **Automatically add domains** to DNS when you run `dokku domains:add`
+- ✅ **Automatically create DNS records** pointing to your server
+- ✅ **Automatically queue cleanup** when you remove domains or destroy apps
+
+### Example: Add Domains to Your Existing Apps
 
 ```shell
-# Add domains to your app (if not already done)
-dokku domains:add myapp example.com www.example.com
+# Add domains to your existing app - DNS records are created automatically!
+dokku domains:add myapp example.com
+dokku domains:add myapp www.example.com
 
-# Enable DNS management for the app
-dokku dns:apps:enable myapp
-
-# Sync DNS records (creates A records pointing to your server)
-dokku dns:apps:sync myapp
-```
-
-### 5. Verify Everything Works
-
-```shell
-# Check DNS status for your app
+# Check DNS status
 dokku dns:report myapp
-
-# View zone status
-dokku dns:zones
 ```
 
-🎉 **That's it!** Your DNS zones and app records are now managed automatically. When you add new domains to apps in managed zones, DNS records will be created and updated automatically.
+## 🤖 How Automatic DNS Management Works
+
+When you enable triggers with `dokku dns:triggers:enable` and enable zones with `dokku dns:zones:enable`, the plugin automatically manages DNS for your apps without any manual intervention.
+
+### When You Add a Domain
+
+```shell
+dokku domains:add myapp example.com
+```
+
+**What happens automatically:**
+1. ✅ Plugin detects the domain was added (via `post-domains-update` trigger)
+2. ✅ Checks if `example.com` is in an enabled zone
+3. ✅ Adds the domain to DNS tracking for `myapp`
+4. ✅ **Automatically syncs DNS** - creates an A record pointing to your server
+5. ✅ Confirms DNS record created successfully
+
+**Result:** The domain is immediately accessible via DNS, no manual sync needed!
+
+### When You Remove a Domain
+
+```shell
+dokku domains:remove myapp example.com
+```
+
+**What happens automatically:**
+1. ✅ Plugin detects the domain was removed (via `post-domains-update` trigger)
+2. ✅ Removes the domain from DNS tracking
+3. ✅ **Queues the DNS record for cleanup**
+4. ⏳ DNS record stays in place temporarily (safety feature)
+
+**Manual cleanup step:**
+- 🧹 Run `dokku dns:sync:deletions` when ready to remove DNS records
+
+**Why queue deletions?** This prevents accidental DNS disruption. You control when orphaned records are actually deleted.
+
+### When You Destroy an App
+
+```shell
+dokku apps:destroy myapp
+```
+
+**What happens automatically:**
+1. ✅ Plugin detects the app was destroyed (via `post-delete` trigger)
+2. ✅ Removes all DNS tracking for the app
+3. ✅ **Queues all domains for cleanup**
+4. ✅ Removes app from DNS management
+
+**Manual cleanup step:**
+- 🧹 Run `dokku dns:sync:deletions` to clean up DNS records
+
+### Manual Mode (Without Triggers)
+
+If you prefer manual control, you can disable triggers and manage DNS explicitly:
+
+```shell
+# Disable automatic management
+dokku dns:triggers:disable
+
+# Manual workflow
+dokku domains:add myapp example.com    # Add domain
+dokku dns:apps:enable myapp            # Enable DNS management
+dokku dns:apps:sync myapp              # Manually sync DNS records
+```
 
 ## Requirements
 
 - dokku 0.19.x+
 - docker 1.8.x
-- DNS provider credentials (AWS Route53 or Cloudflare)
+- DNS provider credentials (AWS Route53, Cloudflare, or DigitalOcean)
 
 ## Installation
 
