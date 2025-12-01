@@ -97,7 +97,9 @@ dokku domains:remove myapp example.com
 2. ✅ Removes the domain from DNS tracking
 3. ✅ **Queues the DNS record for cleanup**
 4. ⏳ DNS record stays in place temporarily (safety feature)
-5. 🧹 Run `dokku dns:sync:deletions` when ready to remove DNS records
+
+**Manual cleanup step:**
+- 🧹 Run `dokku dns:sync:deletions` when ready to remove DNS records
 
 **Why queue deletions?** This prevents accidental DNS disruption. You control when orphaned records are actually deleted.
 
@@ -112,7 +114,9 @@ dokku apps:destroy myapp
 2. ✅ Removes all DNS tracking for the app
 3. ✅ **Queues all domains for cleanup**
 4. ✅ Removes app from DNS management
-5. 🧹 Run `dokku dns:sync:deletions` to clean up DNS records
+
+**Manual cleanup step:**
+- 🧹 Run `dokku dns:sync:deletions` to clean up DNS records
 
 ### Manual Mode (Without Triggers)
 
