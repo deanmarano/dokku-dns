@@ -31,13 +31,16 @@ fi
 #E This command only deletes records that were explicitly tracked and queued
 #E by the plugin. It will never scan Route53 for orphaned records.
 #E
+#E For safety, each deletion requires individual y/n confirmation. You can
+#E skip individual deletions while continuing to process the rest of the queue.
+#E
 #E Options:
-#E   --force   Skip confirmation prompt and delete immediately
+#E   --force   Skip all confirmation prompts and delete immediately
 #E
 #E Examples:
 #E   dokku $PLUGIN_COMMAND_PREFIX:sync:deletions
 #E   dokku $PLUGIN_COMMAND_PREFIX:sync:deletions --force
-#A --force, skip confirmation prompt
+#A --force, skip all confirmation prompts
 
 service-sync-deletions-cmd() {
   declare desc="remove DNS records from the pending deletions queue"
@@ -103,28 +106,29 @@ service-sync-deletions-cmd() {
   dokku_log_info2 "Plan: 0 to add, 0 to change, ${#pending_deletions[@]} to destroy"
   echo
 
-  # Confirmation prompt unless --force is specified
-  if [[ "$FORCE" != "true" ]]; then
-    echo
-    read -rp "Do you want to delete these ${#pending_deletions[@]} DNS records? [y/N] " confirm
-    echo
-
-    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
-      dokku_log_info1 "Deletion cancelled"
-      return 0
-    fi
-  fi
-
   # Process deletions
-  dokku_log_info1 "Deleting DNS records..."
+  dokku_log_info1 "Processing DNS record deletions..."
   echo
 
   local deleted_count=0
   local failed_count=0
+  local skipped_count=0
   local -a successfully_deleted=()
 
   for entry in "${pending_deletions[@]}"; do
     IFS=: read -r domain zone_id timestamp <<< "$entry"
+
+    # Individual confirmation unless --force is specified
+    if [[ "$FORCE" != "true" ]]; then
+      echo
+      read -rp "Delete $domain (A record)? [y/N] " confirm
+
+      if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+        echo "  Skipped"
+        skipped_count=$((skipped_count + 1))
+        continue
+      fi
+    fi
 
     printf "  %s... " "$domain"
 
@@ -193,12 +197,15 @@ service-sync-deletions-cmd() {
 
   # Display summary
   echo
-  if [[ $deleted_count -gt 0 ]]; then
-    dokku_log_info1 "Successfully deleted $deleted_count of ${#pending_deletions[@]} DNS records"
-  fi
+  dokku_log_info1 "Summary:"
+  echo "  Deleted: $deleted_count"
+  echo "  Skipped: $skipped_count"
+  echo "  Failed:  $failed_count"
+  echo "  Total:   ${#pending_deletions[@]}"
 
   if [[ $failed_count -gt 0 ]]; then
-    dokku_log_warn "$failed_count deletion(s) failed"
+    echo
+    dokku_log_warn "$failed_count deletion(s) failed and remain in queue"
     return 1
   fi
 

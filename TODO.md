@@ -109,6 +109,24 @@ The DNS plugin is in progress! Many core features have been implemented and test
 **Impact:** Prevents subtle bugs from word splitting/globbing
 
 
+### Phase 49: Safe One-at-a-Time Deletion Confirmations
+
+**Objective:** Improve deletion safety by requiring individual confirmation for each DNS record deletion.
+
+- [ ] Modify `sync:deletions` command to prompt for each deletion individually
+  - [ ] Remove bulk confirmation prompt
+  - [ ] Add per-record y/n confirmation prompt
+  - [ ] Display record details before each prompt (domain, zone, timestamp)
+  - [ ] Allow user to skip individual deletions while continuing the queue
+  - [ ] Maintain `--force` flag for non-interactive batch deletions
+- [ ] Update command help text and documentation
+- [ ] Test with multiple queued deletions
+- [ ] Verify cancellation handling at any point in the queue
+
+**Effort:** Low (single file modification)
+**Impact:** Significantly improves deletion safety and prevents accidental bulk deletions
+
+
 ## Future Enhancements
 
 ### Code Quality Improvements
