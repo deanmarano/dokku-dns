@@ -33,20 +33,20 @@ teardown() {
   assert_output_contains "Queued Deletions:"
   assert_output_contains "test-record.example.com.*A record"
   assert_output_contains "Plan: 0 to add, 0 to change, 1 to destroy"
-  assert_output_contains "Deletion cancelled"
+  assert_output_contains "Skipped"
 }
 
-@test "(dns:sync:deletions integration) respects user cancellation" {
+@test "(dns:sync:deletions integration) respects user skipping record" {
   # Create a pending deletion
   mkdir -p "$PLUGIN_DATA_ROOT"
   echo "test-record.example.com:Z1234567890ABC:$(date +%s)" >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
 
-  # Pipe 'n' to simulate user declining deletion
+  # Pipe 'n' to simulate user skipping deletion
   run bash -c 'echo "n" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
   assert_success
-  assert_output_contains "Deletion cancelled"
+  assert_output_contains "Skipped"
 
-  # Queue should still exist
+  # Queue should still exist with the skipped record
   [[ -f "$PLUGIN_DATA_ROOT/PENDING_DELETIONS" ]]
   grep -q "test-record.example.com" "$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
 }
@@ -61,9 +61,9 @@ teardown() {
   # Use --force flag to bypass confirmation
   run dokku "$PLUGIN_COMMAND_PREFIX:sync:deletions" --force
   assert_success
-  # Should not show confirmation prompt
-  [[ "$output" != *"Do you want to delete"* ]]
-  assert_output_contains "Deleting DNS records..."
+  # Should not show any confirmation prompts
+  [[ "$output" != *"Delete"* ]] || [[ "$output" != *"[y/N]"* ]]
+  assert_output_contains "Processing DNS record deletions..."
 }
 
 @test "(dns:sync:deletions integration) removes successfully processed domains from queue" {
@@ -76,8 +76,8 @@ nonexistent1.example.com:Z1234567890ABC:$(date +%s)
 nonexistent2.example.com:Z1234567890ABC:$(date +%s)
 EOF
 
-  # Process deletions with confirmation
-  run bash -c 'echo "y" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
+  # Process deletions with confirmation (need "y" for both records)
+  run bash -c 'printf "y\ny\n" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
   assert_success
 
   # Records should be removed from queue (they're non-existent, so marked as "already deleted")
