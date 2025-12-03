@@ -113,15 +113,15 @@ The DNS plugin is in progress! Many core features have been implemented and test
 
 **Objective:** Improve deletion safety by requiring individual confirmation for each DNS record deletion.
 
-- [ ] Modify `sync:deletions` command to prompt for each deletion individually
-  - [ ] Remove bulk confirmation prompt
-  - [ ] Add per-record y/n confirmation prompt
-  - [ ] Display record details before each prompt (domain, zone, timestamp)
-  - [ ] Allow user to skip individual deletions while continuing the queue
-  - [ ] Maintain `--force` flag for non-interactive batch deletions
-- [ ] Update command help text and documentation
-- [ ] Test with multiple queued deletions
-- [ ] Verify cancellation handling at any point in the queue
+- [x] Modify `sync:deletions` command to prompt for each deletion individually
+  - [x] Remove bulk confirmation prompt
+  - [x] Add per-record y/n confirmation prompt
+  - [x] Display record details before each prompt (domain, zone, timestamp)
+  - [x] Allow user to skip individual deletions while continuing the queue
+  - [x] Maintain `--force` flag for non-interactive batch deletions
+- [x] Update command help text and documentation
+- [x] Test with multiple queued deletions
+- [x] Verify cancellation handling at any point in the queue
 
 **Effort:** Low (single file modification)
 **Impact:** Significantly improves deletion safety and prevents accidental bulk deletions

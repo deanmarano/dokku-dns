@@ -85,7 +85,7 @@ EOF
   run dokku "$PLUGIN_COMMAND_PREFIX:sync:deletions" --force
   assert_success
   # Should not show any confirmation prompts
-  [[ "$output" != *"Delete"* ]] || [[ "$output" != *"[y/N]"* ]]
+  [[ "$output" != *"Delete"* ]] && [[ "$output" != *"[y/N]"* ]]
   assert_output_contains "Processing DNS record deletions..."
 }
 
