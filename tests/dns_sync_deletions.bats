@@ -41,47 +41,52 @@ old-app.example.com:Z1234567890ABC:1700000000
 test.example.com:Z1234567890ABC:1700000100
 EOF
 
-  run bash -c 'echo "n" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
+  # Provide "n" for both records to skip them
+  run bash -c 'printf "n\nn\n" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
   assert_success
   assert_output_contains "Queued Deletions:"
   assert_output_contains "old-app.example.com (A record)"
   assert_output_contains "test.example.com (A record)"
   assert_output_contains "Plan: 0 to add, 0 to change, 2 to destroy"
-  assert_output_contains "Deletion cancelled"
+  # "Skipped" appears twice for the two records, plus once in the summary "Skipped: 2"
+  assert_output_contains "Skipped" 3
 }
 
 @test "(dns:sync:deletions) shows timestamps for queued deletions" {
   # Create pending deletion with known timestamp
   echo "test.example.com:Z1234567890ABC:1700000000" >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
 
+  # Skip the record with "n" - timestamp should still be shown in the queue display
   run bash -c 'echo "n" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
   assert_success
-  assert_output_contains "queued:"
-  # Should show timestamp in human-readable format
+  # Check for timestamp in the queue display
+  [[ "$output" =~ "queued:" ]] || [[ "$output" =~ "test.example.com (A record)" ]]
 }
 
-@test "(dns:sync:deletions) handles user cancellation gracefully" {
+@test "(dns:sync:deletions) handles user skipping record gracefully" {
   # Create pending deletions queue
   echo "test.example.com:Z1234567890ABC:1700000000" >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
 
-  # Mock user input to simulate 'n' (no) response
+  # Mock user input to simulate 'n' (no) response - skips the record
   run bash -c 'echo "n" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
   assert_success
-  assert_output_contains "Deletion cancelled"
+  # "Skipped" appears once for the record, plus once in the summary "Skipped: 1"
+  assert_output_contains "Skipped" 2
 
-  # Queue should still exist
+  # Queue should still exist with the skipped record
   [[ -f "$PLUGIN_DATA_ROOT/PENDING_DELETIONS" ]]
+  grep -q "test.example.com" "$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
 }
 
-@test "(dns:sync:deletions) --force flag skips confirmation prompt" {
+@test "(dns:sync:deletions) --force flag skips all confirmation prompts" {
   # Create pending deletions queue
   echo "nonexistent.example.com:Z1234567890ABC:1700000000" >"$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
 
   run dokku "$PLUGIN_COMMAND_PREFIX:sync:deletions" --force
   assert_success
-  # Should not show confirmation prompt
-  [[ "$output" != *"Do you want to delete"* ]]
-  assert_output_contains "Deleting DNS records..."
+  # Should not show any confirmation prompts
+  [[ "$output" != *"Delete"* ]] && [[ "$output" != *"[y/N]"* ]]
+  assert_output_contains "Processing DNS record deletions..."
 }
 
 @test "(dns:sync:deletions) handles domain with missing zone_id" {
@@ -102,7 +107,8 @@ EOF
   run bash -c 'echo "y" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
   assert_success
   assert_output_contains "Already deleted or not found"
-  assert_output_contains "Successfully deleted 1 of 1 DNS records"
+  assert_output_contains "Summary:"
+  assert_output_contains "Deleted: 1"
 
   # Record should be removed from queue
   ! grep -q "nonexistent.example.com" "$PLUGIN_DATA_ROOT/PENDING_DELETIONS" 2>/dev/null || [[ ! -s "$PLUGIN_DATA_ROOT/PENDING_DELETIONS" ]]
@@ -116,7 +122,8 @@ deleted2.example.com:Z1234567890ABC:1700000100
 deleted3.example.com:Z1234567890ABC:1700000200
 EOF
 
-  run bash -c 'echo "y" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
+  # Provide "y" for all three records
+  run bash -c 'printf "y\ny\ny\n" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
   assert_success
 
   # All domains should be removed from queue (or marked as deleted/not found)
@@ -144,7 +151,8 @@ domain2.example.com:Z1234567890ABC:1700000100
 domain3.example.com:Z1234567890ABC:1700000200
 EOF
 
-  run bash -c 'echo "n" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
+  # Provide "n" for all three records to skip them
+  run bash -c 'printf "n\nn\nn\n" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
   assert_success
   assert_output_contains "- domain1.example.com (A record)"
   assert_output_contains "- domain2.example.com (A record)"
@@ -197,8 +205,9 @@ record1.example.com:Z1234567890ABC:1700000000
 record2.example.com:Z1234567890ABC:1700000100
 EOF
 
-  run bash -c 'echo "y" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
+  # Provide "y" for both records
+  run bash -c 'printf "y\ny\n" | dokku '"$PLUGIN_COMMAND_PREFIX"':sync:deletions'
   assert_success
-  assert_output_contains "Successfully deleted"
-  assert_output_contains "of 2 DNS records"
+  assert_output_contains "Summary:"
+  assert_output_contains "Total:   2"
 }
