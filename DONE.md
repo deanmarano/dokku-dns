@@ -4,7 +4,7 @@ This file documents the complete development journey of the Dokku DNS plugin. Th
 
 **For user-facing changes, see [CHANGELOG.md](./CHANGELOG.md)**
 
-**Note**: Phases are listed in completion order, not sequential numbering. Some phases were completed out of numerical order due to development priorities. The current latest completed phase is Phase 45.
+**Note**: Phases are listed in completion order, not sequential numbering. Some phases were completed out of numerical order due to development priorities. The current latest completed phase is Phase 49.
 
 ---
 
@@ -3100,3 +3100,62 @@ Added comprehensive documentation to 6 key AWS provider functions:
 **Impact:** Improves code comprehension for contributors
 
 **Pull Request**: #83
+
+---
+
+## Phase 49: Safe One-at-a-Time Deletion Confirmations - COMPLETED ✅
+
+**Objective:** Improve deletion safety by requiring individual confirmation for each DNS record deletion.
+
+**Completed Tasks:**
+- [x] Modified `sync:deletions` command to prompt for each deletion individually
+  - [x] Removed bulk confirmation prompt
+  - [x] Added per-record y/n confirmation prompt
+  - [x] Display record details before each prompt (domain, zone, timestamp)
+  - [x] Allow user to skip individual deletions while continuing the queue
+  - [x] Maintained `--force` flag for non-interactive batch deletions
+- [x] Updated command help text and documentation
+- [x] Tested with multiple queued deletions
+- [x] Verified cancellation handling at any point in the queue
+
+**Implementation Details:**
+
+Replaced bulk "delete all" confirmation with individual per-record prompts. Each DNS record now requires separate y/n confirmation before deletion. Users can skip individual records while continuing through the queue, with skipped records remaining in the queue for the next sync:deletions run.
+
+**Key Changes:**
+1. **Per-Record Confirmation Loop** - Added individual confirmation prompt inside the deletion loop
+   ```bash
+   Delete domain.com (A record)? [y/N]
+   ```
+
+2. **Skip Tracking** - Added `skipped_count` variable to track records user chose not to delete
+   - Skipped records remain in PENDING_DELETIONS file
+   - Can be processed in future sync:deletions runs
+
+3. **Enhanced Summary Output** - Replaced simple success message with detailed breakdown:
+   ```
+   Summary:
+     Deleted: X
+     Skipped: Y
+     Failed:  Z
+     Total:   N
+   ```
+
+4. **Preserved Automation** - `--force` flag still bypasses all confirmations for non-interactive use
+
+**Testing:**
+- All 15 unit tests passing
+- 11 integration tests updated and passing
+- Production tested on real server with queued deletions
+- Verified both interactive and --force modes work correctly
+
+**Benefits:**
+- Prevents accidental bulk deletion of DNS records
+- Allows selective deletion with fine-grained control
+- Skipped records stay in queue for review
+- Maintains automation capability via --force flag
+
+**Effort:** Low (single file modification)
+**Impact:** Significantly improves deletion safety and prevents accidental bulk deletions
+
+**Pull Request**: #89
