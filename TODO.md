@@ -87,10 +87,10 @@ The DNS plugin is in progress! Many core features have been implemented and test
 
 **Objective:** Document why specific shellcheck warnings are disabled.
 
-- [ ] Audit all current shellcheck warnings
-- [ ] Add explicit `# shellcheck disable=SCXXXX` where needed
-- [ ] Add explanatory comments for each disable directive
-- [ ] Document why each check is disabled
+- [x] Audit all current shellcheck warnings
+- [x] Add explicit `# shellcheck disable=SCXXXX` where needed
+- [x] Add explanatory comments for each disable directive
+- [x] Document why each check is disabled
 
 **Effort:** Medium (thorough audit required)
 **Impact:** Improves code quality awareness, helps future contributors
