@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+# Load dokku functions if available
+if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
+  source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
+fi
+
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
+
+# Load multi-provider system
+PROVIDERS_DIR="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/providers"
+source "$PROVIDERS_DIR/multi-provider.sh"
+
+service-records-delete-cmd() {
+  #E delete a DNS record
+  #E dokku $PLUGIN_COMMAND_PREFIX:records:delete example.com A
+  #E dokku $PLUGIN_COMMAND_PREFIX:records:delete selector._domainkey.example.com CNAME
+  #E dokku $PLUGIN_COMMAND_PREFIX:records:delete example.com TXT
+  #A record_name, fully qualified record name
+  #A record_type, DNS record type (A, CNAME, TXT, MX, etc.)
+  #F --force, skip confirmation prompt
+  declare desc="delete a DNS record"
+  local cmd="$PLUGIN_COMMAND_PREFIX:records:delete" argv=("$@")
+
+  # Handle Dokku command routing
+  if [[ "$1" == "$cmd" ]]; then
+    shift 1
+  fi
+
+  local RECORD_NAME=""
+  local RECORD_TYPE=""
+  local FORCE=false
+
+  # Parse arguments
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      -f|--force)
+        FORCE=true
+        shift
+        ;;
+      *)
+        if [[ -z "$RECORD_NAME" ]]; then
+          RECORD_NAME="$1"
+        elif [[ -z "$RECORD_TYPE" ]]; then
+          RECORD_TYPE="$1"
+        else
+          dokku_log_fail "Unexpected argument: $1"
+        fi
+        shift
+        ;;
+    esac
+  done
+
+  # Validate arguments
+  if [[ -z "$RECORD_NAME" ]] || [[ -z "$RECORD_TYPE" ]]; then
+    dokku_log_fail "Usage: dokku $PLUGIN_COMMAND_PREFIX:records:delete <name> <type> [--force]"
+  fi
+
+  # Normalize record type to uppercase
+  RECORD_TYPE=$(echo "$RECORD_TYPE" | tr '[:lower:]' '[:upper:]')
+
+  # Confirm deletion unless --force
+  if [[ "$FORCE" != true ]]; then
+    echo "About to delete DNS record:"
+    echo "  Name: $RECORD_NAME"
+    echo "  Type: $RECORD_TYPE"
+    echo ""
+    read -p "Are you sure you want to delete this record? [y/N] " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      dokku_log_info1 "Deletion cancelled"
+      exit 0
+    fi
+  fi
+
+  dokku_log_info2 "Deleting DNS record: $RECORD_NAME ($RECORD_TYPE)"
+
+  # Discover providers if not already done
+  if ! discover_all_providers 2>/dev/null; then
+    dokku_log_fail "No DNS providers configured or accessible"
+  fi
+
+  # Find provider for this domain
+  local provider
+  provider=$(find_provider_for_zone "$RECORD_NAME" 2>/dev/null || true)
+
+  if [[ -z "$provider" ]]; then
+    dokku_log_fail "No provider found for domain: $RECORD_NAME"
+  fi
+
+  # Load provider
+  if ! load_provider "$provider" 2>/dev/null; then
+    dokku_log_fail "Failed to load provider: $provider"
+  fi
+
+  # Get zone ID
+  local zone_id
+  zone_id=$(provider_get_zone_id "$RECORD_NAME" 2>/dev/null || true)
+
+  if [[ -z "$zone_id" ]]; then
+    dokku_log_fail "Failed to get zone ID for: $RECORD_NAME"
+  fi
+
+  # Delete the record
+  if provider_delete_record "$zone_id" "$RECORD_NAME" "$RECORD_TYPE"; then
+    dokku_log_info1 "DNS record deleted successfully"
+  else
+    dokku_log_fail "Failed to delete DNS record"
+  fi
+}
+
+service-records-delete-cmd "$@"

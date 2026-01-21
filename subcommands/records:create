@@ -1,0 +1,134 @@
+#!/usr/bin/env bash
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+# Load dokku functions if available
+if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
+  source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
+fi
+
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
+
+# Load multi-provider system
+PROVIDERS_DIR="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/providers"
+source "$PROVIDERS_DIR/multi-provider.sh"
+
+service-records-create-cmd() {
+  #E create a DNS record of any type
+  #E dokku $PLUGIN_COMMAND_PREFIX:records:create example.com A 192.168.1.1
+  #E dokku $PLUGIN_COMMAND_PREFIX:records:create selector._domainkey.example.com CNAME dkim.provider.com
+  #E dokku $PLUGIN_COMMAND_PREFIX:records:create example.com TXT "v=spf1 include:_spf.google.com ~all"
+  #E dokku $PLUGIN_COMMAND_PREFIX:records:create example.com MX "10 mail.example.com"
+  #A record_name, fully qualified record name (e.g., example.com, sub.example.com)
+  #A record_type, DNS record type (A, CNAME, TXT, MX, etc.)
+  #A record_value, value for the DNS record
+  #F --ttl <seconds>, set TTL for the record (default: 300)
+  declare desc="create a DNS record of any type"
+  local cmd="$PLUGIN_COMMAND_PREFIX:records:create" argv=("$@")
+
+  # Handle Dokku command routing
+  if [[ "$1" == "$cmd" ]]; then
+    shift 1
+  fi
+
+  local RECORD_NAME=""
+  local RECORD_TYPE=""
+  local RECORD_VALUE=""
+  local TTL="${DNS_DEFAULT_TTL:-300}"
+
+  # Parse arguments
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      --ttl)
+        TTL="$2"
+        shift 2
+        ;;
+      *)
+        if [[ -z "$RECORD_NAME" ]]; then
+          RECORD_NAME="$1"
+        elif [[ -z "$RECORD_TYPE" ]]; then
+          RECORD_TYPE="$1"
+        elif [[ -z "$RECORD_VALUE" ]]; then
+          RECORD_VALUE="$1"
+        else
+          dokku_log_fail "Unexpected argument: $1"
+        fi
+        shift
+        ;;
+    esac
+  done
+
+  # Validate arguments
+  if [[ -z "$RECORD_NAME" ]] || [[ -z "$RECORD_TYPE" ]] || [[ -z "$RECORD_VALUE" ]]; then
+    dokku_log_fail "Usage: dokku $PLUGIN_COMMAND_PREFIX:records:create <name> <type> <value> [--ttl <seconds>]"
+  fi
+
+  # Normalize record type to uppercase
+  RECORD_TYPE=$(echo "$RECORD_TYPE" | tr '[:lower:]' '[:upper:]')
+
+  # Validate record type
+  case "$RECORD_TYPE" in
+    A|AAAA|CNAME|TXT|MX|NS|SOA|PTR|SRV|CAA)
+      ;;
+    *)
+      dokku_log_fail "Unsupported record type: $RECORD_TYPE. Supported: A, AAAA, CNAME, TXT, MX, NS, SOA, PTR, SRV, CAA"
+      ;;
+  esac
+
+  # Validate TTL
+  if ! [[ "$TTL" =~ ^[0-9]+$ ]] || [[ "$TTL" -lt 60 ]] || [[ "$TTL" -gt 86400 ]]; then
+    dokku_log_fail "TTL must be between 60 and 86400 seconds"
+  fi
+
+  dokku_log_info2 "Creating DNS record: $RECORD_NAME ($RECORD_TYPE)"
+
+  # Discover providers if not already done
+  if ! discover_all_providers 2>/dev/null; then
+    dokku_log_fail "No DNS providers configured or accessible"
+  fi
+
+  # Find provider for this domain
+  local provider
+  provider=$(find_provider_for_zone "$RECORD_NAME" 2>/dev/null || true)
+
+  if [[ -z "$provider" ]]; then
+    dokku_log_fail "No provider found for domain: $RECORD_NAME"
+  fi
+
+  # Load provider
+  if ! load_provider "$provider" 2>/dev/null; then
+    dokku_log_fail "Failed to load provider: $provider"
+  fi
+
+  # Get zone ID
+  local zone_id
+  zone_id=$(provider_get_zone_id "$RECORD_NAME" 2>/dev/null || true)
+
+  if [[ -z "$zone_id" ]]; then
+    dokku_log_fail "Failed to get zone ID for: $RECORD_NAME"
+  fi
+
+  # Handle TXT record quoting for providers that need it
+  local final_value="$RECORD_VALUE"
+  if [[ "$RECORD_TYPE" == "TXT" ]]; then
+    # Ensure TXT values are properly quoted for DNS
+    if [[ ! "$RECORD_VALUE" =~ ^\" ]]; then
+      final_value="\"$RECORD_VALUE\""
+    fi
+  fi
+
+  # Create the record
+  if provider_create_record "$zone_id" "$RECORD_NAME" "$RECORD_TYPE" "$final_value" "$TTL"; then
+    dokku_log_info1 "DNS record created successfully"
+    echo "  Name:  $RECORD_NAME"
+    echo "  Type:  $RECORD_TYPE"
+    echo "  Value: $RECORD_VALUE"
+    echo "  TTL:   $TTL"
+    echo "  Provider: $provider"
+  else
+    dokku_log_fail "Failed to create DNS record"
+  fi
+}
+
+service-records-create-cmd "$@"

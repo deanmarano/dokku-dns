@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+# Load dokku functions if available
+if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
+  source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
+fi
+
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
+
+# Load multi-provider system
+PROVIDERS_DIR="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/providers"
+source "$PROVIDERS_DIR/multi-provider.sh"
+
+service-records-get-cmd() {
+  #E get the value of a DNS record
+  #E dokku $PLUGIN_COMMAND_PREFIX:records:get example.com A
+  #E dokku $PLUGIN_COMMAND_PREFIX:records:get selector._domainkey.example.com CNAME
+  #E dokku $PLUGIN_COMMAND_PREFIX:records:get example.com TXT
+  #A record_name, fully qualified record name
+  #A record_type, DNS record type (A, CNAME, TXT, MX, etc.)
+  #F --quiet, output only the value (for scripting)
+  declare desc="get the value of a DNS record"
+  local cmd="$PLUGIN_COMMAND_PREFIX:records:get" argv=("$@")
+
+  # Handle Dokku command routing
+  if [[ "$1" == "$cmd" ]]; then
+    shift 1
+  fi
+
+  local RECORD_NAME=""
+  local RECORD_TYPE=""
+  local QUIET=false
+
+  # Parse arguments
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      -q|--quiet)
+        QUIET=true
+        shift
+        ;;
+      *)
+        if [[ -z "$RECORD_NAME" ]]; then
+          RECORD_NAME="$1"
+        elif [[ -z "$RECORD_TYPE" ]]; then
+          RECORD_TYPE="$1"
+        else
+          dokku_log_fail "Unexpected argument: $1"
+        fi
+        shift
+        ;;
+    esac
+  done
+
+  # Validate arguments
+  if [[ -z "$RECORD_NAME" ]] || [[ -z "$RECORD_TYPE" ]]; then
+    dokku_log_fail "Usage: dokku $PLUGIN_COMMAND_PREFIX:records:get <name> <type> [--quiet]"
+  fi
+
+  # Normalize record type to uppercase
+  RECORD_TYPE=$(echo "$RECORD_TYPE" | tr '[:lower:]' '[:upper:]')
+
+  # Discover providers if not already done (suppress output)
+  if ! discover_all_providers >/dev/null 2>&1; then
+    if [[ "$QUIET" == true ]]; then
+      exit 1
+    fi
+    dokku_log_fail "No DNS providers configured or accessible"
+  fi
+
+  # Find provider for this domain
+  local provider
+  provider=$(find_provider_for_zone "$RECORD_NAME" 2>/dev/null || true)
+
+  if [[ -z "$provider" ]]; then
+    if [[ "$QUIET" == true ]]; then
+      exit 1
+    fi
+    dokku_log_fail "No provider found for domain: $RECORD_NAME"
+  fi
+
+  # Load provider
+  if ! load_provider "$provider" 2>/dev/null; then
+    if [[ "$QUIET" == true ]]; then
+      exit 1
+    fi
+    dokku_log_fail "Failed to load provider: $provider"
+  fi
+
+  # Get zone ID
+  local zone_id
+  zone_id=$(provider_get_zone_id "$RECORD_NAME" 2>/dev/null || true)
+
+  if [[ -z "$zone_id" ]]; then
+    if [[ "$QUIET" == true ]]; then
+      exit 1
+    fi
+    dokku_log_fail "Failed to get zone ID for: $RECORD_NAME"
+  fi
+
+  # Get the record value
+  local value
+  if value=$(provider_get_record "$zone_id" "$RECORD_NAME" "$RECORD_TYPE" 2>/dev/null); then
+    if [[ "$QUIET" == true ]]; then
+      echo "$value"
+    else
+      echo "Record: $RECORD_NAME ($RECORD_TYPE)"
+      echo "Value:  $value"
+      echo "Provider: $provider"
+    fi
+    exit 0
+  else
+    if [[ "$QUIET" == true ]]; then
+      exit 1
+    fi
+    dokku_log_fail "Record not found: $RECORD_NAME ($RECORD_TYPE)"
+  fi
+}
+
+service-records-get-cmd "$@"
