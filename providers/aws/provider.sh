@@ -288,6 +288,24 @@ provider_get_record() {
 }
 
 # REQUIRED: Create or update a DNS record
+#
+# Creates or updates a DNS record in Route53 using UPSERT action.
+# UPSERT creates the record if it doesn't exist, updates it if it does.
+#
+# Arguments:
+#   $1 - zone_id: Route53 hosted zone ID (without /hostedzone/ prefix)
+#   $2 - record_name: Fully qualified domain name (e.g., "www.example.com")
+#   $3 - record_type: DNS record type (e.g., "A", "CNAME", "TXT", "MX")
+#   $4 - record_value: Value for the DNS record
+#   $5 - ttl: (optional) TTL in seconds, defaults to PROVIDER_DEFAULT_TTL or 300
+#
+# Returns:
+#   0 - Record created/updated successfully
+#   1 - Invalid arguments, credentials, or API error
+#
+# Note: Uses jq to build JSON to properly escape special characters in values.
+#       This is especially important for TXT records which may contain quotes.
+#
 provider_create_record() {
   local zone_id="$1"
   local record_name="$2"
@@ -304,32 +322,56 @@ provider_create_record() {
     return 1
   fi
 
-  # Create the change batch for Route53
-  local change_batch="{
-        \"Changes\": [{
-            \"Action\": \"UPSERT\",
-            \"ResourceRecordSet\": {
-                \"Name\": \"${record_name}\",
-                \"Type\": \"${record_type}\",
-                \"TTL\": ${ttl},
-                \"ResourceRecords\": [{\"Value\": \"${record_value}\"}]
-            }
-        }]
-    }"
+  # Build the change batch using jq for proper JSON escaping
+  # This handles special characters in values correctly, especially for TXT records
+  local change_batch
+  change_batch=$(jq -n \
+    --arg name "$record_name" \
+    --arg type "$record_type" \
+    --argjson ttl "$ttl" \
+    --arg value "$record_value" \
+    '{
+      Changes: [{
+        Action: "UPSERT",
+        ResourceRecordSet: {
+          Name: $name,
+          Type: $type,
+          TTL: $ttl,
+          ResourceRecords: [{Value: $value}]
+        }
+      }]
+    }')
 
   # Execute the change
-  if aws route53 change-resource-record-sets \
+  local response
+  if response=$(aws route53 change-resource-record-sets \
     --hosted-zone-id "$zone_id" \
-    --change-batch "$change_batch" >/dev/null 2>&1; then
+    --change-batch "$change_batch" 2>&1); then
     echo "Created/updated record: $record_name -> $record_value (TTL: $ttl)"
     return 0
   else
     echo "Failed to create/update record: $record_name" >&2
+    echo "AWS error: $response" >&2
     return 1
   fi
 }
 
 # REQUIRED: Delete a DNS record
+#
+# Deletes an existing DNS record from Route53.
+# Requires fetching the current record value first (Route53 requires exact match for DELETE).
+#
+# Arguments:
+#   $1 - zone_id: Route53 hosted zone ID (without /hostedzone/ prefix)
+#   $2 - record_name: Fully qualified domain name (e.g., "www.example.com")
+#   $3 - record_type: DNS record type (e.g., "A", "CNAME", "TXT")
+#
+# Returns:
+#   0 - Record deleted successfully
+#   1 - Record not found, invalid arguments, or API error
+#
+# Note: Uses jq to build JSON to properly escape special characters in values.
+#
 provider_delete_record() {
   local zone_id="$1"
   local record_name="$2"
@@ -365,27 +407,35 @@ provider_delete_record() {
   record_value=$(echo "$record_info" | jq -r '.ResourceRecords[0].Value')
   ttl=$(echo "$record_info" | jq -r '.TTL')
 
-  # Create the delete change batch
-  local change_batch="{
-        \"Changes\": [{
-            \"Action\": \"DELETE\",
-            \"ResourceRecordSet\": {
-                \"Name\": \"${record_name}\",
-                \"Type\": \"${record_type}\",
-                \"TTL\": ${ttl},
-                \"ResourceRecords\": [{\"Value\": \"${record_value}\"}]
-            }
-        }]
-    }"
+  # Build the delete change batch using jq for proper JSON escaping
+  local change_batch
+  change_batch=$(jq -n \
+    --arg name "$record_name" \
+    --arg type "$record_type" \
+    --argjson ttl "$ttl" \
+    --arg value "$record_value" \
+    '{
+      Changes: [{
+        Action: "DELETE",
+        ResourceRecordSet: {
+          Name: $name,
+          Type: $type,
+          TTL: $ttl,
+          ResourceRecords: [{Value: $value}]
+        }
+      }]
+    }')
 
   # Execute the delete
-  if aws route53 change-resource-record-sets \
+  local response
+  if response=$(aws route53 change-resource-record-sets \
     --hosted-zone-id "$zone_id" \
-    --change-batch "$change_batch" >/dev/null 2>&1; then
+    --change-batch "$change_batch" 2>&1); then
     echo "Deleted record: $record_name ($record_type)"
     return 0
   else
     echo "Failed to delete record: $record_name" >&2
+    echo "AWS error: $response" >&2
     return 1
   fi
 }
