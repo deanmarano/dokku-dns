@@ -3,24 +3,8 @@ source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
 set -eo pipefail
 [[ $DOKKU_TRACE ]] && set -x
 
-# Load dokku functions if available
 if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
   source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
-fi
-
-# Define missing functions if needed
-if ! declare -f verify_app_name >/dev/null 2>&1; then
-  verify_app_name() {
-    local app="$1"
-    [[ -n "$app" ]] || { echo " !     Please specify an app name" >&2; exit 1; }
-
-    # Check if app exists (only if dokku command is available)
-    if command -v dokku >/dev/null 2>&1; then
-      if ! dokku apps:list 2>/dev/null | grep -q "^$app$"; then
-        dokku_log_fail "App $app does not exist"
-      fi
-    fi
-  }
 fi
 
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
@@ -36,10 +20,71 @@ service-apps-sync-cmd() {
   [[ ${argv[0]} == "$cmd" ]] && shift 1
   declare APP="$1"
 
-  [[ -z "$APP" ]] && dokku_log_fail "Please specify an app name"
-  verify_app_name "$APP"
-  
-  dns_app "$APP" || true
+  [[ -z "$APP" ]] && { echo "Error: app name required"; return 1; }
+
+  local domains_file="$PLUGIN_DATA_ROOT/$APP/DOMAINS"
+  if [[ ! -f "$domains_file" ]]; then
+    echo "App '$APP' not in DNS management"
+    return 1
+  fi
+
+  local SERVER_IP
+  SERVER_IP=$(get_server_ip)
+  if [[ "$SERVER_IP" == "Unknown" ]]; then
+    echo "Error: cannot detect server IP"
+    return 1
+  fi
+
+  # Load provider system
+  local ADAPTER_PATH
+  ADAPTER_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/providers/adapter.sh"
+  source "$ADAPTER_PATH"
+
+  if ! init_provider_system 2>/dev/null; then
+    echo "Error: no DNS provider configured"
+    return 1
+  fi
+
+  local synced=0 failed=0
+
+  while IFS= read -r domain; do
+    [[ -z "$domain" ]] && continue
+
+    local zone_id
+    if ! zone_id=$(multi_get_zone_id "$domain" 2>/dev/null); then
+      echo "✗ $domain (no zone)"
+      failed=$((failed + 1))
+      continue
+    fi
+
+    local current_ip
+    current_ip=$(multi_get_record "$zone_id" "$domain" "A" 2>/dev/null || echo "")
+
+    if [[ "$current_ip" == "$SERVER_IP" ]]; then
+      echo "✓ $domain (already correct)"
+      synced=$((synced + 1))
+      continue
+    fi
+
+    local ttl
+    ttl=$(get_domain_ttl "$APP" "$domain" 2>/dev/null || echo "300")
+
+    if multi_create_record "$zone_id" "$domain" "A" "$SERVER_IP" "$ttl" 2>/dev/null; then
+      if [[ -z "$current_ip" ]]; then
+        echo "✓ $domain (created)"
+      else
+        echo "✓ $domain (updated from $current_ip)"
+      fi
+      synced=$((synced + 1))
+    else
+      echo "✗ $domain (failed)"
+      failed=$((failed + 1))
+    fi
+  done < "$domains_file"
+
+  echo
+  echo "Synced: $synced, Failed: $failed"
+  [[ $failed -eq 0 ]]
 }
 
 service-apps-sync-cmd "$@"

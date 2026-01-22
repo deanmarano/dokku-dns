@@ -22,8 +22,6 @@ init_multi_data() {
 discover_all_providers() {
   init_multi_data
 
-  echo "Discovering zones from all providers..." >&2
-
   local available_providers=()
   while IFS= read -r provider; do
     available_providers+=("$provider")
@@ -32,21 +30,13 @@ discover_all_providers() {
   local working_providers=0
 
   for provider in "${available_providers[@]}"; do
-    echo "  Checking provider: $provider" >&2
-
     # Try to load the provider
     if load_provider "$provider" 2>/dev/null; then
       # Test if credentials are valid
       if provider_validate_credentials 2>/dev/null; then
-        echo "    ✓ $provider credentials valid" >&2
-
         # Get zones from this provider
         local zones
         if zones=$(provider_list_zones 2>/dev/null); then
-          local zone_count
-          zone_count=$(echo "$zones" | wc -l)
-          echo "    ✓ $provider manages $zone_count zone(s)" >&2
-
           # Store zones for this provider
           echo "$zones" >"$MULTI_PROVIDER_DATA/providers/$provider"
 
@@ -56,23 +46,12 @@ discover_all_providers() {
           done
 
           working_providers=$((working_providers + 1))
-        else
-          echo "    ✗ $provider: failed to list zones" >&2
         fi
-      else
-        echo "    ✗ $provider: invalid credentials" >&2
       fi
-    else
-      echo "    ✗ $provider: failed to load" >&2
     fi
   done
 
-  echo "Zone discovery complete: $working_providers working provider(s)" >&2
-  if [[ $working_providers -gt 0 ]]; then
-    return 0
-  else
-    return 1
-  fi
+  [[ $working_providers -gt 0 ]]
 }
 
 # Find which provider manages a specific zone
@@ -233,23 +212,28 @@ show_discovered_zones() {
   fi
 }
 
-# Initialize multi-provider system
-init_multi_provider_system() {
-  echo "Initializing multi-provider DNS system..." >&2
+# Check if zone mappings are already cached and valid
+_zone_mappings_exist() {
+  [[ -d "$MULTI_PROVIDER_DATA/zones" ]] &&
+    [[ -n "$(ls -A "$MULTI_PROVIDER_DATA/zones" 2>/dev/null)" ]]
+}
 
-  if ! discover_all_providers; then
-    echo "No providers with valid credentials found" >&2
+# Initialize multi-provider system (skips discovery if mappings exist)
+init_multi_provider_system() {
+  init_multi_data
+
+  # Skip discovery if zone mappings already exist
+  if _zone_mappings_exist; then
+    return 0
+  fi
+
+  # Need to discover providers
+  if ! discover_all_providers 2>/dev/null; then
     return 1
   fi
 
   local provider_count
   provider_count=$(find "$MULTI_PROVIDER_DATA/providers" -mindepth 1 -maxdepth 1 2>/dev/null | wc -l)
 
-  if [[ $provider_count -eq 0 ]]; then
-    echo "No working providers found" >&2
-    return 1
-  fi
-
-  echo "Multi-provider system ready: $provider_count provider(s) active" >&2
-  return 0
+  [[ $provider_count -gt 0 ]]
 }

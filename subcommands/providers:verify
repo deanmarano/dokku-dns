@@ -3,25 +3,11 @@ source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
 set -eo pipefail
 [[ $DOKKU_TRACE ]] && set -x
 
-# Load dokku functions if available
 if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
   source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
 fi
 
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
-
-# Helper functions for conditional output based on verbose flag
-verbose_log_info1() {
-  [[ "$VERBOSE" == "true" ]] && dokku_log_info1 "$@"
-}
-
-verbose_log_info2() {
-  [[ "$VERBOSE" == "true" ]] && dokku_log_info2 "$@"
-}
-
-verbose_echo() {
-  [[ "$VERBOSE" == "true" ]] && echo
-}
 
 service-providers-verify-cmd() {
   #E verify DNS provider setup and connectivity, discover existing DNS records
@@ -34,726 +20,74 @@ service-providers-verify-cmd() {
   local cmd="$PLUGIN_COMMAND_PREFIX:providers:verify" argv=("$@")
   [[ ${argv[0]} == "$cmd" ]] && shift 1
 
-  # Parse flags
   local VERBOSE=false
   local PROVIDER_ARG=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      -v|--verbose)
-        VERBOSE=true
-        shift
-        ;;
-      *)
-        PROVIDER_ARG="$1"
-        shift
-        ;;
+      -v|--verbose) VERBOSE=true; shift ;;
+      *) PROVIDER_ARG="$1"; shift ;;
     esac
   done
 
-  local GLOBAL_CONFIG_ROOT="$PLUGIN_DATA_ROOT"
-
-  # Check dependencies first (only in verbose mode or if missing)
+  # Check jq dependency
   if ! command -v jq &>/dev/null; then
-    dokku_log_fail "Missing jq, install it
-
-jq is required for JSON processing by all DNS providers.
-
-Install jq:
-  Ubuntu/Debian:    sudo apt-get install jq
-  CentOS/RHEL:      sudo yum install jq
-  macOS (Homebrew): brew install jq
-
-Or download from: https://stedolan.github.io/jq/download/"
+    echo "Error: jq is required. Install with: apt-get install jq"
+    return 1
   fi
 
-  if [[ "$VERBOSE" == "true" ]]; then
-    dokku_log_info2 "Checking Dependencies"
-    dokku_log_info1 "  jq: available ($(jq --version))"
-    echo
-  fi
-
-  # Load the provider loader system
   local LOADER_PATH
   LOADER_PATH="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/providers/loader.sh"
-  if [[ ! -f "$LOADER_PATH" ]]; then
-    dokku_log_fail "Provider loader system not found"
-  fi
   source "$LOADER_PATH"
 
-  # Determine which provider(s) to verify
-  local PROVIDERS_TO_VERIFY=()
+  # Determine providers to verify
+  local providers=()
   if [[ -n "$PROVIDER_ARG" ]]; then
-    # Specific provider requested
-    if grep -q "^${PROVIDER_ARG}$" "$(dirname "$LOADER_PATH")/available"; then
-      # Check if it's a test-only provider being requested in normal mode
-      if [[ "$PROVIDER_ARG" =~ ^(template|mock)$ ]] && [[ -z "${DNS_TEST_MODE:-}" ]]; then
-        dokku_log_fail "Provider '$PROVIDER_ARG' is only available in test mode. Available providers: $(grep -v "^#" "$(dirname "$LOADER_PATH")/available" | grep -v -E "^(template|mock)$" | tr '\n' ' ')"
-      fi
-      PROVIDERS_TO_VERIFY=("$PROVIDER_ARG")
-    else
-      dokku_log_fail "Provider '$PROVIDER_ARG' is not available. Available providers: $(grep -v "^#" "$(dirname "$LOADER_PATH")/available" | grep -v -E "^(template|mock)$" | tr '\n' ' ')"
-    fi
+    providers=("$PROVIDER_ARG")
   else
-    # Auto-detect which providers are configured by checking for credentials
-    local configured_providers=()
-
-    # Check AWS (always include since it's most common and can work with IAM roles)
-    configured_providers+=("aws")
-
-    # Check Cloudflare
-    if [[ -n "${CLOUDFLARE_API_TOKEN:-}" ]]; then
-      configured_providers+=("cloudflare")
-    fi
-
-    # Check DigitalOcean
-    if [[ -n "${DIGITALOCEAN_ACCESS_TOKEN:-}" ]]; then
-      configured_providers+=("digitalocean")
-    fi
-
-    # In test mode, also include template and mock if they're configured
-    if [[ -n "${DNS_TEST_MODE:-}" ]]; then
-      # Check if mock provider is configured
-      if [[ -n "${MOCK_API_KEY:-}" ]]; then
-        configured_providers+=("mock")
-      fi
-      # Always include template in test mode for testing
-      configured_providers+=("template")
-    fi
-
-    PROVIDERS_TO_VERIFY=("${configured_providers[@]}")
-
-    if [[ "$VERBOSE" == "true" ]]; then
-      # If only AWS is configured, show a friendly message
-      if [[ ${#configured_providers[@]} -eq 1 ]] && [[ "${configured_providers[0]}" == "aws" ]]; then
-        dokku_log_info2 "Auto-detected provider: AWS Route53"
-        echo
-        dokku_log_info1 "To add additional providers, configure their credentials:"
-        dokku_log_info1 "  Cloudflare: dokku config:set --global CLOUDFLARE_API_TOKEN=your_token"
-        dokku_log_info1 "  DigitalOcean: dokku config:set --global DIGITALOCEAN_ACCESS_TOKEN=your_token"
-        echo
-      elif [[ ${#configured_providers[@]} -gt 1 ]]; then
-        dokku_log_info2 "Auto-detected providers: ${configured_providers[*]}"
-        echo
-      fi
-    fi
+    # Auto-detect configured providers
+    providers=("aws")
+    [[ -n "${CLOUDFLARE_API_TOKEN:-}" ]] && providers+=("cloudflare")
+    [[ -n "${DIGITALOCEAN_ACCESS_TOKEN:-}" ]] && providers+=("digitalocean")
   fi
 
-  # Ensure we have at least one provider to verify
-  if [[ ${#PROVIDERS_TO_VERIFY[@]} -eq 0 ]]; then
-    dokku_log_fail "No providers available for verification. Available providers: $(grep -v "^#" "$(dirname "$LOADER_PATH")/available" | grep -v -E "^(template|mock)$" | tr '\n' ' ')"
-  fi
+  local any_success=false
 
-  # Create credentials directory only if we actually need it
-  local CREDENTIALS_DIR="$GLOBAL_CONFIG_ROOT/credentials"
-  mkdir -p "$CREDENTIALS_DIR" 2>/dev/null || true
-  chmod 700 "$CREDENTIALS_DIR" 2>/dev/null || true
+  for provider in "${providers[@]}"; do
+    local status="✗" zones="" zone_count=0 error=""
 
-  # Function to verify a specific provider
-  # Returns: Sets global PROVIDER_SUMMARY variables for summary display
-  verify_provider() {
-    local provider_name="$1"
-
-    # Initialize summary data (will be used in non-verbose mode)
-    PROVIDER_SUMMARY_NAME="$provider_name"
-    PROVIDER_SUMMARY_STATUS="unknown"
-    PROVIDER_SUMMARY_ZONE_COUNT=0
-    PROVIDER_SUMMARY_ZONES=()
-    PROVIDER_SUMMARY_ERROR=""
-
-    verbose_log_info2 "Verifying $provider_name provider"
-    verbose_echo
-
-    # Try to load the provider
-    if ! load_specific_provider "$provider_name" >/dev/null 2>&1; then
-      verbose_log_info1 "  ✗ Provider '$provider_name' failed to load"
-      PROVIDER_SUMMARY_STATUS="failed"
-      PROVIDER_SUMMARY_ERROR="failed to load"
-      return 1
+    if load_specific_provider "$provider" 2>/dev/null; then
+      if provider_validate_credentials 2>/dev/null; then
+        if zones=$(provider_list_zones 2>/dev/null); then
+          zone_count=$(echo "$zones" | grep -c . || echo 0)
+          status="✓"
+          any_success=true
+        else
+          error="cannot list zones"
+        fi
+      else
+        error="auth failed"
+      fi
+    else
+      error="not configured"
     fi
 
-    verbose_log_info1 "Current Configuration:"
-    verbose_log_info1 "  DNS Provider: $provider_name"
-
-    case "$provider_name" in
-    aws)
-      if [[ "$VERBOSE" == "true" ]]; then
-        dokku_log_info2 "AWS Route53 Setup"
-        echo
-      fi
-
-      # Check if AWS CLI is installed
-      if ! command -v aws >/dev/null 2>&1; then
-        PROVIDER_SUMMARY_STATUS="failed"
-        PROVIDER_SUMMARY_ERROR="AWS CLI not installed"
-        if [[ "$VERBOSE" == "true" ]]; then
-          dokku_log_info1 "  ✗ AWS CLI: not installed"
-          echo
-          dokku_log_fail "AWS CLI is not installed. Please install it first:
-
-  # Ubuntu/Debian:
-  sudo apt update && sudo apt install awscli
-
-  # macOS:
-  brew install awscli
-
-  # Or install via pip:
-  pip install awscli
-
-  # Or download from AWS:
-  curl \"https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip\" -o \"awscliv2.zip\"
-  unzip awscliv2.zip
-  sudo ./aws/install"
-        fi
-        return 1
-      fi
-
-      if [[ "$VERBOSE" == "true" ]]; then
-        local AWS_VERSION
-        AWS_VERSION=$(aws --version 2>/dev/null | cut -d' ' -f1 || echo "unknown")
-        dokku_log_info1 "  AWS CLI: installed ($AWS_VERSION)"
-        echo
-        # Check AWS credentials and configuration
-        dokku_log_info1 "Credential Detection:"
-      fi
-      
-      # Helper function to run AWS commands with correct user context
-      run_aws_command() {
-        if aws "$@" >/dev/null 2>&1; then
-          aws "$@" 2>/dev/null
-        elif [[ -n "${SUDO_USER:-}" ]] && sudo -u "$SUDO_USER" aws "$@" >/dev/null 2>&1; then
-          sudo -u "$SUDO_USER" aws "$@" 2>/dev/null
-        elif [[ -f "/home/dokku/.aws/credentials" ]] && sudo -u dokku aws "$@" >/dev/null 2>&1; then
-          sudo -u dokku aws "$@" 2>/dev/null
-        else
-          return 1
-        fi
-      }
-      
-      # Check different credential sources (always check, only show if verbose)
-      local CREDENTIALS_DETECTED=false
-      local CREDENTIAL_SOURCE=""
-
-      # Check environment variables
-      if [[ -n "${AWS_ACCESS_KEY_ID:-}" ]] && [[ -n "${AWS_SECRET_ACCESS_KEY:-}" ]]; then
-        [[ "$VERBOSE" == "true" ]] && dokku_log_info1 "  Environment variables: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY"
-        CREDENTIALS_DETECTED=true
-        CREDENTIAL_SOURCE="environment"
-      else
-        [[ "$VERBOSE" == "true" ]] && dokku_log_info1 "  ✗ Environment variables: not set"
-      fi
-
-      # Check AWS CLI configuration files
-      local AWS_CONFIG_STATUS="✗"
-      if [[ -f ~/.aws/credentials ]] || [[ -f ~/.aws/config ]]; then
-        AWS_CONFIG_STATUS="YES"
-        CREDENTIALS_DETECTED=true
-        if [[ -z "$CREDENTIAL_SOURCE" ]]; then
-          CREDENTIAL_SOURCE="aws-config"
-        fi
-      fi
-      [[ "$VERBOSE" == "true" ]] && dokku_log_info1 "  $AWS_CONFIG_STATUS AWS config files: ~/.aws/credentials, ~/.aws/config"
-
-      # Check IAM role (EC2 metadata)
-      if curl -s --max-time 2 http://169.254.169.254/latest/meta-data/iam/security-credentials/ >/dev/null 2>&1; then
-        [[ "$VERBOSE" == "true" ]] && dokku_log_info1 "  IAM Role: available (EC2 instance)"
-        CREDENTIALS_DETECTED=true
-        if [[ -z "$CREDENTIAL_SOURCE" ]]; then
-          CREDENTIAL_SOURCE="iam-role"
-        fi
-      else
-        [[ "$VERBOSE" == "true" ]] && dokku_log_info1 "  ✗ IAM Role: not available"
-      fi
-
-      [[ "$VERBOSE" == "true" ]] && echo
-      
-      # Try to authenticate and get AWS identity
-      [[ "$VERBOSE" == "true" ]] && dokku_log_info1 "Testing AWS Authentication:"
-      local AWS_CHECK_SUCCESS=false
-
-      if run_aws_command sts get-caller-identity >/dev/null 2>&1; then
-        AWS_CHECK_SUCCESS=true
-        # Determine which context is working for user feedback
-        if [[ "$VERBOSE" == "true" ]]; then
-          if aws sts get-caller-identity >/dev/null 2>&1; then
-            dokku_log_info1 "  Authentication successful (current context)"
-          elif [[ -n "${SUDO_USER:-}" ]]; then
-            dokku_log_info1 "  Authentication successful (user: $SUDO_USER)"
-          else
-            dokku_log_info1 "  Authentication successful (dokku user)"
-          fi
-        fi
-      else
-        [[ "$VERBOSE" == "true" ]] && dokku_log_info1 "  ✗ Authentication failed"
-      fi
-
-      if [[ "$AWS_CHECK_SUCCESS" != "true" ]]; then
-        PROVIDER_SUMMARY_STATUS="failed"
-        PROVIDER_SUMMARY_ERROR="authentication failed"
-        if [[ "$VERBOSE" == "true" ]]; then
-          echo
-          dokku_log_fail "AWS CLI is not configured or credentials are invalid.
-
-Please configure AWS credentials using one of these methods:
-
-Method 1 - Using dokku config:set (Recommended for Dokku):
-  dokku config:set --global AWS_ACCESS_KEY_ID=your_access_key_id
-  dokku config:set --global AWS_SECRET_ACCESS_KEY=your_secret_access_key  
-  dokku config:set --global AWS_DEFAULT_REGION=us-east-1
-
-Method 2 - Using aws configure:
-  aws configure
-  # Then enter your AWS Access Key ID, Secret Key, and default region
-
-Method 3 - Using environment variables:
-  export AWS_ACCESS_KEY_ID=your_key_id
-  export AWS_SECRET_ACCESS_KEY=your_secret_key
-  export AWS_DEFAULT_REGION=us-east-1
-
-Method 4 - Using IAM roles (if running on EC2):
-  # Attach an IAM role with Route53 permissions to your EC2 instance
-
-Method 5 - Using AWS credential files:
-  # Edit ~/.aws/credentials and ~/.aws/config
-
-Required AWS Permissions:
-  - route53:ListHostedZones
-  - route53:ListResourceRecordSets
-  - route53:ChangeResourceRecordSets
-
-For more info: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html"
-        fi
-        return 1
-      fi
-
-      if [[ "$VERBOSE" == "true" ]]; then
-        echo
-        # Get detailed AWS identity information
-        dokku_log_info1 "AWS Account Details:"
-      fi
-      local AWS_IDENTITY AWS_USER_ID AWS_ACCOUNT AWS_REGION AWS_ARN
-
-      AWS_IDENTITY=$(run_aws_command sts get-caller-identity)
-      AWS_REGION=$(run_aws_command configure get region 2>/dev/null || echo "not-set")
-
-      if [[ -n "$AWS_IDENTITY" ]]; then
-        AWS_USER_ID=$(echo "$AWS_IDENTITY" | jq -r '.UserId' 2>/dev/null || echo "unknown")
-        AWS_ACCOUNT=$(echo "$AWS_IDENTITY" | jq -r '.Account' 2>/dev/null || echo "unknown")
-        AWS_ARN=$(echo "$AWS_IDENTITY" | jq -r '.Arn' 2>/dev/null || echo "unknown")
-
-        if [[ "$VERBOSE" == "true" ]]; then
-          dokku_log_info1 "  Account ID: $AWS_ACCOUNT"
-          dokku_log_info1 "  User/Role ARN: $AWS_ARN"
-          dokku_log_info1 "  User ID: $AWS_USER_ID"
-          dokku_log_info1 "  Region: $AWS_REGION"
-
-          if [[ "$AWS_REGION" == "not-set" ]]; then
-            dokku_log_warn "  No default region set. Consider setting AWS_DEFAULT_REGION"
-          fi
-        fi
-      else
-        [[ "$VERBOSE" == "true" ]] && dokku_log_info1 "  ✗ Could not retrieve AWS identity"
-      fi
-
-      [[ "$VERBOSE" == "true" ]] && echo
-      
-      # Test Route53 permissions comprehensively
-      [[ "$VERBOSE" == "true" ]] && dokku_log_info1 "Testing Route53 API Access:"
-      local ROUTE53_SUCCESS=false
-
-      # Test list-hosted-zones permission
-      if run_aws_command route53 list-hosted-zones >/dev/null 2>&1; then
-        [[ "$VERBOSE" == "true" ]] && dokku_log_info1 "  route53:ListHostedZones - can list hosted zones"
-        ROUTE53_SUCCESS=true
-
-        # Get zone count and names for summary
-        local ZONE_COUNT
-        ZONE_COUNT=$(run_aws_command route53 list-hosted-zones --query 'length(HostedZones)' --output text 2>/dev/null || echo "0")
-        PROVIDER_SUMMARY_ZONE_COUNT="$ZONE_COUNT"
-
-        # Get zone names for summary
-        local zone_names
-        zone_names=$(run_aws_command route53 list-hosted-zones --query 'HostedZones[].Name' --output text 2>/dev/null | tr '\t' ' ')
-        if [[ -n "$zone_names" ]]; then
-          # Convert to array
-          IFS=' ' read -r -a PROVIDER_SUMMARY_ZONES <<< "$zone_names"
-        fi
-
-        [[ "$VERBOSE" == "true" ]] && dokku_log_info1 "  Found $ZONE_COUNT hosted zone(s)"
-
-        # Test record listing if zones exist
-        if [[ "$ZONE_COUNT" -gt 0 ]]; then
-          local FIRST_ZONE_ID
-          FIRST_ZONE_ID=$(run_aws_command route53 list-hosted-zones --query 'HostedZones[0].Id' --output text 2>/dev/null | sed 's|/hostedzone/||')
-
-          if [[ -n "$FIRST_ZONE_ID" ]] && run_aws_command route53 list-resource-record-sets --hosted-zone-id "$FIRST_ZONE_ID" >/dev/null 2>&1; then
-            [[ "$VERBOSE" == "true" ]] && dokku_log_info1 "  route53:ListResourceRecordSets - can read DNS records"
-          else
-            [[ "$VERBOSE" == "true" ]] && dokku_log_info1 "  route53:ListResourceRecordSets - permission test failed"
-          fi
-
-          # Note: We can't easily test ChangeResourceRecordSets without making actual changes
-          [[ "$VERBOSE" == "true" ]] && dokku_log_info1 "  ? route53:ChangeResourceRecordSets - will be tested during actual sync operations"
-        fi
-
-        PROVIDER_SUMMARY_STATUS="success"
-      else
-        [[ "$VERBOSE" == "true" ]] && dokku_log_info1 "  ✗ route53:ListHostedZones - permission denied or API error"
-        PROVIDER_SUMMARY_STATUS="failed"
-        PROVIDER_SUMMARY_ERROR="route53 permission denied"
-      fi
-      
-      if [[ "$ROUTE53_SUCCESS" == "true" ]]; then
-        if [[ "$VERBOSE" == "true" ]]; then
-          echo
-          dokku_log_info1 "Hosted Zones Discovery:"
-
-          # Show available hosted zones in a nice format
-          local ZONES_OUTPUT
-          ZONES_OUTPUT=$(run_aws_command route53 list-hosted-zones --query 'HostedZones[].{Zone:Name,ID:Id,Records:ResourceRecordSetCount,Type:Config.PrivateZone}' --output table 2>/dev/null)
-
-          if [[ -n "$ZONES_OUTPUT" ]]; then
-            echo "$ZONES_OUTPUT"
-          else
-            # Fallback to simple text output
-            dokku_log_info1 "Available zones:"
-            run_aws_command route53 list-hosted-zones --query 'HostedZones[].Name' --output text 2>/dev/null | tr '\t' '\n' | sed 's/^/  /' || dokku_log_info1 "  No hosted zones found"
-          fi
-
-          echo
-          # Show existing DNS records for Dokku domains
-          dokku_log_info1 "Dokku DNS Records Discovery:"
-          if init_provider_system >/dev/null 2>&1; then
-            # Use the adapter system to discover existing domains
-            dokku_log_info1 "  DNS discovery available through adapter system"
-          else
-            dokku_log_info1 "  No existing Dokku DNS records found"
-          fi
-        fi
-        return 0  # AWS verification successful
-      else
-        if [[ "$VERBOSE" == "true" ]]; then
-          echo
-          dokku_log_fail "Route53 access failed. Please ensure your AWS credentials have the following permissions:
-
-Required AWS Route53 Permissions:
-  - route53:ListHostedZones        (list available DNS zones)
-  - route53:ListResourceRecordSets (read existing DNS records)  
-  - route53:ChangeResourceRecordSets (create/update/delete DNS records)
-
-You can either:
-1. Attach the AWS managed policy 'AmazonRoute53FullAccess'
-2. Create a custom policy with the permissions above
-
-Policy JSON example:
-{
-    \"Version\": \"2012-10-17\",
-    \"Statement\": [
-        {
-            \"Effect\": \"Allow\",
-            \"Action\": [
-                \"route53:ListHostedZones\",
-                \"route53:ListResourceRecordSets\",
-                \"route53:ChangeResourceRecordSets\"
-            ],
-            \"Resource\": \"*\"
-        }
-    ]
-}"
-        fi
-        return 1
-      fi
-      ;;
-
-    cloudflare)
-      if [[ "$VERBOSE" == "true" ]]; then
-        dokku_log_info1 "Cloudflare API Token Detection:"
-        dokku_log_info1 "  ✓ CLOUDFLARE_API_TOKEN: configured"
-        echo
-        dokku_log_info1 "Testing Cloudflare API Access:"
-      fi
-
-      # Call provider validation function
-      if provider_validate_credentials >/dev/null 2>&1; then
-        [[ "$VERBOSE" == "true" ]] && dokku_log_info1 "  ✓ API Authentication: successful"
-
-        # Test zone listing
-        if provider_list_zones >/dev/null 2>&1; then
-          local zone_count zone_list
-          zone_count=$(provider_list_zones 2>/dev/null | wc -l)
-          zone_list=$(provider_list_zones 2>/dev/null)
-
-          # Collect summary data
-          PROVIDER_SUMMARY_ZONE_COUNT="$zone_count"
-          if [[ -n "$zone_list" ]]; then
-            IFS=$'\n' read -r -d '' -a PROVIDER_SUMMARY_ZONES <<< "$zone_list" || true
-          fi
-          PROVIDER_SUMMARY_STATUS="success"
-
-          if [[ "$VERBOSE" == "true" ]]; then
-            dokku_log_info1 "  ✓ Zone Access: can list zones ($zone_count zone(s) available)"
-
-            # Show available zones
-            if [[ $zone_count -gt 0 ]]; then
-              echo
-              dokku_log_info1 "Available Cloudflare Zones:"
-              while IFS= read -r zone; do
-                echo "  $zone"
-              done <<< "$zone_list"
-            fi
-          fi
-        else
-          PROVIDER_SUMMARY_STATUS="partial"
-          PROVIDER_SUMMARY_ERROR="limited zone access"
-          [[ "$VERBOSE" == "true" ]] && dokku_log_info1 "  ⚠ Zone Access: limited (check token permissions)"
-        fi
-      else
-        PROVIDER_SUMMARY_STATUS="failed"
-        PROVIDER_SUMMARY_ERROR="authentication failed"
-        if [[ "$VERBOSE" == "true" ]]; then
-          dokku_log_info1 "  ✗ API Authentication: failed"
-          echo
-          dokku_log_warn "Cloudflare API authentication failed. Please check your API token.
-
-Troubleshooting:
-1. Verify your API token is correct
-2. Check token permissions include Zone:Zone:Read and Zone:DNS:Edit
-3. Ensure the token hasn't expired
-
-Get a new token from: https://dash.cloudflare.com/profile/api-tokens"
-        fi
-        return 1
-      fi
-      ;;
-
-    digitalocean)
-      if [[ "$VERBOSE" == "true" ]]; then
-        dokku_log_info1 "DigitalOcean API Token Detection:"
-        dokku_log_info1 "  ✓ DIGITALOCEAN_ACCESS_TOKEN: configured"
-        echo
-        dokku_log_info1 "Testing DigitalOcean API Access:"
-      fi
-
-      # Call provider validation function
-      if provider_validate_credentials >/dev/null 2>&1; then
-        [[ "$VERBOSE" == "true" ]] && dokku_log_info1 "  ✓ API Authentication: successful"
-
-        # Test domain listing
-        if provider_list_zones >/dev/null 2>&1; then
-          local domain_count domain_list
-          domain_count=$(provider_list_zones 2>/dev/null | wc -l)
-          domain_list=$(provider_list_zones 2>/dev/null)
-
-          # Collect summary data
-          PROVIDER_SUMMARY_ZONE_COUNT="$domain_count"
-          if [[ -n "$domain_list" ]]; then
-            IFS=$'\n' read -r -d '' -a PROVIDER_SUMMARY_ZONES <<< "$domain_list" || true
-          fi
-          PROVIDER_SUMMARY_STATUS="success"
-
-          if [[ "$VERBOSE" == "true" ]]; then
-            dokku_log_info1 "  ✓ Domain Access: can list domains ($domain_count domain(s) available)"
-
-            # Show available domains
-            if [[ $domain_count -gt 0 ]]; then
-              echo
-              dokku_log_info1 "Available DigitalOcean Domains:"
-              while IFS= read -r domain; do
-                echo "  $domain"
-              done <<< "$domain_list"
-            fi
-          fi
-        else
-          PROVIDER_SUMMARY_STATUS="partial"
-          PROVIDER_SUMMARY_ERROR="limited domain access"
-          [[ "$VERBOSE" == "true" ]] && dokku_log_info1 "  ⚠ Domain Access: limited (check token permissions)"
-        fi
-      else
-        PROVIDER_SUMMARY_STATUS="failed"
-        PROVIDER_SUMMARY_ERROR="authentication failed"
-        if [[ "$VERBOSE" == "true" ]]; then
-          dokku_log_info1 "  ✗ API Authentication: failed"
-          echo
-          dokku_log_warn "DigitalOcean API authentication failed. Please check your API token.
-
-Troubleshooting:
-1. Verify your API token is correct
-2. Check token has Read and Write scopes
-3. Ensure the token hasn't been revoked
-
-Get a new token from: https://cloud.digitalocean.com/account/api/tokens"
-        fi
-        return 1
-      fi
-      ;;
-
-    template)
-      PROVIDER_SUMMARY_STATUS="success"
-      PROVIDER_SUMMARY_ZONE_COUNT=0
-      if [[ "$VERBOSE" == "true" ]]; then
-        dokku_log_info1 "Template Provider Testing:"
-        dokku_log_info1 "  ✓ Template provider: available for testing"
-        echo
-        dokku_log_info1 "Template provider verification shows basic functionality."
-        dokku_log_info1 "This is a test provider for development and testing purposes."
-      fi
-      return 0
-      ;;
-
-    mock)
-      if [[ -n "${MOCK_API_KEY:-}" ]]; then
-        PROVIDER_SUMMARY_STATUS="success"
-        PROVIDER_SUMMARY_ZONE_COUNT=0
-        if [[ "$VERBOSE" == "true" ]]; then
-          dokku_log_info1 "Mock Provider Testing:"
-          dokku_log_info1 "  ✓ MOCK_API_KEY: configured"
-          echo
-          dokku_log_info1 "Mock provider verification shows basic functionality."
-          dokku_log_info1 "This is a test provider for development and testing purposes."
-        fi
-        return 0
-      else
-        PROVIDER_SUMMARY_STATUS="failed"
-        PROVIDER_SUMMARY_ERROR="MOCK_API_KEY not set"
-        if [[ "$VERBOSE" == "true" ]]; then
-          dokku_log_info1 "Mock Provider Testing:"
-          dokku_log_info1 "  ✗ MOCK_API_KEY: not set"
-          echo
-          dokku_log_info1 "Mock provider verification shows basic functionality."
-          dokku_log_info1 "This is a test provider for development and testing purposes."
-        fi
-        return 1
-      fi
-      ;;
-
-    *)
-      dokku_log_fail "Unknown provider: $provider_name"
-      ;;
-    esac
-
-    [[ "$VERBOSE" == "true" ]] && echo
-    [[ "$VERBOSE" == "true" ]] && dokku_log_info1 "$provider_name provider verification complete"
-  }
-
-  # Arrays to collect summary data from all providers
-  declare -a SUMMARY_PROVIDERS=()
-  declare -a SUMMARY_STATUSES=()
-  declare -a SUMMARY_ZONE_COUNTS=()
-  declare -a SUMMARY_ZONES_LISTS=()
-  declare -a SUMMARY_ERRORS=()
-
-  # Verify each provider
-  local verification_success=false
-  if [[ "$VERBOSE" != "true" ]]; then
-    dokku_log_info2 "Checking DNS providers..."
-    echo
-  fi
-
-  for provider in "${PROVIDERS_TO_VERIFY[@]}"; do
-    if verify_provider "$provider"; then
-      verification_success=true
+    # Simple output
+    if [[ "$status" == "✓" ]]; then
+      echo "$status $provider: $zone_count zone(s)"
+    else
+      echo "$status $provider: $error"
     fi
 
-    # Collect summary data
-    SUMMARY_PROVIDERS+=("$PROVIDER_SUMMARY_NAME")
-    SUMMARY_STATUSES+=("$PROVIDER_SUMMARY_STATUS")
-    SUMMARY_ZONE_COUNTS+=("$PROVIDER_SUMMARY_ZONE_COUNT")
-    SUMMARY_ERRORS+=("$PROVIDER_SUMMARY_ERROR")
-
-    # Store zone list as comma-separated string
-    local zones_str=""
-    if [[ ${#PROVIDER_SUMMARY_ZONES[@]} -gt 0 ]]; then
-      zones_str=$(printf "%s," "${PROVIDER_SUMMARY_ZONES[@]}")
-      zones_str="${zones_str%,}"  # Remove trailing comma
+    # Verbose: show zone list
+    if [[ "$VERBOSE" == "true" ]] && [[ -n "$zones" ]]; then
+      while IFS= read -r z; do
+        echo "    $z"
+      done <<< "$zones"
     fi
-    SUMMARY_ZONES_LISTS+=("$zones_str")
-
-    [[ "$VERBOSE" == "true" ]] && echo
   done
 
-  # Display summary if not in verbose mode
-  if [[ "$VERBOSE" != "true" ]]; then
-    for i in "${!SUMMARY_PROVIDERS[@]}"; do
-      local provider="${SUMMARY_PROVIDERS[$i]}"
-      local status="${SUMMARY_STATUSES[$i]}"
-      local zone_count="${SUMMARY_ZONE_COUNTS[$i]}"
-      local error="${SUMMARY_ERRORS[$i]}"
-      local zones="${SUMMARY_ZONES_LISTS[$i]}"
-
-      # Format status symbol
-      local status_symbol
-      case "$status" in
-        success)
-          status_symbol="✓"
-          ;;
-        failed)
-          status_symbol="✗"
-          ;;
-        partial)
-          status_symbol="⚠"
-          ;;
-        *)
-          status_symbol="?"
-          ;;
-      esac
-
-      # Build summary line
-      local summary_line="  $status_symbol $provider:"
-
-      if [[ "$status" == "success" ]]; then
-        if [[ "$zone_count" -eq 0 ]]; then
-          summary_line="$summary_line no zones"
-        elif [[ "$zone_count" -eq 1 ]]; then
-          # Show zone name for single zone
-          summary_line="$summary_line 1 zone"
-          if [[ -n "$zones" ]]; then
-            summary_line="$summary_line ($zones)"
-          fi
-        else
-          # Show zone count and first few zones for multiple
-          summary_line="$summary_line $zone_count zones"
-          if [[ -n "$zones" ]]; then
-            # Convert comma-separated to array and show first 3
-            IFS=',' read -r -a zone_array <<< "$zones"
-            local display_zones="${zone_array[0]}"
-            if [[ ${#zone_array[@]} -gt 1 ]]; then
-              display_zones="$display_zones, ${zone_array[1]}"
-            fi
-            if [[ ${#zone_array[@]} -gt 2 ]]; then
-              if [[ ${#zone_array[@]} -gt 3 ]]; then
-                display_zones="$display_zones, ... (+$((${#zone_array[@]} - 2)) more)"
-              else
-                display_zones="$display_zones, ${zone_array[2]}"
-              fi
-            fi
-            summary_line="$summary_line ($display_zones)"
-          fi
-        fi
-      else
-        # Failed or partial - show error
-        if [[ -n "$error" ]]; then
-          summary_line="$summary_line $error"
-        else
-          summary_line="$summary_line verification failed"
-        fi
-      fi
-
-      echo "$summary_line"
-    done
-
-    echo
-    echo "Use --verbose for detailed information"
-  fi
-
-  # If no providers were successfully verified, that's an error
-  if [[ "$verification_success" != "true" ]]; then
-    dokku_log_fail "No providers could be verified successfully"
-  fi
-
-  echo
-  dokku_log_info1 "DNS Provider Verification Complete"
-
-  exit 0
+  [[ "$any_success" == "true" ]]
 }
 
 service-providers-verify-cmd "$@"

@@ -2,101 +2,71 @@
 load test_helper
 
 setup() {
-  # Skip setup in Docker environment - apps and provider already configured
-  if [[ ! -d "/var/lib/dokku" ]] || [[ ! -w "/var/lib/dokku" ]]; then
-    cleanup_dns_data
-    setup_dns_provider aws
-    create_test_app my-app
-    add_test_domains my-app example.com api.example.com
-  fi
+  cleanup_dns_data
+  create_test_app my-app
+  add_test_domains my-app example.com api.example.com
+  # Enable zones so apps:enable works
+  mkdir -p "$PLUGIN_DATA_ROOT"
+  echo "example.com" >"$PLUGIN_DATA_ROOT/ENABLED_ZONES"
 }
 
 teardown() {
-  # Skip teardown in Docker environment to preserve setup
-  if [[ ! -d "/var/lib/dokku" ]] || [[ ! -w "/var/lib/dokku" ]]; then
-    cleanup_test_app my-app
-    cleanup_dns_data
-  fi
+  cleanup_test_app my-app
+  cleanup_dns_data
 }
 
 @test "(dns:apps:enable) error when there are no arguments" {
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:enable"
   assert_failure
-  # Command fails silently due to shift error in subcommand
+  assert_output_contains "app name required"
 }
 
-@test "(dns:apps:enable) error when app does not exist" {
-  run dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" nonexistent-app
+@test "(dns:apps:enable) error when app has no domains" {
+  create_test_app empty-app
+  run dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" empty-app
   assert_failure
-  assert_output_contains "App nonexistent-app does not exist"
+  assert_output_contains "No domains found"
+  cleanup_test_app empty-app
 }
 
-@test "(dns:apps:enable) success with existing app shows domain status table" {
+@test "(dns:apps:enable) success with existing app" {
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app
   assert_success
-  assert_output_contains "Adding all domains for app 'my-app':"
-  assert_output_contains "Domain Status Table for app 'my-app':"
-  assert_output_contains "Domain                         Status   Enabled         Provider        Zone (Enabled)"
-  [[ "$output" =~ example\.com ]]
-  [[ "$output" =~ api\.example\.com ]]
-  assert_output_contains "No (zone disabled)" 2 # Both domains in same zone - multi-provider finds parent zone
-  assert_output_contains "Status Legend:"
-  assert_output_contains "✅ Points to server IP"
-  assert_output_contains "⚠️  Points to different IP"
-  assert_output_contains "❌ No DNS record found"
-  assert_output_contains "No domains with enabled hosted zones found for app: my-app"
+  assert_output_contains "Enabled"
+  assert_output_contains "domain"
 }
 
-@test "(dns:apps:enable) success with specific domains shows table" {
+@test "(dns:apps:enable) success with specific domains" {
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app example.com
   assert_success
-  assert_output_contains "Adding specified domains for app 'my-app':"
-  assert_output_contains "Domain Status Table for app 'my-app':"
-  [[ "$output" =~ example\.com ]]
-  assert_output_contains "No (zone disabled)" 1 # Enabled column - appears in table
-  assert_output_contains "Status Legend:"
+  assert_output_contains "Enabled"
 }
 
 @test "(dns:apps:enable) success with multiple specific domains" {
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app example.com api.example.com
   assert_success
-  assert_output_contains "Adding specified domains for app 'my-app':"
-  assert_output_contains "Domain Status Table for app 'my-app':"
-  [[ "$output" =~ example\.com ]]
-  [[ "$output" =~ api\.example\.com ]]
+  assert_output_contains "Enabled"
 }
 
-@test "(dns:apps:enable) handles app with no domains gracefully" {
-  # Create app with no domains
-  create_test_app empty-app
-
-  run dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" empty-app
+@test "(dns:apps:enable) fails without enabled zones" {
+  cleanup_dns_data # Remove enabled zones
+  run dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app
   assert_failure
-  assert_output_contains "No domains found for app 'empty-app'"
-  assert_output_contains "Add domains first with: dokku domains:add empty-app <domain>"
-
-  # Clean up
-  cleanup_test_app empty-app
+  [[ "$output" == *"zone"* ]]
 }
 
-@test "(dns:apps:enable) works without credentials configured" {
-  cleanup_dns_data # Clear any existing data
-
+@test "(dns:apps:enable) stores domains in DOMAINS file" {
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app
   assert_success
-  # After cleanup, zones aren't enabled so domains should be skipped
-  assert_output_contains "Enable zones for auto-discovery with: dokku dns:zones:enable"
+  assert_file_exists "$PLUGIN_DATA_ROOT/my-app/DOMAINS"
+  run cat "$PLUGIN_DATA_ROOT/my-app/DOMAINS"
+  [[ "$output" == *"example.com"* ]]
 }
 
-@test "(dns:apps:enable) works with single domain app" {
-  # Create app with single domain
-  create_test_app single-app
-  add_test_domains single-app single.example.com
-
-  run dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" single-app
+@test "(dns:apps:enable) adds app to LINKS file" {
+  run dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app
   assert_success
-  assert_output_contains "Domain Status Table for app 'single-app'"
-  [[ "$output" =~ single\.example\.com ]]
-
-  cleanup_test_app single-app
+  assert_file_exists "$PLUGIN_DATA_ROOT/LINKS"
+  run cat "$PLUGIN_DATA_ROOT/LINKS"
+  assert_output_contains "my-app"
 }

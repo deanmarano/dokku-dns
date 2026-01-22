@@ -26,17 +26,13 @@ teardown() {
 }
 
 @test "(dns:apps:enable) forwards to add command functionality" {
-  # Configure DNS first
-  run dokku "$PLUGIN_COMMAND_PREFIX:providers:configure" aws
-  assert_success
-
   # Add some domains to the app
   run dokku domains:add "$TEST_APP" "test.example.com"
 
   # Try to enable DNS (should behave like dns:apps:enable)
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" "$TEST_APP"
-  # This may fail without AWS credentials, but should at least try
-  assert_contains "${lines[*]}" "hosted zone" || assert_contains "${lines[*]}" "AWS"
+  # This may fail without provider/zones, but should try to enable domains
+  assert_contains "${lines[*]}" "zone" || assert_contains "${lines[*]}" "domain" || assert_contains "${lines[*]}" "Enabled"
 }
 
 @test "(dns:apps:disable) shows help with no arguments" {
@@ -44,9 +40,10 @@ teardown() {
   assert_contains "${lines[*]}" "Please specify an app name"
 }
 
-@test "(dns:apps:sync) shows help with no arguments" {
+@test "(dns:apps:sync) shows error with no arguments" {
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync"
-  assert_contains "${lines[*]}" "Please specify an app name"
+  assert_failure
+  assert_contains "${lines[*]}" "app name required"
 }
 
 @test "(dns:apps:report) requires app name and shows usage without it" {

@@ -91,34 +91,25 @@ load_provider() {
     LOADED_PROVIDERS+=("$provider_name")
   fi
 
-  echo "Loaded provider: $provider_name" >&2
   return 0
 }
 
 # Auto-detect and load the best available provider
 auto_load_provider() {
   local providers=()
-  # Use compatible array loading for older bash versions
   while IFS= read -r provider; do
     [[ -n "$provider" ]] && providers+=("$provider")
   done < <(get_available_providers)
 
   for provider in "${providers[@]}"; do
-    if load_provider "$provider"; then
-      # Test if provider credentials work
+    if load_provider "$provider" 2>/dev/null; then
       if provider_validate_credentials 2>/dev/null; then
         CURRENT_PROVIDER="$provider"
-        echo "Auto-selected provider: $provider" >&2
         return 0
-      else
-        echo "Provider $provider loaded but credentials invalid" >&2
       fi
-    else
-      echo "Failed to load provider: $provider" >&2
     fi
   done
 
-  echo "No working provider found" >&2
   return 1
 }
 
