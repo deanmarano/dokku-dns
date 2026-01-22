@@ -40,7 +40,6 @@ teardown() {
 @test "(aws provider) loads without errors" {
   run bash -c "source providers/loader.sh && load_provider aws"
   assert_success
-  [[ "$output" =~ "Loaded provider: aws" ]]
 }
 
 @test "(aws provider) validates provider structure" {

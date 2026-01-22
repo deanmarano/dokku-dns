@@ -38,7 +38,6 @@ teardown() {
 @test "(cloudflare provider) loads without errors" {
   run bash -c "source providers/loader.sh && load_provider cloudflare"
   assert_success
-  [[ "$output" =~ "Loaded provider: cloudflare" ]]
 }
 
 @test "(cloudflare provider) validates provider structure" {

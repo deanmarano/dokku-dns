@@ -62,26 +62,14 @@ service-apps-enable-cmd() {
     return 1
   fi
 
-  # Load provider system to validate domains
-  local ADAPTER_PATH
-  ADAPTER_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/providers/adapter.sh"
+  # Check which domains have enabled zones
   local valid_domains=()
 
-  if [[ -f "$ADAPTER_PATH" ]]; then
-    source "$ADAPTER_PATH"
-    if init_provider_system 2>/dev/null; then
-      for domain in "${DOMAINS[@]}"; do
-        if dns_validate_domain "$domain" 2>/dev/null && is_domain_in_enabled_zone "$domain" 2>/dev/null; then
-          valid_domains+=("$domain")
-        fi
-      done
-    else
-      # No provider - accept all domains
-      valid_domains=("${DOMAINS[@]}")
+  for domain in "${DOMAINS[@]}"; do
+    if is_domain_in_enabled_zone "$domain"; then
+      valid_domains+=("$domain")
     fi
-  else
-    valid_domains=("${DOMAINS[@]}")
-  fi
+  done
 
   if [[ ${#valid_domains[@]} -eq 0 ]]; then
     echo "No domains have enabled zones"

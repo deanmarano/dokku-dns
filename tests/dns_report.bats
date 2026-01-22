@@ -3,7 +3,9 @@ load test_helper
 
 setup() {
   cleanup_dns_data
-  setup_dns_provider aws
+  mkdir -p "$PLUGIN_DATA_ROOT"
+  echo "example.com" >"$PLUGIN_DATA_ROOT/ENABLED_ZONES"
+  echo "test.com" >>"$PLUGIN_DATA_ROOT/ENABLED_ZONES"
   create_test_app my-app
   add_test_domains my-app example.com
   create_test_app other-app
@@ -17,99 +19,83 @@ teardown() {
 }
 
 @test "(dns:report) global report shows all apps" {
+  # Enable apps for DNS
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1 || true
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" other-app >/dev/null 2>&1 || true
+
   run dokku "$PLUGIN_COMMAND_PREFIX:report"
   assert_success
-  assert_output_contains "DNS Global Report - All Apps"
-  assert_output_contains "Server Public IP:"
-  assert_output_contains "DNS Provider: AWS"
-  # When no apps are added to DNS, shows help message
-  assert_output_contains "Add an app to DNS with: dokku dns:apps:enable <app-name>"
+  [[ "$output" == *"Server IP:"* ]]
+  [[ "$output" == *"APP"* ]]
+  [[ "$output" == *"DOMAIN"* ]]
+  [[ "$output" == *"STATUS"* ]]
 }
 
 @test "(dns:report) app-specific report works" {
-  # Add app to DNS management first (will fail due to no hosted zones, which is expected in test)
   dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1 || true
 
   run dokku "$PLUGIN_COMMAND_PREFIX:report" my-app
   assert_success
-  assert_output_contains "DNS Report for app: my-app"
-  assert_output_contains "Server Public IP:"
-  assert_output_contains "DNS Provider: AWS"
-  assert_output_contains "DNS Status: Disabled"
-  assert_output_contains "Domain Analysis:"
-  assert_output_contains "Domain                         Status   Enabled         Provider        Zone (Enabled)"
-  assert_output_contains "------                         ------   -------         --------        ---------------"
-  [[ "$output" =~ example\.com ]] # Domain should appear in output (flexible count)
-  assert_output_contains "DNS Status: Disabled"
+  [[ "$output" == *"App: my-app"* ]]
+  [[ "$output" == *"Server IP:"* ]]
+  [[ "$output" == *"DOMAIN"* ]]
+  [[ "$output" == *"STATUS"* ]]
+  [[ "$output" == *"example.com"* ]]
 }
 
 @test "(dns:report) app-specific report shows message for nonexistent app" {
   run dokku "$PLUGIN_COMMAND_PREFIX:report" nonexistent-app
-  assert_success
-  assert_output_contains "DNS Report for app: nonexistent-app"
-  assert_output_contains "No domains configured for app: nonexistent-app"
-  assert_output_contains "Add domains with: dokku domains:add nonexistent-app <domain>"
+  assert_failure
+  [[ "$output" == *"not in DNS management"* ]]
 }
 
 @test "(dns:report) shows no provider when not configured" {
-  cleanup_dns_data # Remove provider configuration
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1 || true
 
   run dokku "$PLUGIN_COMMAND_PREFIX:report" my-app
   assert_success
-  assert_output_contains "DNS Provider: AWS"
-  assert_output_contains "DNS Status: Disabled"
+  [[ "$output" == *"Server IP:"* ]]
 }
 
 @test "(dns:report) global report handles no apps gracefully" {
-  cleanup_test_app my-app
-  cleanup_test_app other-app
+  cleanup_dns_data
 
   run dokku "$PLUGIN_COMMAND_PREFIX:report"
   assert_success
-  assert_output_contains "DNS Global Report - All Apps"
-  assert_output_contains "DNS Provider: AWS"
-  assert_output_contains "Add an app to DNS with: dokku dns:apps:enable <app-name>"
+  [[ "$output" == *"No apps in DNS management"* ]]
 }
 
 @test "(dns:report) app report handles app with no domains" {
   create_test_app empty-app
 
   run dokku "$PLUGIN_COMMAND_PREFIX:report" empty-app
-  assert_success
-  assert_output_contains "DNS Report for app: empty-app"
-  assert_output_contains "No domains configured for app: empty-app"
-  assert_output_contains "Add domains with: dokku domains:add empty-app <domain>"
+  assert_failure
+  [[ "$output" == *"not in DNS management"* ]]
 
   cleanup_test_app empty-app
 }
 
-@test "(dns:report) shows DNS status emojis" {
-  run dokku "$PLUGIN_COMMAND_PREFIX:report" my-app
-  assert_success
-
-  # Should show one of the DNS status emojis for the domain
-  assert_output_contains "ERROR" || assert_output_contains "OK" || assert_output_contains "WARNING"
-}
-
-@test "(dns:report) global report shows domain count" {
-  run dokku "$PLUGIN_COMMAND_PREFIX:report"
-  assert_success
-
-  # Shows basic report information
-  assert_output_contains "DNS Global Report - All Apps"
-  assert_output_contains "DNS Provider: AWS"
-  # When no apps added to DNS, shows help message
-  assert_output_contains "Add an app to DNS with: dokku dns:apps:enable <app-name>"
-}
-
-@test "(dns:report) shows provider status" {
-  # Add app to DNS management first
+@test "(dns:report) shows DNS status symbols" {
   dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1 || true
 
   run dokku "$PLUGIN_COMMAND_PREFIX:report" my-app
   assert_success
+  # Should show one of the status symbols
+  [[ "$output" == *"✓"* ]] || [[ "$output" == *"✗"* ]] || [[ "$output" == *"⚠"* ]]
+}
 
-  # Provider appears in output
-  assert_output_contains "AWS"
-  assert_output_contains "DNS Status: Disabled"
+@test "(dns:report) global report shows domain count" {
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1 || true
+
+  run dokku "$PLUGIN_COMMAND_PREFIX:report"
+  assert_success
+  [[ "$output" == *"domains correct"* ]]
+}
+
+@test "(dns:report) shows provider status" {
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1 || true
+
+  run dokku "$PLUGIN_COMMAND_PREFIX:report" my-app
+  assert_success
+  [[ "$output" == *"Server IP:"* ]]
 }

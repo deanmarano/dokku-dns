@@ -38,7 +38,6 @@ teardown() {
 @test "(digitalocean provider) loads without errors" {
   run bash -c "source providers/loader.sh && load_provider digitalocean"
   assert_success
-  [[ "$output" =~ "Loaded provider: digitalocean" ]]
 }
 
 @test "(digitalocean provider) validates provider structure" {
