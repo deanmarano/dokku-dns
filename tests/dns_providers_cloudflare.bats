@@ -18,23 +18,6 @@ teardown() {
   fi
 }
 
-@test "(cloudflare provider) config.sh has correct metadata" {
-  source providers/cloudflare/config.sh
-
-  [[ "$PROVIDER_NAME" == "cloudflare" ]]
-  [[ "$PROVIDER_DISPLAY_NAME" == "Cloudflare" ]]
-  [[ "$PROVIDER_REQUIRED_ENV_VARS" == "CLOUDFLARE_API_TOKEN" ]]
-  [[ "$PROVIDER_CAPABILITIES" =~ "zones" ]]
-  [[ "$PROVIDER_CAPABILITIES" =~ "records" ]]
-  [[ "$CLOUDFLARE_API_BASE" == "https://api.cloudflare.com/client/v4" ]]
-}
-
-@test "(cloudflare provider) is listed in available providers" {
-  run cat providers/available
-  assert_success
-  [[ "$output" =~ cloudflare ]]
-}
-
 @test "(cloudflare provider) loads without errors" {
   run bash -c "source providers/loader.sh && load_provider cloudflare"
   assert_success

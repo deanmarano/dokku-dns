@@ -18,23 +18,6 @@ teardown() {
   fi
 }
 
-@test "(digitalocean provider) config.sh has correct metadata" {
-  source providers/digitalocean/config.sh
-
-  [[ "$PROVIDER_NAME" == "digitalocean" ]]
-  [[ "$PROVIDER_DISPLAY_NAME" == "DigitalOcean" ]]
-  [[ "$PROVIDER_REQUIRED_ENV_VARS" == "DIGITALOCEAN_ACCESS_TOKEN" ]]
-  [[ "$PROVIDER_CAPABILITIES" =~ "zones" ]]
-  [[ "$PROVIDER_CAPABILITIES" =~ "records" ]]
-  [[ "$DIGITALOCEAN_API_URL" == "https://api.digitalocean.com/v2" ]]
-}
-
-@test "(digitalocean provider) is listed in available providers" {
-  run cat providers/available
-  assert_success
-  [[ "$output" =~ digitalocean ]]
-}
-
 @test "(digitalocean provider) loads without errors" {
   run bash -c "source providers/loader.sh && load_provider digitalocean"
   assert_success

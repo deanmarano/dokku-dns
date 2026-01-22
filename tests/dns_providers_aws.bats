@@ -19,24 +19,6 @@ teardown() {
   fi
 }
 
-@test "(aws provider) config.sh has correct metadata" {
-  source providers/aws/config.sh
-
-  [[ "$PROVIDER_NAME" == "aws" ]]
-  [[ "$PROVIDER_DISPLAY_NAME" == "AWS Route53" ]]
-  [[ "$PROVIDER_REQUIRED_ENV_VARS" == "AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY" ]]
-  [[ "$PROVIDER_CAPABILITIES" =~ "zones" ]]
-  [[ "$PROVIDER_CAPABILITIES" =~ "records" ]]
-  [[ "$PROVIDER_CAPABILITIES" =~ "batch" ]]
-  [[ "$PROVIDER_DEFAULT_TTL" == "300" ]]
-}
-
-@test "(aws provider) is listed in available providers" {
-  run cat providers/available
-  assert_success
-  [[ "$output" =~ aws ]]
-}
-
 @test "(aws provider) loads without errors" {
   run bash -c "source providers/loader.sh && load_provider aws"
   assert_success

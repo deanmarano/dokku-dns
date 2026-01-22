@@ -99,3 +99,32 @@ teardown() {
   assert_success
   [[ "$output" == *"Server IP:"* ]]
 }
+
+@test "(dns:report) multiple domains show in report" {
+  create_test_app multi-domain-app
+  add_test_domains multi-domain-app domain1.example.com domain2.example.com
+
+  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" multi-domain-app >/dev/null 2>&1 || true
+
+  run dokku "$PLUGIN_COMMAND_PREFIX:report" multi-domain-app
+  assert_success
+  [[ "$output" == *"domain1.example.com"* ]] || [[ "$output" == *"domain2.example.com"* ]]
+
+  cleanup_test_app multi-domain-app
+}
+
+@test "(dns:report) handles domains without hosted zones gracefully" {
+  create_test_app no-zone-app
+  add_test_domains no-zone-app nonexistent.invalid
+
+  # Manually add to DNS management
+  mkdir -p "$PLUGIN_DATA_ROOT/no-zone-app"
+  echo "no-zone-app" >>"$PLUGIN_DATA_ROOT/LINKS"
+  echo "nonexistent.invalid" >"$PLUGIN_DATA_ROOT/no-zone-app/DOMAINS"
+
+  run dokku "$PLUGIN_COMMAND_PREFIX:report" no-zone-app
+  # Should not crash
+  [[ "$status" -eq 0 ]] || [[ "$status" -eq 1 ]]
+
+  cleanup_test_app no-zone-app
+}
