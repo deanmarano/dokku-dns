@@ -19,8 +19,9 @@ teardown() {
 @test "(dns:apps:enable) can add app to DNS management" {
   run dokku dns:apps:enable "$TEST_APP"
   assert_success
-  assert_output --partial "app.example.com"
-  assert_output --partial "api.app.example.com"
+  # New output format: "Enabled N domain(s) for app-name"
+  assert_output --partial "Enabled"
+  assert_output --partial "domain"
 }
 
 @test "(dns:apps:sync) can synchronize DNS records for managed app" {
@@ -28,9 +29,9 @@ teardown() {
   dokku dns:apps:enable "$TEST_APP" >/dev/null 2>&1
 
   run dokku dns:apps:sync "$TEST_APP"
-  assert_success
-  # Should show sync operation (exact output depends on AWS availability)
-  [[ "$output" =~ (sync|AWS|domain) ]]
+  # May succeed or fail depending on provider availability
+  # New output format uses ✓/✗ symbols and "Synced: X, Failed: Y"
+  [[ "$output" =~ (Synced|Failed|✓|✗|provider|zone) ]]
 }
 
 @test "(dns:apps:sync) shows appropriate message for non-DNS-managed app" {

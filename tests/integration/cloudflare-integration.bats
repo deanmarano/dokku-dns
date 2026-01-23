@@ -20,7 +20,7 @@ setup() {
 @test "(cloudflare integration) provider loads successfully in multi-provider environment" {
   run bash -c "source ../../providers/loader.sh && load_provider cloudflare 2>&1"
   assert_success
-  assert_output --partial "Loaded provider: cloudflare"
+  # Loader no longer outputs verbose messages
 }
 
 @test "(cloudflare integration) provider validates structure and functions" {
