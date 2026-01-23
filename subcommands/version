@@ -32,6 +32,16 @@ service-version-cmd() {
   else
     echo "dokku-dns plugin version: unknown (plugin.toml not found)"
   fi
+
+  # Show git commit info if available
+  if [[ -d "$PLUGIN_ROOT/.git" ]] && command -v git >/dev/null 2>&1; then
+    local GIT_SHA GIT_DATE
+    GIT_SHA=$(git -C "$PLUGIN_ROOT" rev-parse --short HEAD 2>/dev/null || echo "")
+    GIT_DATE=$(git -C "$PLUGIN_ROOT" log -1 --format="%ci" 2>/dev/null || echo "")
+    if [[ -n "$GIT_SHA" ]]; then
+      echo "Git commit: $GIT_SHA ($GIT_DATE)"
+    fi
+  fi
   
   # Show AWS CLI version if installed
   if command -v aws >/dev/null 2>&1; then
