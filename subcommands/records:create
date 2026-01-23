@@ -24,6 +24,7 @@ service-records-create-cmd() {
   #A record_type, DNS record type (A, CNAME, TXT, MX, etc.)
   #A record_value, value for the DNS record
   #F --ttl <seconds>, set TTL for the record (default: 300)
+  #F --force, overwrite existing record without confirmation
   declare desc="create a DNS record of any type"
   local cmd="$PLUGIN_COMMAND_PREFIX:records:create" argv=("$@")
 
@@ -36,6 +37,7 @@ service-records-create-cmd() {
   local RECORD_TYPE=""
   local RECORD_VALUE=""
   local TTL="${DNS_DEFAULT_TTL:-300}"
+  local FORCE=false
 
   # Parse arguments
   while [[ $# -gt 0 ]]; do
@@ -43,6 +45,10 @@ service-records-create-cmd() {
       --ttl)
         TTL="$2"
         shift 2
+        ;;
+      -f|--force)
+        FORCE=true
+        shift
         ;;
       *)
         if [[ -z "$RECORD_NAME" ]]; then
@@ -109,12 +115,47 @@ service-records-create-cmd() {
     dokku_log_fail "Failed to get zone ID for: $RECORD_NAME"
   fi
 
+  # Check if record already exists
+  local existing_value
+  existing_value=$(provider_get_record "$zone_id" "$RECORD_NAME" "$RECORD_TYPE" 2>/dev/null || echo "")
+
   # Handle TXT record quoting for providers that need it
   local final_value="$RECORD_VALUE"
   if [[ "$RECORD_TYPE" == "TXT" ]]; then
     # Ensure TXT values are properly quoted for DNS
     if [[ ! "$RECORD_VALUE" =~ ^\" ]]; then
       final_value="\"$RECORD_VALUE\""
+    fi
+  fi
+
+  # Compare existing value (normalize for comparison)
+  local compare_existing compare_new
+  compare_existing=$(echo "$existing_value" | sed 's/^"//;s/"$//' | tr -d '\n')
+  compare_new=$(echo "$RECORD_VALUE" | sed 's/^"//;s/"$//' | tr -d '\n')
+
+  if [[ -n "$existing_value" ]]; then
+    if [[ "$compare_existing" == "$compare_new" ]]; then
+      dokku_log_info1 "Record already exists with same value, skipping"
+      echo "  Name:  $RECORD_NAME"
+      echo "  Type:  $RECORD_TYPE"
+      echo "  Value: $existing_value"
+      echo "  Provider: $provider"
+      exit 0
+    else
+      echo "Record already exists with different value:"
+      echo "  Current: $existing_value"
+      echo "  New:     $RECORD_VALUE"
+      echo ""
+      if [[ "$FORCE" != true ]]; then
+        read -p "Overwrite existing record? [y/N] " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+          dokku_log_info1 "Update cancelled"
+          exit 0
+        fi
+      else
+        dokku_log_warn "Overwriting existing record (--force)"
+      fi
     fi
   fi
 
