@@ -21,7 +21,7 @@ setup() {
 @test "(digitalocean integration) provider loads successfully in multi-provider environment" {
   run bash -c "source ../../providers/loader.sh && load_provider digitalocean 2>&1"
   assert_success
-  assert_output --partial "Loaded provider: digitalocean"
+  # Loader no longer outputs verbose messages
 }
 
 @test "(digitalocean integration) provider validates structure and functions" {

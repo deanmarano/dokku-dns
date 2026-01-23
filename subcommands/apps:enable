@@ -3,24 +3,8 @@ source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
 set -eo pipefail
 [[ $DOKKU_TRACE ]] && set -x
 
-# Load dokku functions if available
 if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
   source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
-fi
-
-# Define missing functions if needed
-if ! declare -f verify_app_name >/dev/null 2>&1; then
-  verify_app_name() {
-    local app="$1"
-    [[ -n "$app" ]] || { echo " !     Please specify an app name" >&2; exit 1; }
-
-    # Check if app exists (only if dokku command is available)
-    if command -v dokku >/dev/null 2>&1; then
-      if ! dokku apps:list 2>/dev/null | grep -q "^$app$"; then
-        dokku_log_fail "App $app does not exist"
-      fi
-    fi
-  }
 fi
 
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
@@ -31,7 +15,6 @@ service-apps-enable-cmd() {
   #E dokku $PLUGIN_COMMAND_PREFIX:apps:enable nextcloud example.com api.example.com
   #E dokku $PLUGIN_COMMAND_PREFIX:apps:enable nextcloud --ttl 3600
   #E dokku $PLUGIN_COMMAND_PREFIX:apps:enable nextcloud example.com --ttl 1800
-  #E dokku $PLUGIN_COMMAND_PREFIX:apps:enable nextcloud --verbose
   #E by default, adds all domains configured for the app
   #E optionally specify specific domains to add to DNS management
   #E optionally specify --ttl parameter to set custom TTL for these domains
@@ -41,84 +24,85 @@ service-apps-enable-cmd() {
   #A app, app to enable DNS management for
   #A domains, specific domains to add (optional, defaults to all app domains)
   #F --ttl, set custom TTL (time-to-live) in seconds for DNS records (60-86400)
-  #F -v|--verbose, show detailed domain checking progress
   declare desc="enable DNS management for an application"
   local cmd="$PLUGIN_COMMAND_PREFIX:apps:enable" argv=("$@")
   [[ ${argv[0]} == "$cmd" ]] && shift 1
   declare APP="$1"
-  shift 1
+  shift 1 || true
 
-  # Parse arguments for --ttl and --verbose flags
-  declare TTL=""
-  declare VERBOSE=false
-  declare DOMAINS=()
+  local TTL=""
+  local DOMAINS=()
 
   while [[ $# -gt 0 ]]; do
     case $1 in
-      --ttl)
-        TTL="$2"
-        shift 2
-        ;;
-      -v|--verbose)
-        VERBOSE=true
-        shift
-        ;;
-      *)
-        DOMAINS+=("$1")
-        shift
-        ;;
+      --ttl) TTL="$2"; shift 2 ;;
+      *) DOMAINS+=("$1"); shift ;;
     esac
   done
 
-  # Export VERBOSE so dns_add_app_domains can access it
-  export VERBOSE
+  [[ -z "$APP" ]] && { echo "Error: app name required"; return 1; }
 
-  [[ -z "$APP" ]] && dokku_log_fail "Please specify an app name"
-  verify_app_name "$APP"
-
-  # Validate TTL if provided
+  # Validate TTL
   if [[ -n "$TTL" ]]; then
-    if [[ ! "$TTL" =~ ^[0-9]+$ ]]; then
-      dokku_log_fail "TTL value must be a positive integer (seconds)"
-    fi
-    if [[ "$TTL" -lt 60 ]]; then
-      dokku_log_fail "TTL value must be at least 60 seconds"
-    fi
-    if [[ "$TTL" -gt 86400 ]]; then
-      dokku_log_fail "TTL value must be no more than 86400 seconds (24 hours)"
+    if ! [[ "$TTL" =~ ^[0-9]+$ ]] || [[ "$TTL" -lt 60 ]] || [[ "$TTL" -gt 86400 ]]; then
+      echo "Error: TTL must be 60-86400 seconds"
+      return 1
     fi
   fi
 
-  # Get all app domains if none specified
+  # Get domains if not specified
   if [[ ${#DOMAINS[@]} -eq 0 ]]; then
-    # Use more compatible approach for older bash versions
     while IFS= read -r domain; do
       [[ -n "$domain" ]] && DOMAINS+=("$domain")
     done < <(get_app_domains "$APP")
+  fi
 
-    if [[ ${#DOMAINS[@]} -eq 0 ]]; then
-      dokku_log_fail "No domains found for app '$APP'. Add domains first with: dokku domains:add $APP <domain>"
+  if [[ ${#DOMAINS[@]} -eq 0 ]]; then
+    echo "No domains found for app '$APP'"
+    return 1
+  fi
+
+  # Check which domains have enabled zones
+  local valid_domains=()
+
+  for domain in "${DOMAINS[@]}"; do
+    if is_domain_in_enabled_zone "$domain"; then
+      valid_domains+=("$domain")
     fi
-    if [[ -n "$TTL" ]]; then
-      dokku_log_info1 "Adding all domains for app '$APP' with TTL $TTL seconds:"
-    else
-      dokku_log_info1 "Adding all domains for app '$APP':"
+  done
+
+  if [[ ${#valid_domains[@]} -eq 0 ]]; then
+    echo "No domains have enabled zones"
+    echo "Enable zones with: dokku dns:zones:enable <zone>"
+    return 1
+  fi
+
+  # Create app directory and save domains
+  mkdir -p "$PLUGIN_DATA_ROOT/$APP"
+  local domains_file="$PLUGIN_DATA_ROOT/$APP/DOMAINS"
+
+  for domain in "${valid_domains[@]}"; do
+    if ! grep -q "^$domain$" "$domains_file" 2>/dev/null; then
+      echo "$domain" >> "$domains_file"
     fi
-    for domain in "${DOMAINS[@]}"; do
-      dokku_log_info1 "  • $domain"
-    done
-  else
-    if [[ -n "$TTL" ]]; then
-      dokku_log_info1 "Adding specified domains for app '$APP' with TTL $TTL seconds:"
-    else
-      dokku_log_info1 "Adding specified domains for app '$APP':"
-    fi
-    for domain in "${DOMAINS[@]}"; do
-      dokku_log_info1 "  • $domain"
+  done
+
+  # Add to LINKS file
+  local links_file="$PLUGIN_DATA_ROOT/LINKS"
+  if ! grep -q "^$APP$" "$links_file" 2>/dev/null; then
+    echo "$APP" >> "$links_file"
+  fi
+
+  # Save TTLs if specified
+  if [[ -n "$TTL" ]]; then
+    local ttls_file="$PLUGIN_DATA_ROOT/$APP/DOMAIN_TTLS"
+    for domain in "${valid_domains[@]}"; do
+      echo "$domain:$TTL" >> "$ttls_file"
     done
   fi
 
-  dns_add_app_domains "$APP" "$TTL" "${DOMAINS[@]}"
+  echo "Enabled ${#valid_domains[@]} domain(s) for $APP"
+  echo "Run 'dokku dns:apps:sync $APP' to create DNS records"
 }
 
 service-apps-enable-cmd "$@"

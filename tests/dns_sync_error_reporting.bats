@@ -50,8 +50,8 @@ teardown() {
 
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" zone-check-app
 
-  # The fix adds this specific error message
-  assert_output_contains "Failed (no hosted zone found)" || assert_output_contains "No provider found"
+  # The sync command shows ✗ domain (no zone) for missing zones
+  [[ "$output" == *"✗"* ]] || [[ "$output" == *"no zone"* ]] || [[ "$output" == *"provider"* ]]
 
   cleanup_test_app zone-check-app
 }
@@ -69,8 +69,8 @@ teardown() {
 
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" counter-app
 
-  # Should show completion message
-  assert_output_contains "Apply complete"
+  # Should show summary with synced/failed counts
+  [[ "$output" == *"Synced:"* ]] || [[ "$output" == *"Failed:"* ]]
 
   cleanup_test_app counter-app
 }
@@ -89,7 +89,8 @@ teardown() {
 
   # Should complete (not hang or crash)
   [[ "$status" -eq 0 ]] || [[ "$status" -eq 1 ]]
-  assert_output_contains "Apply complete"
+  # Should show summary with synced/failed counts
+  [[ "$output" == *"Synced:"* ]] || [[ "$output" == *"Failed:"* ]]
 
   cleanup_test_app skip-app
 }
@@ -225,11 +226,11 @@ teardown() {
 
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" integration-zone-app
 
-  # Should show clear error about zone not found
-  assert_output_contains "no hosted zone" || assert_output_contains "No provider found"
+  # Should show error about zone not found (✗ domain (no zone))
+  [[ "$output" == *"✗"* ]] || [[ "$output" == *"no zone"* ]] || [[ "$output" == *"provider"* ]]
 
-  # Should not crash or hang
-  assert_output_contains "Apply complete"
+  # Should show summary with synced/failed counts
+  [[ "$output" == *"Synced:"* ]] || [[ "$output" == *"Failed:"* ]]
 
   cleanup_test_app integration-zone-app
 }
@@ -271,8 +272,11 @@ teardown() {
 
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" multi-fail-app
 
-  # Should show error for each domain (3 domains = 3 failures)
-  assert_output_contains "Failed" 3
+  # Should show error for each domain (3 domains = 3 ✗ marks)
+  # Count ✗ occurrences - should be 3 for 3 failed domains
+  local fail_count
+  fail_count=$(echo "$output" | grep -o "✗" | wc -l)
+  [[ "$fail_count" -eq 3 ]]
 
   cleanup_test_app multi-fail-app
 }

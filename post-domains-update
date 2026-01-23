@@ -72,14 +72,17 @@ handle_domain_add() {
     # Automatically sync the domain to make DNS records active
     dokku_log_info1 "DNS: Syncing DNS records for '$APP'..."
     if command -v dokku >/dev/null 2>&1; then
-      if dokku "$PLUGIN_COMMAND_PREFIX:sync" "$APP" >/dev/null 2>&1; then
+      # Capture output and exit code without triggering set -e
+      local sync_output
+      if sync_output=$(dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" "$APP" 2>&1); then
         dokku_log_info1 "DNS: Domain '$DOMAIN' DNS records synced successfully"
       else
         dokku_log_warn "DNS: Failed to sync DNS records automatically"
-        dokku_log_info1 "DNS: Manual sync with: dokku $PLUGIN_COMMAND_PREFIX:sync $APP"
+        [[ -n "$sync_output" ]] && dokku_log_warn "DNS: $sync_output"
+        dokku_log_info1 "DNS: Manual sync with: dokku $PLUGIN_COMMAND_PREFIX:apps:sync $APP"
       fi
     else
-      dokku_log_info1 "DNS: Manual sync with: dokku $PLUGIN_COMMAND_PREFIX:sync $APP"
+      dokku_log_info1 "DNS: Manual sync with: dokku $PLUGIN_COMMAND_PREFIX:apps:sync $APP"
     fi
   else
     dokku_log_warn "DNS: Failed to add domain '$DOMAIN' to DNS management"

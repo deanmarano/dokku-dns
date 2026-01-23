@@ -8,20 +8,6 @@ if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
   source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
 fi
 
-# Load provider functions for zone lookup
-PLUGIN_BASE_PATH="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")"
-if [[ -f "$PLUGIN_BASE_PATH/providers/multi-provider.sh" ]]; then
-  source "$PLUGIN_BASE_PATH/providers/multi-provider.sh"
-fi
-
-# Define missing functions if needed
-if ! declare -f verify_app_name >/dev/null 2>&1; then
-  verify_app_name() {
-    local app="$1"
-    [[ -n "$app" ]] || { echo " !     Please specify an app name" >&2; exit 1; }
-  }
-fi
-
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
 
 service-report-cmd() {
@@ -37,409 +23,118 @@ service-report-cmd() {
   [[ ${argv[0]} == "$cmd" ]] && shift 1
   declare APP="$1"
 
+  local SERVER_IP
+  SERVER_IP=$(get_server_ip)
+
   if [[ -z "$APP" ]]; then
-    dns_global_report
+    dns_global_report "$SERVER_IP"
   else
-    verify_app_name "$APP"
-    dns_report "$APP"
+    dns_app_report "$APP" "$SERVER_IP"
   fi
 }
 
 dns_global_report() {
-  local GLOBAL_CONFIG_ROOT="$PLUGIN_DATA_ROOT"
-  local PROVIDER_FILE="$GLOBAL_CONFIG_ROOT/PROVIDER"
-  
-  dokku_log_info2 "DNS Global Report - All Apps"
-  dokku_log_info2 "$(printf "%-50s" "==================================")"
-  
-  # Get server's public IP first (handle failure gracefully)
-  local SERVER_IP
-  SERVER_IP=$(get_server_ip)
-  
-  dokku_log_info1 "Server Public IP: $SERVER_IP"
-  
-  if [[ "$SERVER_IP" == "Unknown" ]]; then
-    dokku_log_warn "Cannot detect server IP for DNS validation"
-    dokku_log_info1 "Consider configuring global domains: dokku domains:add-global <domain>"
-  fi
-  
-  # Check global DNS configuration
-  local PROVIDER="None"
-  local CONFIG_STATUS="Not configured"
-  
-  if [[ -f "$PROVIDER_FILE" ]]; then
-    PROVIDER=$(cat "$PROVIDER_FILE" 2>/dev/null || echo "None")
-    if [[ -n "$PROVIDER" ]] && [[ "$PROVIDER" != "None" ]]; then
-      CONFIG_STATUS="Configured"
-    fi
-  fi
-  
-  # Detect current provider dynamically
-  local CURRENT_PROVIDER="None"
-  local PROVIDERS_DIR
-  PROVIDERS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../providers"
-  if [[ -f "$PROVIDERS_DIR/loader.sh" ]]; then
-    source "$PROVIDERS_DIR/loader.sh"
-    if auto_load_provider >/dev/null 2>&1; then
-      CURRENT_PROVIDER=$(get_current_provider 2>/dev/null || echo "None")
-    fi
-  fi
-  
-  # Display global configuration
-  dokku_log_info1 "DNS Provider: $(echo "$CURRENT_PROVIDER" | tr '[:lower:]' '[:upper:]')"
-
-  # Get apps under DNS management
+  local SERVER_IP="$1"
   local APPS_LIST
   APPS_LIST=$(get_dns_managed_apps)
-  
+
   if [[ -z "$APPS_LIST" ]]; then
-    dokku_log_warn "No apps have been added to DNS"
-    dokku_log_info1 "Add an app to DNS with: dokku $PLUGIN_COMMAND_PREFIX:apps:enable <app-name>"
+    echo "No apps in DNS management"
     return 0
   fi
-  
-  # Check global provider credentials
-  local CREDENTIALS_DIR="$GLOBAL_CONFIG_ROOT/credentials"
-  local SYNC_STATUS="Not ready"
 
-  if [[ "$PROVIDER" != "None" ]]; then
-    # Load provider functions to check credentials
-    local PROVIDER_SCRIPT
-    PROVIDER_SCRIPT="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/providers/$PROVIDER"
-    if [[ -f "$PROVIDER_SCRIPT" ]]; then
-      source "$PROVIDER_SCRIPT"
-      # Call provider setup if available (generic for all providers)
-      if declare -f "provider_setup_env" >/dev/null 2>&1; then
-        provider_setup_env
-      fi
+  echo "Server IP: $SERVER_IP"
+  echo
+  printf "%-15s %-30s %-6s %s\n" "APP" "DOMAIN" "STATUS" "ZONE"
+  printf "%-15s %-30s %-6s %s\n" "---" "------" "------" "----"
 
-      # Use provider interface to validate credentials (provider-agnostic)
-      if declare -f "provider_validate_credentials" >/dev/null 2>&1; then
-        if provider_validate_credentials 2>/dev/null; then
-          SYNC_STATUS="Ready"
-        else
-          SYNC_STATUS="Missing auth"
-        fi
+  local total=0 correct=0
+
+  while IFS= read -r app; do
+    [[ -z "$app" ]] && continue
+    local domains_file="$PLUGIN_DATA_ROOT/$app/DOMAINS"
+    [[ ! -f "$domains_file" ]] && continue
+
+    local first=true
+    while IFS= read -r domain; do
+      [[ -z "$domain" ]] && continue
+      total=$((total + 1))
+
+      # Get current IP (use dig for speed)
+      local current_ip status
+      current_ip=$(dig +short "$domain" A 2>/dev/null | head -1 || echo "")
+
+      if [[ -z "$current_ip" ]]; then
+        status="✗"
+      elif [[ "$current_ip" == "$SERVER_IP" ]]; then
+        status="✓"
+        correct=$((correct + 1))
       else
-        SYNC_STATUS="Unknown provider"
+        status="⚠"
       fi
-    else
-      SYNC_STATUS="Unknown provider"
-    fi
-  else
-    SYNC_STATUS="Not configured"
-  fi
-  
-  echo
-  dokku_log_info2 "All Apps Domain Analysis:"
-  printf "%-15s %-30s %-8s %-15s %-12s %s\n" "App" "Domain" "DNS" "Status" "Provider" "Zone (Enabled)"
-  printf "%-15s %-30s %-8s %-15s %-12s %s\n" "---" "------" "---" "------" "--------" "---------------"
-  
-  # First pass: collect all domains from DNS DOMAINS files and count them
-  local ALL_DOMAINS=""
-  local TOTAL_DOMAINS=0
-  local SYNCED_DOMAINS=0
-  
-  while IFS= read -r APP; do
-    [[ -z "$APP" ]] && continue
-    
-    # Get domains that were actually added to DNS (from per-app DOMAINS file)
-    local APP_DOMAINS_FILE="$PLUGIN_DATA_ROOT/$APP/DOMAINS"
-    if [[ -f "$APP_DOMAINS_FILE" ]]; then
-      while IFS= read -r DOMAIN; do
-        [[ -z "$DOMAIN" ]] && continue
-        ALL_DOMAINS="${ALL_DOMAINS}${APP}:${DOMAIN}\n"
-        TOTAL_DOMAINS=$((TOTAL_DOMAINS + 1))
-      done < "$APP_DOMAINS_FILE"
-    fi
-  done <<< "$APPS_LIST"
-  
-  # Convert to proper format for processing
-  if [[ -n "$ALL_DOMAINS" ]]; then
-    ALL_DOMAINS=$(echo -e "$ALL_DOMAINS" | grep -v "^$")
-  fi
-  
-  # Analyze each app and display only domains that were actually added to DNS
-  while IFS= read -r APP; do
-    [[ -z "$APP" ]] && continue
-    
-    # Get domains that were actually added to DNS (from per-app DOMAINS file)
-    local APP_DNS_DOMAINS=""
-    local APP_DOMAINS_FILE="$PLUGIN_DATA_ROOT/$APP/DOMAINS"
-    if [[ -f "$APP_DOMAINS_FILE" ]]; then
-      APP_DNS_DOMAINS=$(tr '\n' ' ' < "$APP_DOMAINS_FILE" 2>/dev/null)
-    fi
-    
-    if [[ -z "$APP_DNS_DOMAINS" ]]; then
-      printf "%-15s %-30s %-8s %-15s %-12s %s\n" "$APP" "(no domains added)" "NONE" "Not added" "$PROVIDER" "-"
-    else
-      local FIRST_DOMAIN=true
-      for DOMAIN in $APP_DNS_DOMAINS; do
-        [[ -z "$DOMAIN" ]] && continue
-        
-        # Get current DNS resolution (handle failure gracefully, use provider-specific checking)
-        local CURRENT_IP=""
-        CURRENT_IP=$(dns_get_record_ip "$DOMAIN" "$PROVIDER" || echo "")
-        
-        # Determine DNS status
-        local DNS_STATUS="ERROR"
-        if [[ -n "$CURRENT_IP" ]]; then
-          if [[ -n "$SERVER_IP" ]] && [[ "$SERVER_IP" != "Unknown" ]] && [[ "$CURRENT_IP" == "$SERVER_IP" ]]; then
-            DNS_STATUS="OK"
-          elif [[ -n "$SERVER_IP" ]] && [[ "$SERVER_IP" != "Unknown" ]]; then
-            DNS_STATUS="WARNING"
-          else
-            # Server IP unknown, can't validate
-            DNS_STATUS="UNKNOWN"
-          fi
-        fi
-        
-        # These domains are from the DOMAINS file, so they were added
-        local APP_DNS_STATUS="Added"
-        
-        # Try to get hosted zone using multi-provider system (handle failure gracefully)
-        local HOSTED_ZONE="-"
-        if declare -f "multi_get_zone_id" >/dev/null 2>&1; then
-          local ZONE_ID=""
-          ZONE_ID=$(multi_get_zone_id "$DOMAIN" 2>/dev/null || echo "")
-          if [[ -n "$ZONE_ID" ]]; then
-            # Use zone ID as zone name (works for all providers)
-            local ZONE_NAME="$ZONE_ID"
-            # Check if this zone is enabled
-            if is_zone_enabled "$ZONE_NAME"; then
-              HOSTED_ZONE="$ZONE_NAME (enabled)"
-            else
-              HOSTED_ZONE="$ZONE_NAME (disabled)"
-            fi
-          else
-            # Zone ID not found, check if domain is in an enabled zone
-            if is_domain_in_enabled_zone "$DOMAIN"; then
-              HOSTED_ZONE="Zone enabled"
-            else
-              HOSTED_ZONE="Not found"
-            fi
-          fi
-        fi
-        
-        # Show app name only for first domain
-        local APP_DISPLAY="$APP"
-        if [[ "$FIRST_DOMAIN" != true ]]; then
-          APP_DISPLAY=""
-        fi
-        FIRST_DOMAIN=false
-        
-        # Format and display the row
-        printf "%-15s %-30s %-8s %-15s %-12s %s\n" "$APP_DISPLAY" "$DOMAIN" "$DNS_STATUS" "$APP_DNS_STATUS" "$PROVIDER" "$HOSTED_ZONE"
-      done
-    fi
-  done <<< "$APPS_LIST"
-  
-  # Count correctly configured domains separately to avoid subshell issues
-  CORRECTLY_CONFIGURED_DOMAINS=0
-  if [[ -n "$ALL_DOMAINS" ]] && [[ "$TOTAL_DOMAINS" -gt 0 ]]; then
-    while IFS=: read -r APP DOMAIN; do
-      [[ -z "$APP" ]] && continue
-      [[ -z "$DOMAIN" ]] && continue
-      local CURRENT_IP
-      CURRENT_IP=$(dns_get_record_ip "$DOMAIN" "$PROVIDER" || echo "")
-      if [[ -n "$CURRENT_IP" ]] && [[ "$CURRENT_IP" == "$SERVER_IP" ]]; then
-        ((CORRECTLY_CONFIGURED_DOMAINS++))
-      fi
-    done <<< "$ALL_DOMAINS"
-  fi
-  
-  echo
-  dokku_log_info2 "Summary:"
-  dokku_log_info1 "Total domains: $TOTAL_DOMAINS"
-  dokku_log_info1 "Correctly configured: $CORRECTLY_CONFIGURED_DOMAINS"
-  if [[ "$TOTAL_DOMAINS" -gt 0 ]]; then
-    local CONFIG_PERCENTAGE=$((CORRECTLY_CONFIGURED_DOMAINS * 100 / TOTAL_DOMAINS))
-    dokku_log_info1 "DNS status: ${CONFIG_PERCENTAGE}% correctly configured"
-  fi
-  
-  # Show pending changes if provider is ready
-  if [[ "$PROVIDER" != "None" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
-    dns_display_global_pending_changes
-  fi
 
+      # Get zone from domain
+      local zone
+      zone=$(echo "$domain" | awk -F. '{if(NF>=2) print $(NF-1)"."$NF; else print $0}')
+
+      local app_col=""
+      [[ "$first" == "true" ]] && app_col="$app"
+      first=false
+
+      printf "%-15s %-30s %-6s %s\n" "$app_col" "$domain" "$status" "$zone"
+    done < "$domains_file"
+  done <<< "$APPS_LIST"
+
+  echo
+  echo "$correct/$total domains correct"
 }
 
-dns_report() {
+dns_app_report() {
   local APP="$1"
-  local GLOBAL_CONFIG_ROOT="$PLUGIN_DATA_ROOT"
-  local PROVIDER_FILE="$GLOBAL_CONFIG_ROOT/PROVIDER"
-  
-  # Check if app has been added to DNS
-  local APP_IS_ADDED=false
-  if is_app_dns_managed "$APP"; then
-    APP_IS_ADDED=true
+  local SERVER_IP="$2"
+
+  if ! is_app_dns_managed "$APP"; then
+    echo "App '$APP' not in DNS management"
+    echo "Enable with: dokku dns:apps:enable $APP"
+    return 1
   fi
-  
-  dokku_log_info2 "DNS Report for app: $APP"
-  dokku_log_info2 "$(printf "%-50s" "==============================")"
-  
-  # Get server's public IP first
-  local SERVER_IP
-  SERVER_IP=$(get_server_ip)
-  
-  dokku_log_info1 "Server Public IP: $SERVER_IP"
-  
-  if [[ "$SERVER_IP" == "Unknown" ]]; then
-    dokku_log_warn "Cannot detect server IP for DNS validation"
-    dokku_log_info1 "Consider configuring global domains: dokku domains:add-global <domain>"
-  fi
-  
-  # Get app domains
-  local APP_DOMAINS
-  APP_DOMAINS=$(dokku domains:report "$APP" --domains-app-vhosts 2>/dev/null || echo "")
-  
-  if [[ -z "$APP_DOMAINS" ]]; then
-    dokku_log_warn "No domains configured for app: $APP"
-    dokku_log_info1 "Add domains with: dokku domains:add $APP <domain>"
+
+  local domains_file="$PLUGIN_DATA_ROOT/$APP/DOMAINS"
+  if [[ ! -f "$domains_file" ]]; then
+    echo "No domains configured"
     return 0
   fi
-  
-  # Check global DNS configuration
-  local PROVIDER="None"
-  local CONFIG_STATUS="Not configured"
-  
-  if [[ -f "$PROVIDER_FILE" ]]; then
-    PROVIDER=$(cat "$PROVIDER_FILE" 2>/dev/null || echo "None")
-    if [[ -n "$PROVIDER" ]] && [[ "$PROVIDER" != "None" ]]; then
-      CONFIG_STATUS="Configured"
-    fi
-  fi
-  
-  # Detect current provider dynamically for single app report
-  local CURRENT_PROVIDER="None"
-  local PROVIDERS_DIR
-  PROVIDERS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../providers"
-  if [[ -f "$PROVIDERS_DIR/loader.sh" ]]; then
-    source "$PROVIDERS_DIR/loader.sh"
-    if auto_load_provider >/dev/null 2>&1; then
-      CURRENT_PROVIDER=$(get_current_provider 2>/dev/null || echo "None")
-    fi
-  fi
-  
-  # Display global configuration
-  dokku_log_info1 "DNS Provider: $(echo "$CURRENT_PROVIDER" | tr '[:lower:]' '[:upper:]')"
 
-  # Display DNS add status
-  if [[ "$APP_IS_ADDED" == "true" ]]; then
-    dokku_log_info1 "DNS Status: Enabled"
-  else
-    dokku_log_info1 "DNS Status: Disabled (enable with: dokku $PLUGIN_COMMAND_PREFIX:apps:enable $APP)"
-  fi
-  
+  echo "App: $APP"
+  echo "Server IP: $SERVER_IP"
   echo
-  dokku_log_info2 "Domain Analysis:"
-  printf "%-30s %-8s %-15s %-15s %s\n" "Domain" "Status" "Enabled" "Provider" "Zone (Enabled)"
-  printf "%-30s %-8s %-15s %-15s %s\n" "------" "------" "-------" "--------" "---------------"
-  
-  # Check global provider credentials
-  local CREDENTIALS_DIR="$GLOBAL_CONFIG_ROOT/credentials"
-  local SYNC_STATUS="Not ready"
+  printf "%-35s %-6s %-15s\n" "DOMAIN" "STATUS" "CURRENT IP"
+  printf "%-35s %-6s %-15s\n" "------" "------" "----------"
 
-  if [[ "$PROVIDER" != "None" ]]; then
-    # Load provider functions to check credentials
-    local PROVIDER_SCRIPT
-    PROVIDER_SCRIPT="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/providers/$PROVIDER"
-    if [[ -f "$PROVIDER_SCRIPT" ]]; then
-      source "$PROVIDER_SCRIPT"
-      # Call provider setup if available (generic for all providers)
-      if declare -f "provider_setup_env" >/dev/null 2>&1; then
-        provider_setup_env
-      fi
+  local total=0 correct=0
 
-      # Use provider interface to validate credentials (provider-agnostic)
-      if declare -f "provider_validate_credentials" >/dev/null 2>&1; then
-        if provider_validate_credentials 2>/dev/null; then
-          SYNC_STATUS="Ready"
-        else
-          SYNC_STATUS="Missing auth"
-        fi
-      else
-        SYNC_STATUS="Unknown provider"
-      fi
+  while IFS= read -r domain; do
+    [[ -z "$domain" ]] && continue
+    total=$((total + 1))
+
+    local current_ip status
+    current_ip=$(dig +short "$domain" A 2>/dev/null | head -1 || echo "-")
+
+    if [[ "$current_ip" == "-" ]] || [[ -z "$current_ip" ]]; then
+      status="✗"
+      current_ip="-"
+    elif [[ "$current_ip" == "$SERVER_IP" ]]; then
+      status="✓"
+      correct=$((correct + 1))
     else
-      SYNC_STATUS="Unknown provider"
+      status="⚠"
     fi
-  else
-    SYNC_STATUS="Not configured"
-  fi
-  
-  # Analyze each domain - split space-separated domains properly
-  for DOMAIN in $APP_DOMAINS; do
-    [[ -z "$DOMAIN" ]] && continue
-    
-    # Get current DNS resolution
-    local CURRENT_IP
-    CURRENT_IP=$(dns_get_record_ip "$DOMAIN" "$PROVIDER" || echo "")
-    
-    # Determine DNS status
-    local DNS_STATUS="ERROR"
-    if [[ -n "$CURRENT_IP" ]]; then
-      if [[ -n "$SERVER_IP" ]] && [[ "$SERVER_IP" != "Unknown" ]] && [[ "$CURRENT_IP" == "$SERVER_IP" ]]; then
-        DNS_STATUS="OK"
-      elif [[ -n "$SERVER_IP" ]] && [[ "$SERVER_IP" != "Unknown" ]]; then
-        DNS_STATUS="WARNING"
-      else
-        # Server IP unknown, can't validate
-        DNS_STATUS="UNKNOWN"
-      fi
-    fi
-    
-    # Try to get hosted zone using multi-provider system
-    local HOSTED_ZONE="-"
-    local ZONE_ID=""
-    if declare -f "multi_get_zone_id" >/dev/null 2>&1; then
-      ZONE_ID=$(multi_get_zone_id "$DOMAIN" 2>/dev/null || echo "")
-      if [[ -n "$ZONE_ID" ]]; then
-        # Extract zone name from zone ID (works for all providers)
-        local ZONE_NAME="$ZONE_ID"
-        # Check if this zone is enabled
-        if is_zone_enabled "$ZONE_NAME"; then
-          HOSTED_ZONE="$ZONE_NAME (enabled)"
-        else
-          HOSTED_ZONE="$ZONE_NAME (disabled)"
-        fi
-      else
-        # Zone ID not found, check if domain is in an enabled zone
-        if is_domain_in_enabled_zone "$DOMAIN"; then
-          HOSTED_ZONE="Zone enabled"
-        else
-          HOSTED_ZONE="Not found"
-        fi
-      fi
-    fi
-    
-    # Check domain status - consider both DNS add status and hosted zone
-    local DOMAIN_STATUS="Not added"
-    if [[ "$APP_IS_ADDED" == "true" ]]; then
-      # App has been added to DNS, check hosted zone status
-      if [[ "$PROVIDER" != "None" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
-        if [[ -n "$ZONE_ID" ]]; then
-          DOMAIN_STATUS="Ready"
-        else
-          DOMAIN_STATUS="No hosted zone"
-        fi
-      else
-        DOMAIN_STATUS="Provider not ready"
-      fi
-    else
-      # App has not been added to DNS
-      DOMAIN_STATUS="Not added"
-    fi
-    
-    # Format and display the row
-    printf "%-30s %-8s %-15s %-15s %s\n" "$DOMAIN" "$DNS_STATUS" "$DOMAIN_STATUS" "$PROVIDER" "$HOSTED_ZONE"
-  done
 
-  # Show pending changes if provider is ready
-  if [[ "$PROVIDER" != "None" ]] && [[ "$SYNC_STATUS" == "Ready" ]]; then
-    dns_display_pending_changes "$APP"
-  fi
+    printf "%-35s %-6s %-15s\n" "$domain" "$status" "$current_ip"
+  done < "$domains_file"
 
+  echo
+  echo "$correct/$total domains correct"
 }
 
 service-report-cmd "$@"

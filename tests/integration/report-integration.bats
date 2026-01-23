@@ -16,28 +16,22 @@ teardown() {
   cleanup_test_app "$TEST_APP"
 }
 
-@test "(dns:report) shows correct status for app not in DNS management" {
+@test "(dns:report) shows status for app not in DNS management" {
   run dokku dns:report "$TEST_APP"
-  assert_success
-  assert_output --partial "DNS Status:"
-  assert_output --partial "Disabled"
+  # App not in DNS management shows error
+  assert_failure
+  assert_output --partial "not in DNS management"
 }
 
-@test "(dns:report) shows app domains even when not in DNS management" {
-  run dokku dns:report "$TEST_APP"
-  assert_success
-  assert_output --partial "app.example.com"
-  assert_output --partial "api.example.com"
-}
-
-@test "(dns:report) shows app as added after enabling DNS management" {
+@test "(dns:report) shows app info after enabling DNS management" {
   # First enable DNS for the app
   dokku dns:apps:enable "$TEST_APP" >/dev/null 2>&1
 
   run dokku dns:report "$TEST_APP"
   assert_success
-  assert_output --partial "DNS Status:"
-  assert_output --partial "Enabled"
+  # New format shows App:, Server IP:, and domain table
+  assert_output --partial "App:"
+  assert_output --partial "Server IP:"
 }
 
 @test "(dns:report) global report shows managed app" {
@@ -49,15 +43,15 @@ teardown() {
   assert_output --partial "$TEST_APP"
 }
 
-@test "(dns:report) shows app as not added after disabling DNS management" {
+@test "(dns:report) shows not managed after disabling DNS" {
   # First enable then disable DNS for the app
   dokku dns:apps:enable "$TEST_APP" >/dev/null 2>&1
   dokku dns:apps:disable "$TEST_APP" >/dev/null 2>&1
 
   run dokku dns:report "$TEST_APP"
-  assert_success
-  assert_output --partial "DNS Status:"
-  assert_output --partial "Disabled"
+  # After disable, app is not in DNS management
+  assert_failure
+  assert_output --partial "not in DNS management"
 }
 
 @test "(dns:report) global report without apps shows appropriate message" {

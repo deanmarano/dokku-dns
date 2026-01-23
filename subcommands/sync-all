@@ -3,7 +3,6 @@ source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/config"
 set -eo pipefail
 [[ $DOKKU_TRACE ]] && set -x
 
-# Load dokku functions if available
 if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
   source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
 fi
@@ -18,140 +17,84 @@ service-sync-all-cmd() {
   #E AWS Route53 uses efficient batch API calls grouped by hosted zone.
   #E Other providers sync each app individually for compatibility.
   declare desc="synchronize DNS records for all DNS-managed apps"
-  local cmd="$PLUGIN_COMMAND_PREFIX:sync-all"
-
-  # Log start time
-  local start_time end_time
-  start_time=$(date '+%Y-%m-%d %H:%M:%S %Z')
-  echo "[$start_time] Starting DNS sync-all operation"
 
   local LINKS_FILE="$PLUGIN_DATA_ROOT/LINKS"
-  
-  # Check if any apps are managed by DNS
-  if [[ ! -f "$LINKS_FILE" ]]; then
-    dokku_log_warn "No apps are currently managed by DNS"
-    dokku_log_info1 "Add apps to DNS management: dokku $PLUGIN_COMMAND_PREFIX:add <app>"
-    
-    # Log end time
-    end_time=$(date '+%Y-%m-%d %H:%M:%S %Z')
-    echo "[$end_time] DNS sync-all operation completed"
-    return 0
-  fi
-  
-  # Read managed apps from LINKS file
-  local managed_apps=()
-  while IFS= read -r app; do
-    [[ -n "$app" ]] && managed_apps+=("$app")
-  done < "$LINKS_FILE"
-  
-  if [[ ${#managed_apps[@]} -eq 0 ]]; then
-    dokku_log_warn "No apps found in DNS management"
-    
-    # Log end time
-    end_time=$(date '+%Y-%m-%d %H:%M:%S %Z')
-    echo "[$end_time] DNS sync-all operation completed"
-    return 0
-  fi
-  
-  # Try to use provider system for optimized batch sync
-  dokku_log_info2 "Using provider system for DNS sync (supports multi-provider)"
-  
-  # Load provider adapter system for batch operations
-  local PROVIDERS_DIR
-  PROVIDERS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/providers"
-  source "$PROVIDERS_DIR/adapter.sh"
 
-  # Initialize provider system
-  if init_provider_system; then
-      # Use generic batch sync for all managed apps
-      local success_count=0
-      local fail_count=0
-      
-      for app in "${managed_apps[@]}"; do
-        dokku_log_info1 "Syncing DNS records for app: $app"
-        
-        if dns_sync_app "$app"; then
-          success_count=$((success_count + 1))
-          dokku_log_info1 "Successfully synced DNS for: $app"
-        else
-          fail_count=$((fail_count + 1))
-          dokku_log_warn "Failed to sync DNS for: $app"
-        fi
-      done
-      
-      # Log end time
-      end_time=$(date '+%Y-%m-%d %H:%M:%S %Z')
-      echo "[$end_time] DNS sync-all operation completed"
-      
-      if [[ $fail_count -eq 0 ]]; then
-        dokku_log_info1 "Batch DNS sync completed"
-        return 0
-      else
-        dokku_log_warn "Batch DNS sync encountered some failures ($fail_count failed)"
-        return 1
-      fi
-  else
-    dokku_log_fail "Failed to initialize provider system"
+  if [[ ! -f "$LINKS_FILE" ]]; then
+    echo "No apps in DNS management"
+    return 0
   fi
-  
-  # Fallback to individual app sync for other providers or if batch fails
-  dokku_log_info2 "Synchronizing DNS records for ${#managed_apps[@]} managed app(s) individually"
-  echo
-  
-  local success_count=0
-  local fail_count=0
-  local failed_apps=()
-  
-  # Sync each managed app
-  for app in "${managed_apps[@]}"; do
-    dokku_log_info1 "Syncing DNS records for app: $app"
-    
-    # Check if app still exists
-    if command -v dokku >/dev/null 2>&1; then
-      if ! dokku apps:list 2>/dev/null | grep -q "^$app$"; then
-        dokku_log_warn "App '$app' no longer exists, skipping"
-        dokku_log_info1 "Remove from DNS: dokku $PLUGIN_COMMAND_PREFIX:remove $app"
-        fail_count=$((fail_count + 1))
-        failed_apps+=("$app (app not found)")
-        echo
+
+  local apps=()
+  while IFS= read -r app; do
+    [[ -n "$app" ]] && apps+=("$app")
+  done < "$LINKS_FILE"
+
+  if [[ ${#apps[@]} -eq 0 ]]; then
+    echo "No apps in DNS management"
+    return 0
+  fi
+
+  local SERVER_IP
+  SERVER_IP=$(get_server_ip)
+  if [[ "$SERVER_IP" == "Unknown" ]]; then
+    echo "Error: cannot detect server IP"
+    return 1
+  fi
+
+  # Load provider system
+  local ADAPTER_PATH
+  ADAPTER_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/providers/adapter.sh"
+  source "$ADAPTER_PATH"
+
+  if ! init_provider_system 2>/dev/null; then
+    echo "Error: no DNS provider configured"
+    return 1
+  fi
+
+  local total_synced=0 total_failed=0
+
+  for app in "${apps[@]}"; do
+    local domains_file="$PLUGIN_DATA_ROOT/$app/DOMAINS"
+    [[ ! -f "$domains_file" ]] && continue
+
+    echo "=== $app ==="
+
+    while IFS= read -r domain; do
+      [[ -z "$domain" ]] && continue
+
+      local zone_id
+      if ! zone_id=$(multi_get_zone_id "$domain" 2>/dev/null); then
+        echo "✗ $domain (no zone)"
+        total_failed=$((total_failed + 1))
         continue
       fi
-    fi
-    
-    # Attempt to sync the app
-    if dns_app "$app"; then
-      success_count=$((success_count + 1))
-      dokku_log_info1 "Successfully synced DNS for: $app"
-    else
-      fail_count=$((fail_count + 1))
-      failed_apps+=("$app")
-      dokku_log_warn "Failed to sync DNS for: $app"
-    fi
-    echo
+
+      local current_ip
+      current_ip=$(multi_get_record "$zone_id" "$domain" "A" 2>/dev/null || echo "")
+
+      if [[ "$current_ip" == "$SERVER_IP" ]]; then
+        echo "✓ $domain"
+        total_synced=$((total_synced + 1))
+        continue
+      fi
+
+      local ttl
+      ttl=$(get_domain_ttl "$app" "$domain" 2>/dev/null || echo "300")
+
+      if multi_create_record "$zone_id" "$domain" "A" "$SERVER_IP" "$ttl" 2>/dev/null; then
+        echo "✓ $domain (updated)"
+        total_synced=$((total_synced + 1))
+      else
+        echo "✗ $domain (failed)"
+        total_failed=$((total_failed + 1))
+      fi
+    done < "$domains_file"
   done
-  
-  # Summary
+
   echo
-  dokku_log_info2 "DNS Sync Summary"
-  dokku_log_info1 "Successfully processed: $success_count apps"
-  dokku_log_info1 "Note: Individual domains show whether records were updated or already correct"
-  
-  # Log end time
-  end_time=$(date '+%Y-%m-%d %H:%M:%S %Z')
-  echo "[$end_time] DNS sync-all operation completed"
-  
-  if [[ $fail_count -gt 0 ]]; then
-    dokku_log_warn "Failed to process: $fail_count apps"
-    for failed_app in "${failed_apps[@]}"; do
-      dokku_log_info1 "    $failed_app"
-    done
-    echo
-    dokku_log_info1 "Check individual app configurations with: dokku $PLUGIN_COMMAND_PREFIX:report <app>"
-    return 1
-  else
-    dokku_log_info1 "All DNS-managed apps processed"
-    dokku_log_info1 "Only records that needed changes were updated to avoid unnecessary API calls"
-  fi
+  echo "Total: $total_synced synced, $total_failed failed"
+  [[ $total_failed -eq 0 ]]
 }
 
 service-sync-all-cmd "$@"

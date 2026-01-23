@@ -20,10 +20,10 @@ setup() {
 @test "(multi-provider) can load multiple providers simultaneously" {
   run bash -c '
         source ../../providers/loader.sh
-        echo "Loading mock provider..."
-        load_provider mock 2>&1 | grep -o "Loaded provider: mock" || echo "Mock not loaded"
-        echo "Loading cloudflare provider..."
-        load_provider cloudflare 2>&1 | grep -o "Loaded provider: cloudflare" || echo "Cloudflare not loaded"
+        load_provider mock 2>/dev/null
+        echo "Mock loaded:" $(is_provider_loaded mock && echo "YES" || echo "NO")
+        load_provider cloudflare 2>/dev/null
+        echo "Cloudflare loaded:" $(is_provider_loaded cloudflare && echo "YES" || echo "NO")
         echo "Checking loaded providers:"
         list_loaded_providers | sort
     '

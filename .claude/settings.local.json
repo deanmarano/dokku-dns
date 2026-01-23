@@ -123,7 +123,8 @@
       "Bash(do if grep -q \"source.*functions\"\"$\" \"$f\")",
       "Bash(then echo \"$f\")",
       "Bash(fi)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(ASDF_NODEJS_VERSION=20.19.6 bats:*)"
     ],
     "deny": [],
     "ask": [],

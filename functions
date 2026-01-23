@@ -685,50 +685,47 @@ dns_display_domains_table() {
   dokku_log_info1 "❌ No DNS record found"
 }
 
-# Get server's public IP address
+# Cached server IP (avoids repeated slow HTTP lookups)
+_CACHED_SERVER_IP=""
+
+# Get server's public IP address (cached for duration of command)
 # Usage: get_server_ip
 # Returns: server's public IP address, or "Unknown" if detection fails
 get_server_ip() {
-  local SERVER_IP=""
-  local GLOBAL_DOMAINS=""
-
-  # Check for test environment override
-  if [[ -n "${DNS_TEST_SERVER_IP:-}" ]]; then
-    echo "$DNS_TEST_SERVER_IP"
+  # Return cached value if available
+  if [[ -n "$_CACHED_SERVER_IP" ]]; then
+    echo "$_CACHED_SERVER_IP"
     return 0
   fi
 
-  if command -v dokku >/dev/null 2>&1; then
+  local SERVER_IP=""
+
+  # Check for test environment override
+  if [[ -n "${DNS_TEST_SERVER_IP:-}" ]]; then
+    _CACHED_SERVER_IP="$DNS_TEST_SERVER_IP"
+    echo "$_CACHED_SERVER_IP"
+    return 0
+  fi
+
+  # Method 1: Try global domains first (fastest, no external calls)
+  if command -v dokku >/dev/null 2>&1 && command -v dig >/dev/null 2>&1; then
+    local GLOBAL_DOMAINS
     GLOBAL_DOMAINS=$(dokku domains:report --domains-global-vhosts 2>/dev/null || echo "")
-  fi
-
-  if [[ -n "$GLOBAL_DOMAINS" ]] && command -v dig >/dev/null 2>&1; then
-    # Use the first global domain to resolve server IP
-    local FIRST_GLOBAL_DOMAIN
-    FIRST_GLOBAL_DOMAIN=$(echo "$GLOBAL_DOMAINS" | head -n1)
-    local RESOLVED_IP
-    RESOLVED_IP=$(dig +short "$FIRST_GLOBAL_DOMAIN" 2>/dev/null | tail -n1 || echo "")
-    if [[ -n "$RESOLVED_IP" ]] && [[ "$RESOLVED_IP" != "127.0.0.1" ]]; then
-      SERVER_IP="$RESOLVED_IP"
+    if [[ -n "$GLOBAL_DOMAINS" ]]; then
+      local FIRST_GLOBAL_DOMAIN
+      FIRST_GLOBAL_DOMAIN=$(echo "$GLOBAL_DOMAINS" | head -n1)
+      SERVER_IP=$(dig +short "$FIRST_GLOBAL_DOMAIN" 2>/dev/null | tail -n1 || echo "")
+      [[ "$SERVER_IP" == "127.0.0.1" ]] && SERVER_IP=""
     fi
   fi
 
-  # If no global domains or couldn't resolve, try to get server IP another way
+  # Method 2: Try one fast external service (only if needed)
   if [[ -z "$SERVER_IP" ]] && command -v curl >/dev/null 2>&1; then
-    # Try to get the server's public IP
-    local PUBLIC_IP
-    PUBLIC_IP=$(curl -s --max-time 3 ifconfig.me 2>/dev/null || curl -s --max-time 3 ipecho.net/plain 2>/dev/null || curl -s --max-time 3 icanhazip.com 2>/dev/null || echo "")
-    if [[ -n "$PUBLIC_IP" ]] && [[ "$PUBLIC_IP" != "127.0.0.1" ]]; then
-      SERVER_IP="$PUBLIC_IP"
-    fi
+    SERVER_IP=$(curl -s --max-time 2 ifconfig.me 2>/dev/null | tr -d '[:space:]' || echo "")
   fi
 
-  # If still no IP detected, return Unknown instead of broken localhost
-  if [[ -z "$SERVER_IP" ]]; then
-    SERVER_IP="Unknown"
-  fi
-
-  echo "$SERVER_IP"
+  _CACHED_SERVER_IP="${SERVER_IP:-Unknown}"
+  echo "$_CACHED_SERVER_IP"
 }
 
 # Check if a domain points to the server's IP

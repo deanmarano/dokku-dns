@@ -306,3 +306,67 @@ teardown() {
   assert_success
   ! [[ "$output" =~ $TEST_APP ]]
 }
+
+@test "(triggers) domains-add auto-sync creates DNS record immediately" {
+  # This test verifies that when a domain is added via domains:add,
+  # the trigger automatically creates the DNS record (not just tracks it)
+
+  # Enable triggers
+  dokku dns:triggers:enable >/dev/null 2>&1
+
+  # Enable localhost zone for mock provider
+  sudo mkdir -p /var/lib/dokku/services/dns
+  echo "localhost" | sudo tee /var/lib/dokku/services/dns/ENABLED_ZONES >/dev/null
+
+  # Create app first (this should auto-create DNS for default domain)
+  dokku apps:create "$TEST_APP" >/dev/null 2>&1
+
+  # Add a new domain - the trigger should auto-sync and CREATE the record
+  run dokku domains:add "$TEST_APP" "newdomain.localhost"
+  assert_success
+
+  # The key assertion: auto-sync should SUCCEED, not fail
+  # If this fails with "Failed to sync DNS records automatically", the bug exists
+  ! [[ "$output" =~ "Failed to sync DNS records automatically" ]]
+
+  # Verify the record was actually created by checking dns:report
+  run dokku dns:report "$TEST_APP"
+  assert_success
+  # The new domain should show as synced (✓) not missing (❌)
+  assert_output --partial "newdomain.localhost"
+  [[ "$output" =~ "✓" ]] || [[ "$output" =~ "correct" ]]
+}
+
+@test "(triggers) domains-add shows failure message when sync fails" {
+  # This test verifies that when auto-sync fails, proper error messaging is shown
+  # and the user is told how to manually sync
+
+  # Enable triggers
+  dokku dns:triggers:enable >/dev/null 2>&1
+
+  # Enable localhost zone for mock provider
+  sudo mkdir -p /var/lib/dokku/services/dns
+  echo "localhost" | sudo tee /var/lib/dokku/services/dns/ENABLED_ZONES >/dev/null
+
+  # Create app first
+  dokku apps:create "$TEST_APP" >/dev/null 2>&1
+
+  # Set mock provider to simulate sync failure using file flag
+  # This works across process boundaries (trigger runs in subprocess)
+  touch /tmp/mock-dns-test/SIMULATE_SYNC_FAILURE
+
+  # Add a new domain - the trigger should try to sync and FAIL
+  run dokku domains:add "$TEST_APP" "failtest.localhost"
+
+  # Clean up the failure flag immediately
+  rm -f /tmp/mock-dns-test/SIMULATE_SYNC_FAILURE
+
+  # The domain addition itself should succeed
+  assert_success
+
+  # But we should see the failure message from the auto-sync
+  assert_output --partial "Failed to sync DNS records automatically"
+
+  # And instructions for manual sync
+  assert_output --partial "Manual sync with:"
+}
