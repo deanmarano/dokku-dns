@@ -170,6 +170,13 @@ provider_create_record() {
     return 1
   fi
 
+  # Simulate sync failure if flag file exists (works across process boundaries)
+  # or if MOCK_SIMULATE_SYNC_FAILURE env var is set
+  if [[ -f "$MOCK_DATA_DIR/SIMULATE_SYNC_FAILURE" ]] || [[ -n "${MOCK_SIMULATE_SYNC_FAILURE:-}" ]]; then
+    echo "Mock simulated sync failure for: $record_name" >&2
+    return 1
+  fi
+
   # Store in mock records
   local record_key="${zone_id}:${record_name}:${record_type}"
   _set_mock_record "$record_key" "${record_value}:${ttl}"
