@@ -9,6 +9,36 @@ CURRENT_PROVIDER=""
 # Load the base configuration
 BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Load provider credentials from dokku global config if not already in environment
+load_credentials_from_dokku_config() {
+  # Only load if dokku command is available
+  command -v dokku >/dev/null 2>&1 || return 0
+
+  # Provider-specific env vars to check
+  local env_vars=(
+    "CLOUDFLARE_API_TOKEN"
+    "AWS_ACCESS_KEY_ID"
+    "AWS_SECRET_ACCESS_KEY"
+    "DIGITALOCEAN_TOKEN"
+  )
+
+  for var in "${env_vars[@]}"; do
+    # Skip if already set in environment
+    if [[ -n "${!var}" ]]; then
+      continue
+    fi
+    # Try to get from dokku global config
+    local value
+    value=$(dokku config:get --global "$var" 2>/dev/null || true)
+    if [[ -n "$value" ]]; then
+      export "$var=$value"
+    fi
+  done
+}
+
+# Load credentials on script load
+load_credentials_from_dokku_config
+
 # Get list of available providers
 get_available_providers() {
   if [[ -f "$BASE_DIR/available" ]]; then
