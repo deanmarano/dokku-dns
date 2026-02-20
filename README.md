@@ -18,7 +18,7 @@ Seamlessly manage DNS records for your Dokku applications across multiple cloud 
 ### 1. Install the Plugin
 
 ```shell
-sudo dokku plugin:install https://github.com/deanmarano/dokku-dns.git --name dns
+dokku plugin:install https://github.com/deanmarano/dokku-dns.git dns
 ```
 
 ### 2. Configure Your DNS Provider
@@ -142,7 +142,7 @@ dokku dns:apps:sync myapp              # Manually sync DNS records
 
 ```shell
 # on 0.19.x+
-sudo dokku plugin:install https://github.com/deanmarano/dokku-dns.git --name dns
+dokku plugin:install https://github.com/deanmarano/dokku-dns.git dns
 ```
 
 ## Commands
