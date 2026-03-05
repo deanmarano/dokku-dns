@@ -8,137 +8,13 @@ if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
   source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
 fi
 
-# Define property functions if not available
-if ! declare -f fn-plugin-property-setup >/dev/null 2>&1; then
-  fn-plugin-property-setup() {
-    local PLUGIN_PREFIX="$1"
-    # Simple property setup - create directories
-    mkdir -p "$PLUGIN_DATA_ROOT" 2>/dev/null || true
-    return 0
-  }
-fi
-
-check_dependencies() {
-  # Check for jq (required by all providers) following Dokku guidelines
-  if ! command -v jq &>/dev/null; then
-    echo "       ⚠ Missing jq, install it"
-    echo ""
-    echo "jq is required for JSON processing by all DNS providers."
-    echo ""
-    echo "Install jq using your system's package manager:"
-    echo "  Ubuntu/Debian:    sudo apt-get install jq"
-    echo "  CentOS/RHEL:      sudo yum install jq"
-    echo "  macOS (Homebrew): brew install jq"
-    echo ""
-    echo "Or download from: https://stedolan.github.io/jq/download/"
-    return 1
-  else
-    echo "       ✓ jq found (required for JSON processing)"
-  fi
-
-  return 0
-}
-
-detect_providers() {
-  local DETECTED_PROVIDERS=()
-  local CONFIGURED_PROVIDERS=()
-  local NOT_CONFIGURED=()
-
-  # Ensure the data directory exists
-  mkdir -p "$PLUGIN_DATA_ROOT" 2>/dev/null || true
-
-  # Check for AWS CLI and credentials
-  if command -v aws >/dev/null 2>&1; then
-    DETECTED_PROVIDERS+=("AWS Route53")
-    if aws sts get-caller-identity >/dev/null 2>&1; then
-      # Test Route53 access
-      if aws route53 list-hosted-zones >/dev/null 2>&1; then
-        local ZONE_COUNT
-        ZONE_COUNT=$(aws route53 list-hosted-zones --query 'length(HostedZones)' --output text 2>/dev/null || echo "0")
-        echo "       ✓ AWS Route53 authenticated with access ($ZONE_COUNT hosted zones)"
-        CONFIGURED_PROVIDERS+=("AWS")
-      else
-        echo "       ⚠ AWS CLI authenticated but Route53 access limited (check permissions)"
-        NOT_CONFIGURED+=("AWS")
-      fi
-    else
-      echo "       ⚠ AWS CLI installed but not configured (run: aws configure)"
-      NOT_CONFIGURED+=("AWS")
-    fi
-  else
-    NOT_CONFIGURED+=("AWS")
-  fi
-
-  # Check for Cloudflare environment variables
-  if [[ -n "${CLOUDFLARE_API_TOKEN:-}" ]] || [[ -n "${CF_API_TOKEN:-}" ]]; then
-    DETECTED_PROVIDERS+=("Cloudflare")
-    echo "       ✓ Cloudflare API token configured"
-    CONFIGURED_PROVIDERS+=("Cloudflare")
-  elif command -v flarectl >/dev/null 2>&1; then
-    DETECTED_PROVIDERS+=("Cloudflare")
-    echo "       ✓ Cloudflare CLI (flarectl) available (requires API token)"
-    NOT_CONFIGURED+=("Cloudflare")
-  else
-    NOT_CONFIGURED+=("Cloudflare")
-  fi
-
-  # Check for DigitalOcean credentials
-  if [[ -n "${DIGITALOCEAN_ACCESS_TOKEN:-}" ]] || [[ -n "${DO_API_TOKEN:-}" ]]; then
-    DETECTED_PROVIDERS+=("DigitalOcean")
-    echo "       ✓ DigitalOcean API token configured"
-    CONFIGURED_PROVIDERS+=("DigitalOcean")
-  elif command -v doctl >/dev/null 2>&1; then
-    DETECTED_PROVIDERS+=("DigitalOcean")
-    if doctl auth list >/dev/null 2>&1; then
-      echo "       ✓ DigitalOcean CLI (doctl) authenticated"
-      CONFIGURED_PROVIDERS+=("DigitalOcean")
-    else
-      echo "       ✓ DigitalOcean CLI (doctl) available (requires authentication)"
-      NOT_CONFIGURED+=("DigitalOcean")
-    fi
-  else
-    NOT_CONFIGURED+=("DigitalOcean")
-  fi
-
-  # Show not configured providers if any
-  if [[ ${#NOT_CONFIGURED[@]} -gt 0 ]]; then
-    local IFS=", "
-    echo "       Not configured: ${NOT_CONFIGURED[*]}"
-  fi
-
-  # Report provider status
-  if [[ ${#CONFIGURED_PROVIDERS[@]} -gt 1 ]]; then
-    echo "       → Providers ready: ${CONFIGURED_PROVIDERS[*]}"
-    echo "       → DNS records will route to appropriate provider based on zone"
-  elif [[ ${#CONFIGURED_PROVIDERS[@]} -eq 1 ]]; then
-    echo "       → Provider ready: ${CONFIGURED_PROVIDERS[0]}"
-  else
-    echo "       → No DNS providers fully configured yet"
-  fi
-
-  return 0
-}
-
 plugin-install() {
-  echo "-----> Installing $PLUGIN_SERVICE plugin"
-
-  # Check dependencies first
-  echo "-----> Checking dependencies..."
-  if ! check_dependencies; then
-    echo "-----> Dependency check failed. Please install missing dependencies and retry."
-    exit 1
-  fi
-
-  # Set up plugin properties
-  fn-plugin-property-setup "$PLUGIN_COMMAND_PREFIX"
-
-  # Create service data directory
-  mkdir -p "$PLUGIN_DATA_ROOT" || echo "Failed to create $PLUGIN_SERVICE data directory"
+  echo "-----> Creating $PLUGIN_SERVICE data directory"
+  mkdir -p "$PLUGIN_DATA_ROOT"
   chown "${DOKKU_SYSTEM_USER:-dokku}:${DOKKU_SYSTEM_GROUP:-dokku}" "$PLUGIN_DATA_ROOT" 2>/dev/null || true
 
-  # Create service config directory if defined
   if [[ -n "$PLUGIN_CONFIG_ROOT" ]]; then
-    mkdir -p "$PLUGIN_CONFIG_ROOT" || echo "Failed to create $PLUGIN_SERVICE config directory"
+    mkdir -p "$PLUGIN_CONFIG_ROOT"
     chown "${DOKKU_SYSTEM_USER:-dokku}:${DOKKU_SYSTEM_GROUP:-dokku}" "$PLUGIN_CONFIG_ROOT" 2>/dev/null || true
   fi
 
@@ -149,22 +25,7 @@ plugin-install() {
     find "$PLUGIN_ROOT/providers" -type f -exec chmod +x {} \; 2>/dev/null || true
   fi
 
-  # Auto-detect DNS providers
-  echo "-----> Detecting DNS provider capabilities..."
-  detect_providers 2>&1
   echo "-----> $PLUGIN_SERVICE plugin installed successfully"
-
-  echo ""
-  echo "Next steps:"
-  echo "  1. Verify provider setup:      dokku $PLUGIN_COMMAND_PREFIX:providers:verify"
-  echo "  2. Enable DNS zones:           dokku $PLUGIN_COMMAND_PREFIX:zones:enable <zone>"
-  echo "  3. Enable automatic triggers:  dokku $PLUGIN_COMMAND_PREFIX:triggers:enable"
-  echo "  4. Add app domains:            dokku $PLUGIN_COMMAND_PREFIX:apps:enable <app>"
-  echo "  5. Sync DNS records:           dokku $PLUGIN_COMMAND_PREFIX:apps:sync <app>"
-  echo ""
-
-  # Show the help output directly
-  dokku "$PLUGIN_COMMAND_PREFIX:help" 2>/dev/null || echo "Run 'dokku $PLUGIN_COMMAND_PREFIX:help' to see all available commands"
 }
 
 plugin-install "$@"
