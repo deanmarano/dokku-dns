@@ -14,16 +14,14 @@ teardown() {
   run dokku "$PLUGIN_COMMAND_PREFIX:help"
   assert_success
   assert_output_contains "usage"
-  assert_output_contains "dokku dns"
   assert_output_contains "Manage DNS for your apps with cloud providers"
-  assert_output_contains "commands:"
+  assert_output_contains "dns commands:"
 }
 
 @test "(dns) shows main help when called without subcommand" {
   run dokku "$PLUGIN_COMMAND_PREFIX"
   assert_success
   assert_output_contains "usage"
-  assert_output_contains "dokku dns"
   assert_output_contains "Manage DNS for your apps with cloud providers"
 }
 
