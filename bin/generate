@@ -16,7 +16,6 @@ def compile(
     ports,
     sponsors,
     options,
-    unimplemented,
     dokku_version,
 ):
     prefix = "\n\n".join(
@@ -36,9 +35,7 @@ def compile(
                 prefix,
                 requirements_section(dokku_version),
                 installation_section(service, dokku_version),
-                commands_section(
-                    service, variable, alias, image, scheme, ports, unimplemented
-                ),
+                commands_section(service, variable, alias, image, scheme, ports),
                 usage_section(
                     service,
                     variable,
@@ -47,7 +44,6 @@ def compile(
                     scheme,
                     ports,
                     options,
-                    unimplemented,
                 ),
             ]
         )
@@ -251,7 +247,7 @@ def installation_section(service, dokku_version):
     )
 
 
-def commands_section(service, variable, alias, image, scheme, ports, unimplemented):
+def commands_section(service, variable, alias, image, scheme, ports):
     content = [
         "## Commands",
         "",
@@ -264,14 +260,13 @@ def commands_section(service, variable, alias, image, scheme, ports, unimplement
     command_list = []
     descriptions = []
     for filename in subcommands:
-        if filename in unimplemented:
-            continue
-            
         data = command_data(filename, service, variable, alias, image, scheme, ports)
         description = data["description"]
         arguments = data["arguments_string"]
 
-        command_list.append(f"{service}:{filename} {arguments}")
+        # Convert underscore filenames back to colon-separated command names
+        display_name = filename.replace("_", ":")
+        command_list.append(f"{service}:{display_name} {arguments}")
         descriptions.append(description)
 
     maxlen = max(map(len, command_list))
@@ -286,202 +281,17 @@ def commands_section(service, variable, alias, image, scheme, ports, unimplement
 
 
 def usage_section(
-    service, variable, alias, image, scheme, ports, options, unimplemented
+    service, variable, alias, image, scheme, ports, options,
 ):
-    return "\n\n".join(
-        [
-            "## Usage",
-            f"Help for any commands can be displayed by specifying the command as an argument to {service}:help. Plugin help output in conjunction with any files in the `docs/` folder is used to generate the plugin documentation. Please consult the `{service}:help` command for any undocumented commands.",
-            usage_intro(
-                service, variable, alias, image, scheme, ports, options, unimplemented
-            ),
-            usage_lifecycle(
-                service, variable, alias, image, scheme, ports, options, unimplemented
-            ),
-            usage_automation(
-                service, variable, alias, image, scheme, ports, options, unimplemented
-            ),
-            usage_data_management(
-                service, variable, alias, image, scheme, ports, options, unimplemented
-            ),
-            usage_backup(
-                service, variable, alias, image, scheme, ports, options, unimplemented
-            ),
-        ]
-    )
-
-
-def usage_intro(service, variable, alias, image, scheme, ports, options, unimplemented):
-    commands = ["apps:enable", "providers:verify", "report", "apps:sync", "sync-all"]
-    content = ["### Basic Usage"]
-
-    return fetch_commands_content(
-        service,
-        variable,
-        alias,
-        image,
-        scheme,
-        ports,
-        options,
-        unimplemented,
-        commands,
-        content,
-    )
-
-
-def usage_lifecycle(
-    service, variable, alias, image, scheme, ports, options, unimplemented
-):
-    commands = [
-        "connect",
-        "enter",
-        "expose",
-        "unexpose",
-        "promote",
-        "start",
-        "stop",
-        "pause",
-        "restart",
-        "upgrade",
-    ]
+    commands = ["apps_enable", "providers_verify", "report", "apps_sync", "sync_all"]
     content = [
-        "### Service Lifecycle",
+        "## Usage",
         "",
-        "The lifecycle of each service can be managed through the following commands:",
+        f"Help for any commands can be displayed by specifying the command as an argument to {service}:help. Plugin help output in conjunction with any files in the `docs/` folder is used to generate the plugin documentation. Please consult the `{service}:help` command for any undocumented commands.",
         "",
+        "### Basic Usage",
     ]
 
-    return fetch_commands_content(
-        service,
-        variable,
-        alias,
-        image,
-        scheme,
-        ports,
-        options,
-        unimplemented,
-        commands,
-        content,
-    )
-
-
-def usage_automation(
-    service, variable, alias, image, scheme, ports, options, unimplemented
-):
-    commands = ["app-links", "clone", "exists", "linked", "links"]
-    content = [
-        "### Service Automation",
-        "",
-        "Service scripting can be executed using the following commands:",
-        "",
-    ]
-
-    return fetch_commands_content(
-        service,
-        variable,
-        alias,
-        image,
-        scheme,
-        ports,
-        options,
-        unimplemented,
-        commands,
-        content,
-    )
-
-
-def usage_data_management(
-    service, variable, alias, image, scheme, ports, options, unimplemented
-):
-    commands = ["import", "export"]
-    content = [
-        "### Data Management",
-        "",
-        "The underlying service data can be imported and exported with the following commands:",
-        "",
-    ]
-
-    return fetch_commands_content(
-        service,
-        variable,
-        alias,
-        image,
-        scheme,
-        ports,
-        options,
-        unimplemented,
-        commands,
-        content,
-    )
-
-
-def usage_backup(
-    service, variable, alias, image, scheme, ports, options, unimplemented
-):
-    commands = [
-        "backup-auth",
-        "backup-deauth",
-        "backup",
-        "backup-set-encryption",
-        "backup-set-public-key-encryption",
-        "backup-unset-encryption",
-        "backup-unset-public-key-encryption",
-        "backup-schedule",
-        "backup-schedule-cat",
-        "backup-unschedule",
-    ]
-    content = [
-        "### Backups",
-        "",
-        "Datastore backups are supported via AWS S3 and S3 compatible services like [minio](https://github.com/minio/minio).",
-        "",
-        "You may skip the `backup-auth` step if your dokku install is running within EC2 and has access to the bucket via an IAM profile. In that case, use the `--use-iam` option with the `backup` command.",
-        "",
-        "Backups can be performed using the backup commands:",
-        "",
-    ]
-
-    return fetch_commands_content(
-        service,
-        variable,
-        alias,
-        image,
-        scheme,
-        ports,
-        options,
-        unimplemented,
-        commands,
-        content,
-    )
-
-
-def usage_docker_pull(
-    service, variable, alias, image, scheme, ports, options, unimplemented
-):
-    service_prefix = service.upper()
-    return "\n".join(
-        [
-            "### Disabling `docker image pull` calls",
-            "",
-            f"If you wish to disable the `docker image pull` calls that the plugin triggers, you may set the `{service_prefix}_DISABLE_PULL` environment variable to `true`. Once disabled, you will need to pull the service image you wish to deploy as shown in the `stderr` output.",
-            "",
-            "Please ensure the proper images are in place when `docker image pull` is disabled.",
-        ]
-    )
-
-
-def fetch_commands_content(
-    service,
-    variable,
-    alias,
-    image,
-    scheme,
-    ports,
-    options,
-    unimplemented,
-    commands,
-    content,
-):
     i = 0
     for command in commands:
         output = command_help(
@@ -493,7 +303,6 @@ def fetch_commands_content(
             scheme,
             ports,
             options,
-            unimplemented,
         )
         if output == "":
             continue
@@ -533,18 +342,17 @@ def parse_args(line):
 
 
 def command_help(
-    command, service, variable, alias, image, scheme, ports, options, unimplemented
+    command, service, variable, alias, image, scheme, ports, options,
 ):
-    if command in unimplemented:
-        return ""
-
     data = command_data(command, service, variable, alias, image, scheme, ports)
+    # Convert underscore filename back to colon-separated command name
+    display_name = command.replace("_", ":")
     content = [
         f"### {data['description']}",
         "",
         "```shell",
         "# usage",
-        f"dokku {service}:{command} {data['arguments_string']}".strip(),
+        f"dokku {service}:{display_name} {data['arguments_string']}".strip(),
         "```",
     ]
 
@@ -767,7 +575,6 @@ def main():
     scheme = None
     ports = []
     options = None
-    unimplemented = []
 
     # Handle DNS plugin (no service container)
     try:
@@ -794,17 +601,6 @@ def main():
                 scheme = re.search('"(.+)"', line).group(1)
             if "PLUGIN_DATASTORE_PORTS=" in line:
                 ports = re.search(r"\((.+)\)", line).group(1).split(" ")
-            if "PLUGIN_UNIMPLEMENTED_SUBCOMMANDS=" in line:
-                match = re.search(r"\((.+)\)", line)
-                if match is not None:
-                    unimplemented = [s.strip('"') for s in match.group(1).split(" ")]
-
-    with open("config") as f:
-        for line in f.readlines():
-            if f"{variable}_CONFIG_OPTIONS" in line:
-                match = re.search('"(.+)"', line)
-                if match is not None:
-                    options = match.group(1)
 
     sponsors = []
     with open("plugin.toml") as f:
@@ -823,7 +619,6 @@ def main():
         ports,
         sponsors,
         options,
-        unimplemented,
         "0.19.x+",
     )
 

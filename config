@@ -6,21 +6,12 @@ export PLUGIN_SERVICE="DNS"
 export PLUGIN_DATA_ROOT=${PLUGIN_DATA_ROOT:-${DNS_ROOT:="${DOKKU_LIB_ROOT:-/var/lib/dokku}/services/dns"}}
 export PLUGIN_CONFIG_ROOT=${PLUGIN_CONFIG_ROOT:-${DNS_CONFIG_ROOT:="${DOKKU_LIB_ROOT:-/var/lib/dokku}/config/dns"}}
 
-# DNS-specific defaults
-export DNS_DEFAULT_PROVIDER="aws"
-if [[ -n $DOKKU_API_VERSION ]]; then
-  export PLUGIN_BASE_PATH="$PLUGIN_ENABLED_PATH"
-fi
+PLUGIN_BASE_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export PLUGIN_BASE_PATH
+export DOKKU_BIN="${DOKKU_BIN:-/usr/bin/dokku}"
 
-# DNS Backend Images - using busybox as base for now since we don't need containers for DNS operations
-export PLUGIN_BUSYBOX_IMAGE=${PLUGIN_BUSYBOX_IMAGE:=busybox:1.37.0-uclibc}
-
-# DNS specific configuration
-export DNS_CONFIG_OPTIONS=${DNS_CONFIG_OPTIONS:=""}
-
-# Plugin configuration for documentation generation
+# Used by bin/generate for README generation
 export PLUGIN_VARIABLE="DNS"
 export PLUGIN_DEFAULT_ALIAS="DNS"
 export PLUGIN_SCHEME="dns"
 export PLUGIN_DATASTORE_PORTS=("53")
-export PLUGIN_UNIMPLEMENTED_SUBCOMMANDS=("connect" "enter" "expose" "unexpose" "promote" "start" "stop" "pause" "restart" "upgrade" "app-links" "clone" "exists" "linked" "links" "import" "export" "backup-auth" "backup-deauth" "backup" "backup-set-encryption" "backup-set-public-key-encryption" "backup-unset-encryption" "backup-unset-public-key-encryption" "backup-schedule" "backup-schedule-cat" "backup-unschedule")
