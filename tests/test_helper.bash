@@ -221,7 +221,10 @@ setup_writable_test_bin() {
 dns_cmd() {
   local subcmd="$1"
   shift
-  "$PLUGIN_ROOT/subcommands/$subcmd" "$@"
+  # Normalize subcommand: colons and hyphens to underscores
+  local normalized="${subcmd//:/_}"
+  normalized="${normalized//-/_}"
+  "$PLUGIN_ROOT/subcommands/$normalized" "$@"
 }
 
 setup_dns_provider() {

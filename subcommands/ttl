@@ -17,24 +17,9 @@ dns-ttl-cmd() {
   [[ "$1" == "$cmd" ]] && shift 1
 
   local TTL_VALUE="$1"
-  local TTL_CONFIG_FILE="$PLUGIN_DATA_ROOT/GLOBAL_TTL"
-
-  # Ensure plugin data directory exists
-  [[ ! -d "$PLUGIN_DATA_ROOT" ]] && mkdir -p "$PLUGIN_DATA_ROOT"
 
   if [[ -z "$TTL_VALUE" ]]; then
-    # Get current TTL value
-    if [[ -f "$TTL_CONFIG_FILE" ]]; then
-      local current_ttl
-      current_ttl=$(cat "$TTL_CONFIG_FILE")
-      if [[ -n "$current_ttl" && "$current_ttl" =~ ^[0-9]+$ ]]; then
-        echo "$current_ttl"
-      else
-        get_dns_ttl_config "default"  # Default fallback
-      fi
-    else
-      get_dns_ttl_config "default"  # Default TTL
-    fi
+    get_global_ttl
   else
     # Set TTL value
     if [[ ! "$TTL_VALUE" =~ ^[0-9]+$ ]]; then
@@ -53,7 +38,7 @@ dns-ttl-cmd() {
       dokku_log_fail "TTL value must be no more than $max_ttl seconds"
     fi
 
-    echo "$TTL_VALUE" > "$TTL_CONFIG_FILE"
+    dns_property_write "--global" "GLOBAL_TTL" "$TTL_VALUE"
     dokku_log_info1 "Global DNS TTL set to $TTL_VALUE seconds"
   fi
 }

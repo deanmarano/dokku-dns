@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
+
+dns-triggers-disable-cmd() {
+  declare desc="disable automatic DNS management for app lifecycle events"
+
+  if ! dns_property_exists "--global" "TRIGGERS_ENABLED"; then
+    dokku_log_info1 "DNS automatic management is already disabled"
+    return 0
+  fi
+
+  dns_property_delete "--global" "TRIGGERS_ENABLED"
+  dokku_log_info1 "DNS automatic management disabled"
+}
+
+dns-triggers-disable-cmd "$@"

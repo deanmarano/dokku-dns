@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Test wrapper for dokku DNS commands
 
-# Extract the DNS command  
+# Extract the DNS command
 # Handle both normal test environment and Docker test environment
 # Use exported PLUGIN_ROOT if available, otherwise calculate from script location
 if [[ -n "$PLUGIN_ROOT" && -d "$PLUGIN_ROOT/subcommands" ]]; then
@@ -18,45 +18,18 @@ else
         PLUGIN_ROOT="$(cd "$BIN_DIR/../.." && pwd)"
     fi
 fi
-if [[ "$1" == "dns:sync-all" ]]; then
-    exec "$PLUGIN_ROOT/subcommands/sync-all" "${@:2}"
-elif [[ "$1" == "dns:report" ]]; then
-    exec "$PLUGIN_ROOT/subcommands/report" "${@:2}"
-elif [[ "$1" == "dns:version" ]]; then
-    exec "$PLUGIN_ROOT/subcommands/version" "${@:2}"
-# New namespace commands
-elif [[ "$1" == "dns:providers:verify" ]]; then
-    exec "$PLUGIN_ROOT/subcommands/providers:verify" "$@"
-elif [[ "$1" == "dns:apps" ]]; then
-    exec "$PLUGIN_ROOT/subcommands/apps" "${@:2}"
-elif [[ "$1" == "dns:apps:enable" ]]; then
-    exec "$PLUGIN_ROOT/subcommands/apps:enable" "${@:2}"
-elif [[ "$1" == "dns:apps:disable" ]]; then
-    exec "$PLUGIN_ROOT/subcommands/apps:disable" "${@:2}"
-elif [[ "$1" == "dns:apps:sync" ]]; then
-    exec "$PLUGIN_ROOT/subcommands/apps:sync" "${@:2}"
-elif [[ "$1" == "dns:apps:report" ]]; then
-    exec "$PLUGIN_ROOT/subcommands/apps:report" "${@:2}"
-elif [[ "$1" == "dns:zones:enable" ]]; then
-    exec "$PLUGIN_ROOT/subcommands/zones:enable" "${@:2}"
-elif [[ "$1" == "dns:zones:disable" ]]; then
-    exec "$PLUGIN_ROOT/subcommands/zones:disable" "${@:2}"
-elif [[ "$1" == "dns:zones" ]]; then
-    exec "$PLUGIN_ROOT/subcommands/zones" "${@:2}"
-elif [[ "$1" == "dns:zones:enable" ]]; then
-    exec "$PLUGIN_ROOT/subcommands/zones:enable" "${@:2}"
-elif [[ "$1" == "dns:zones:disable" ]]; then
-    exec "$PLUGIN_ROOT/subcommands/zones:disable" "${@:2}"
-elif [[ "$1" == "dns:cron" ]]; then
-    exec "$PLUGIN_ROOT/subcommands/cron" "${@:2}"
-elif [[ "$1" == "dns:sync:deletions" ]]; then
-    exec "$PLUGIN_ROOT/subcommands/sync:deletions" "${@:2}"
-elif [[ "$1" == "dns:triggers" ]]; then
-    exec "$PLUGIN_ROOT/subcommands/triggers" "${@:2}"
-elif [[ "$1" == "dns:triggers:enable" ]]; then
-    exec "$PLUGIN_ROOT/subcommands/triggers:enable" "${@:2}"
-elif [[ "$1" == "dns:triggers:disable" ]]; then
-    exec "$PLUGIN_ROOT/subcommands/triggers:disable" "${@:2}"
+
+# Route dns:* commands to subcommands
+if [[ "$1" == "dns:"* ]]; then
+    subcommand="${1#dns:}"
+    shift
+    # Normalize subcommand: colons and hyphens to underscores
+    normalized="${subcommand//:/_}"
+    normalized="${normalized//-/_}"
+    subcommand_file="$PLUGIN_ROOT/subcommands/$normalized"
+    if [[ -x "$subcommand_file" ]]; then
+        exec "$subcommand_file" "$@"
+    fi
 elif [[ "$1" == "dns:help" ]] || [[ "$1" == "dns" ]]; then
     exec "$PLUGIN_ROOT/commands" "$@"
 elif [[ "$1" =~ ^dns:[^:]+:help$ ]]; then

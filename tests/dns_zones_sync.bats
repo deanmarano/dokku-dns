@@ -17,7 +17,7 @@ teardown() {
 
 # Helper to run zones:sync
 zones_sync() {
-  "$PLUGIN_ROOT/subcommands/zones:sync" "$@"
+  "$PLUGIN_ROOT/subcommands/zones_sync" "$@"
 }
 
 # Basic command tests

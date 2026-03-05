@@ -24,12 +24,12 @@ dns_zones() {
 
 # Helper function to run dns:zones:enable command
 dns_zones_add() {
-  run "$PLUGIN_ROOT/subcommands/zones:enable" "$@"
+  run "$PLUGIN_ROOT/subcommands/zones_enable" "$@"
 }
 
 # Helper function to run dns:zones:disable command
 dns_zones_remove() {
-  run "$PLUGIN_ROOT/subcommands/zones:disable" "$@"
+  run "$PLUGIN_ROOT/subcommands/zones_disable" "$@"
 }
 
 # Helper function to setup a mock provider
