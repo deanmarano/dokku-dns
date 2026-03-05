@@ -10,13 +10,15 @@ fi
 
 plugin-install() {
   echo "-----> Creating $PLUGIN_SERVICE data directory"
+
+  # Use dokku property functions if available, otherwise create directories manually
+  if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/property-functions" ]]; then
+    source "$PLUGIN_CORE_AVAILABLE_PATH/common/property-functions"
+    fn-plugin-property-setup "$PLUGIN_COMMAND_PREFIX"
+  fi
+
   mkdir -p "$PLUGIN_DATA_ROOT"
   chown "${DOKKU_SYSTEM_USER:-dokku}:${DOKKU_SYSTEM_GROUP:-dokku}" "$PLUGIN_DATA_ROOT" 2>/dev/null || true
-
-  if [[ -n "$PLUGIN_CONFIG_ROOT" ]]; then
-    mkdir -p "$PLUGIN_CONFIG_ROOT"
-    chown "${DOKKU_SYSTEM_USER:-dokku}:${DOKKU_SYSTEM_GROUP:-dokku}" "$PLUGIN_CONFIG_ROOT" 2>/dev/null || true
-  fi
 
   # Ensure provider scripts are executable
   local PLUGIN_ROOT

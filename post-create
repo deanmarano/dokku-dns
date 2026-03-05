@@ -9,25 +9,7 @@ set -eo pipefail
 PLUGIN_BASE_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$PLUGIN_BASE_PATH/config"
 
-# Load functions if available
-if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
-  source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
-fi
-
-# Define missing functions if needed
-if ! declare -f dokku_log_info1 >/dev/null 2>&1; then
-  dokku_log_info1() { echo "-----> $*"; }
-fi
-
-if ! declare -f dokku_log_info2 >/dev/null 2>&1; then
-  dokku_log_info2() { echo "=====> $*"; }
-fi
-
-if ! declare -f dokku_log_warn >/dev/null 2>&1; then
-  dokku_log_warn() { echo " !     $*"; }
-fi
-
-# Load plugin functions
+# Load plugin functions (includes config, dokku functions, and log fallbacks)
 TRIGGER_BASE_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$TRIGGER_BASE_PATH/functions"
 
@@ -36,9 +18,7 @@ main() {
   local APP="$1"
 
   # Check if triggers are enabled
-  local TRIGGERS_ENABLED_FILE="$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED"
-  if [[ ! -f "$TRIGGERS_ENABLED_FILE" ]]; then
-    # Triggers are disabled - exit silently
+  if ! dns_property_exists "--global" "TRIGGERS_ENABLED"; then
     return 0
   fi
 

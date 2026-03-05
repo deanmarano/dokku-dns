@@ -9,8 +9,71 @@ if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
   source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
 fi
 
+# Load property functions if available
+if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/property-functions" ]]; then
+  source "$PLUGIN_CORE_AVAILABLE_PATH/common/property-functions"
+fi
+
 # Load logging fallback functions
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/log-functions"
+
+# Property helpers with file-based fallbacks for environments without dokku property functions
+dns_property_get() {
+  local app="$1" key="$2" default="${3:-}"
+  if declare -f fn-plugin-property-get >/dev/null 2>&1; then
+    fn-plugin-property-get "$PLUGIN_COMMAND_PREFIX" "$app" "$key" "$default"
+  else
+    local file="$PLUGIN_DATA_ROOT/$app/$key"
+    if [[ "$app" == "--global" ]]; then
+      file="$PLUGIN_DATA_ROOT/$key"
+    fi
+    if [[ -f "$file" ]]; then
+      cat "$file"
+    else
+      echo "$default"
+    fi
+  fi
+}
+
+dns_property_write() {
+  local app="$1" key="$2" value="$3"
+  if declare -f fn-plugin-property-write >/dev/null 2>&1; then
+    fn-plugin-property-write "$PLUGIN_COMMAND_PREFIX" "$app" "$key" "$value"
+  else
+    local dir="$PLUGIN_DATA_ROOT/$app"
+    if [[ "$app" == "--global" ]]; then
+      dir="$PLUGIN_DATA_ROOT"
+    fi
+    mkdir -p "$dir"
+    echo "$value" >"$dir/$key"
+  fi
+}
+
+dns_property_delete() {
+  local app="$1" key="$2"
+  if declare -f fn-plugin-property-delete >/dev/null 2>&1; then
+    fn-plugin-property-delete "$PLUGIN_COMMAND_PREFIX" "$app" "$key"
+  else
+    local file="$PLUGIN_DATA_ROOT/$app/$key"
+    if [[ "$app" == "--global" ]]; then
+      file="$PLUGIN_DATA_ROOT/$key"
+    fi
+    rm -f "$file"
+  fi
+}
+
+dns_property_exists() {
+  local app="$1" key="$2"
+  if declare -f fn-plugin-property-exists >/dev/null 2>&1; then
+    fn-plugin-property-exists "$PLUGIN_COMMAND_PREFIX" "$app" "$key"
+  else
+    local file="$PLUGIN_DATA_ROOT/$app/$key"
+    if [[ "$app" == "--global" ]]; then
+      file="$PLUGIN_DATA_ROOT/$key"
+    fi
+    [[ -f "$file" ]]
+  fi
+}
 
 # DNS-specific functions
 # These functions are available to other plugins that source this file
@@ -90,11 +153,7 @@ get_app_domains() {
 # Usage: get_dns_managed_apps
 # Returns: newline-separated list of app names
 get_dns_managed_apps() {
-  local LINKS_FILE="$PLUGIN_DATA_ROOT/LINKS"
-
-  if [[ -f "$LINKS_FILE" ]]; then
-    cat "$LINKS_FILE" 2>/dev/null || echo ""
-  fi
+  dns_property_get "--global" "LINKS" ""
 }
 
 # Check if an app is currently managed by DNS plugin
@@ -102,46 +161,38 @@ get_dns_managed_apps() {
 # Returns: 0 if managed, 1 if not managed
 is_app_dns_managed() {
   local APP="$1"
-  local LINKS_FILE="$PLUGIN_DATA_ROOT/LINKS"
-
-  if [[ -f "$LINKS_FILE" ]] && grep -q "^$APP$" "$LINKS_FILE" 2>/dev/null; then
-    return 0
-  else
-    return 1
-  fi
+  local links
+  links=$(dns_property_get "--global" "LINKS" "")
+  [[ -n "$links" ]] && echo "$links" | grep -q "^$APP$"
 }
 
 # Zone management functions
 zones_set_enabled() {
   local ZONE="$1"
-  local ENABLED_ZONES_FILE="$PLUGIN_DATA_ROOT/ENABLED_ZONES"
-
-  mkdir -p "$PLUGIN_DATA_ROOT"
-
-  # Add zone to enabled zones if not already present
-  if [[ ! -f "$ENABLED_ZONES_FILE" ]] || ! grep -q "^$ZONE$" "$ENABLED_ZONES_FILE"; then
-    echo "$ZONE" >>"$ENABLED_ZONES_FILE"
+  local current
+  current=$(dns_property_get "--global" "ENABLED_ZONES" "")
+  if [[ -z "$current" ]] || ! echo "$current" | grep -q "^$ZONE$"; then
+    if [[ -n "$current" ]]; then
+      dns_property_write "--global" "ENABLED_ZONES" "$current
+$ZONE"
+    else
+      dns_property_write "--global" "ENABLED_ZONES" "$ZONE"
+    fi
   fi
 }
 
 zones_set_disabled() {
   local ZONE="$1"
-  local ENABLED_ZONES_FILE="$PLUGIN_DATA_ROOT/ENABLED_ZONES"
-
-  if [[ -f "$ENABLED_ZONES_FILE" ]]; then
-    # Remove the zone from enabled zones file
-    local temp_file
-    temp_file=$(mktemp)
-    grep -v "^$ZONE$" "$ENABLED_ZONES_FILE" >"$temp_file" || true
-
-    # If file is empty after removal, delete it
-    if [[ ! -s "$temp_file" ]]; then
-      rm -f "$ENABLED_ZONES_FILE"
+  local current
+  current=$(dns_property_get "--global" "ENABLED_ZONES" "")
+  if [[ -n "$current" ]]; then
+    local filtered
+    filtered=$(echo "$current" | grep -v "^$ZONE$" || true)
+    if [[ -n "$filtered" ]]; then
+      dns_property_write "--global" "ENABLED_ZONES" "$filtered"
     else
-      mv "$temp_file" "$ENABLED_ZONES_FILE"
+      dns_property_delete "--global" "ENABLED_ZONES"
     fi
-
-    rm -f "$temp_file"
   fi
 }
 
@@ -150,40 +201,26 @@ zones_set_disabled() {
 # Returns: 0 if domain is in enabled zone, 1 if not
 is_domain_in_enabled_zone() {
   local DOMAIN="$1"
-  local ENABLED_ZONES_FILE="$PLUGIN_DATA_ROOT/ENABLED_ZONES"
+  local zones
+  zones=$(dns_property_get "--global" "ENABLED_ZONES" "")
 
-  # If no enabled zones file exists, return false (no zones enabled)
-  if [[ ! -f "$ENABLED_ZONES_FILE" ]]; then
-    return 1
-  fi
+  [[ -z "$zones" ]] && return 1
 
-  # If file exists but is empty, no zones are enabled
-  if [[ ! -s "$ENABLED_ZONES_FILE" ]]; then
-    return 1
-  fi
-
-  # Check if domain matches any enabled zone
   while IFS= read -r zone; do
     [[ -z "$zone" ]] && continue
-
-    # Check if domain matches this zone exactly or is a subdomain
     if [[ "$DOMAIN" == "$zone" ]] || [[ "$DOMAIN" == *".$zone" ]]; then
-      return 0 # Domain is in an enabled zone
+      return 0
     fi
-  done <"$ENABLED_ZONES_FILE"
+  done <<<"$zones"
 
-  return 1 # Domain not in any enabled zone
+  return 1
 }
 
 # Get list of enabled zones
 # Usage: get_enabled_zones
 # Returns: newline-separated list of enabled zone names
 get_enabled_zones() {
-  local ENABLED_ZONES_FILE="$PLUGIN_DATA_ROOT/ENABLED_ZONES"
-
-  if [[ -f "$ENABLED_ZONES_FILE" ]]; then
-    cat "$ENABLED_ZONES_FILE" 2>/dev/null || echo ""
-  fi
+  dns_property_get "--global" "ENABLED_ZONES" ""
 }
 
 # Check if a zone is enabled
@@ -191,13 +228,9 @@ get_enabled_zones() {
 # Returns: 0 if zone is enabled, 1 if not
 is_zone_enabled() {
   local ZONE="$1"
-  local ENABLED_ZONES_FILE="$PLUGIN_DATA_ROOT/ENABLED_ZONES"
-
-  if [[ -f "$ENABLED_ZONES_FILE" ]] && grep -q "^$ZONE$" "$ENABLED_ZONES_FILE" 2>/dev/null; then
-    return 0
-  else
-    return 1
-  fi
+  local zones
+  zones=$(dns_property_get "--global" "ENABLED_ZONES" "")
+  [[ -n "$zones" ]] && echo "$zones" | grep -q "^$ZONE$"
 }
 
 dns_get_record_ip() {
@@ -1054,18 +1087,12 @@ dns_display_global_pending_changes() {
 # Usage: get_global_ttl
 # Returns: TTL value in seconds (default from get_dns_ttl_config)
 get_global_ttl() {
-  local TTL_CONFIG_FILE="$PLUGIN_DATA_ROOT/GLOBAL_TTL"
-
-  if [[ -f "$TTL_CONFIG_FILE" ]]; then
-    local ttl_value
-    ttl_value=$(cat "$TTL_CONFIG_FILE" 2>/dev/null)
-    if [[ -n "$ttl_value" && "$ttl_value" =~ ^[0-9]+$ ]]; then
-      echo "$ttl_value"
-      return 0
-    fi
+  local ttl_value
+  ttl_value=$(dns_property_get "--global" "GLOBAL_TTL" "")
+  if [[ -n "$ttl_value" && "$ttl_value" =~ ^[0-9]+$ ]]; then
+    echo "$ttl_value"
+    return 0
   fi
-
-  # Default TTL from dokku config
   get_dns_ttl_config "default"
 }
 
@@ -1122,18 +1149,18 @@ get_zone_from_domain() {
 # Get TTL for a specific zone
 get_zone_ttl() {
   local zone="$1"
-  local ZONE_TTLS_FILE="$PLUGIN_DATA_ROOT/ZONE_TTLS"
+  local zone_ttls
+  zone_ttls=$(dns_property_get "--global" "ZONE_TTLS" "")
 
-  if [[ -f "$ZONE_TTLS_FILE" ]]; then
+  if [[ -n "$zone_ttls" ]]; then
     local zone_ttl
-    zone_ttl=$(grep "^$zone:" "$ZONE_TTLS_FILE" 2>/dev/null | cut -d: -f2 || true)
+    zone_ttl=$(echo "$zone_ttls" | grep "^$zone:" | cut -d: -f2 || true)
     if [[ -n "$zone_ttl" && "$zone_ttl" =~ ^[0-9]+$ ]]; then
       echo "$zone_ttl"
       return 0
     fi
   fi
 
-  # No zone TTL configured
   return 1
 }
 
@@ -1147,35 +1174,33 @@ record_managed_domain() {
   local zone_id="$2"
   local timestamp
   timestamp=$(date +%s)
-  local MANAGED_RECORDS_FILE="$PLUGIN_DATA_ROOT/MANAGED_RECORDS"
 
-  # Create parent directory if it doesn't exist
-  mkdir -p "$PLUGIN_DATA_ROOT"
-
-  # Check if domain already exists in the file
-  if [[ -f "$MANAGED_RECORDS_FILE" ]] && grep -q "^$domain:" "$MANAGED_RECORDS_FILE" 2>/dev/null; then
-    # Update existing entry
-    local temp_file
-    temp_file=$(mktemp)
-    grep -v "^$domain:" "$MANAGED_RECORDS_FILE" >"$temp_file" || true
-    echo "$domain:$zone_id:$timestamp" >>"$temp_file"
-    mv "$temp_file" "$MANAGED_RECORDS_FILE"
+  local current
+  current=$(dns_property_get "--global" "MANAGED_RECORDS" "")
+  local filtered
+  filtered=$(echo "$current" | grep -v "^$domain:" || true)
+  if [[ -n "$filtered" ]]; then
+    dns_property_write "--global" "MANAGED_RECORDS" "$filtered
+$domain:$zone_id:$timestamp"
   else
-    # Add new entry
-    echo "$domain:$zone_id:$timestamp" >>"$MANAGED_RECORDS_FILE"
+    dns_property_write "--global" "MANAGED_RECORDS" "$domain:$zone_id:$timestamp"
   fi
 }
 
 unrecord_managed_domain() {
   declare desc="Remove a domain from the managed records tracking file"
   local domain="$1"
-  local MANAGED_RECORDS_FILE="$PLUGIN_DATA_ROOT/MANAGED_RECORDS"
 
-  if [[ -f "$MANAGED_RECORDS_FILE" ]]; then
-    local temp_file
-    temp_file=$(mktemp)
-    grep -v "^$domain:" "$MANAGED_RECORDS_FILE" >"$temp_file" || true
-    mv "$temp_file" "$MANAGED_RECORDS_FILE"
+  local current
+  current=$(dns_property_get "--global" "MANAGED_RECORDS" "")
+  if [[ -n "$current" ]]; then
+    local filtered
+    filtered=$(echo "$current" | grep -v "^$domain:" || true)
+    if [[ -n "$filtered" ]]; then
+      dns_property_write "--global" "MANAGED_RECORDS" "$filtered"
+    else
+      dns_property_delete "--global" "MANAGED_RECORDS"
+    fi
   fi
 }
 
@@ -1185,62 +1210,57 @@ queue_domain_deletion() {
   local zone_id="$2"
   local timestamp
   timestamp=$(date +%s)
-  local PENDING_DELETIONS_FILE="$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
-  local MANAGED_RECORDS_FILE="$PLUGIN_DATA_ROOT/MANAGED_RECORDS"
 
-  # Create parent directory if it doesn't exist
-  mkdir -p "$PLUGIN_DATA_ROOT"
+  local managed
+  managed=$(dns_property_get "--global" "MANAGED_RECORDS" "")
 
   # Only queue if domain was managed by us
-  if [[ -f "$MANAGED_RECORDS_FILE" ]] && grep -q "^$domain:" "$MANAGED_RECORDS_FILE" 2>/dev/null; then
-    # Add to deletion queue if not already there
-    if [[ ! -f "$PENDING_DELETIONS_FILE" ]] || ! grep -q "^$domain:" "$PENDING_DELETIONS_FILE" 2>/dev/null; then
-      echo "$domain:$zone_id:$timestamp" >>"$PENDING_DELETIONS_FILE"
+  if [[ -n "$managed" ]] && echo "$managed" | grep -q "^$domain:"; then
+    local pending
+    pending=$(dns_property_get "--global" "PENDING_DELETIONS" "")
+    if [[ -z "$pending" ]] || ! echo "$pending" | grep -q "^$domain:"; then
+      if [[ -n "$pending" ]]; then
+        dns_property_write "--global" "PENDING_DELETIONS" "$pending
+$domain:$zone_id:$timestamp"
+      else
+        dns_property_write "--global" "PENDING_DELETIONS" "$domain:$zone_id:$timestamp"
+      fi
     fi
-
-    # Remove from managed records
     unrecord_managed_domain "$domain"
   fi
 }
 
 get_managed_domains() {
   declare desc="Get list of all managed domains"
-  local MANAGED_RECORDS_FILE="$PLUGIN_DATA_ROOT/MANAGED_RECORDS"
-
-  if [[ -f "$MANAGED_RECORDS_FILE" ]]; then
-    cat "$MANAGED_RECORDS_FILE"
-  fi
+  dns_property_get "--global" "MANAGED_RECORDS" ""
 }
 
 get_pending_deletions() {
   declare desc="Get list of all pending deletions"
-  local PENDING_DELETIONS_FILE="$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
-
-  if [[ -f "$PENDING_DELETIONS_FILE" ]]; then
-    cat "$PENDING_DELETIONS_FILE"
-  fi
+  dns_property_get "--global" "PENDING_DELETIONS" ""
 }
 
 remove_from_deletion_queue() {
   declare desc="Remove a domain from the pending deletions queue after successful deletion"
   local domain="$1"
-  local PENDING_DELETIONS_FILE="$PLUGIN_DATA_ROOT/PENDING_DELETIONS"
 
-  if [[ -f "$PENDING_DELETIONS_FILE" ]]; then
-    local temp_file
-    temp_file=$(mktemp)
-    grep -v "^$domain:" "$PENDING_DELETIONS_FILE" >"$temp_file" || true
-    mv "$temp_file" "$PENDING_DELETIONS_FILE"
+  local current
+  current=$(dns_property_get "--global" "PENDING_DELETIONS" "")
+  if [[ -n "$current" ]]; then
+    local filtered
+    filtered=$(echo "$current" | grep -v "^$domain:" || true)
+    if [[ -n "$filtered" ]]; then
+      dns_property_write "--global" "PENDING_DELETIONS" "$filtered"
+    else
+      dns_property_delete "--global" "PENDING_DELETIONS"
+    fi
   fi
 }
 
 is_domain_managed() {
   declare desc="Check if a domain is tracked in managed records"
   local domain="$1"
-  local MANAGED_RECORDS_FILE="$PLUGIN_DATA_ROOT/MANAGED_RECORDS"
-
-  if [[ -f "$MANAGED_RECORDS_FILE" ]] && grep -q "^$domain:" "$MANAGED_RECORDS_FILE" 2>/dev/null; then
-    return 0
-  fi
-  return 1
+  local managed
+  managed=$(dns_property_get "--global" "MANAGED_RECORDS" "")
+  [[ -n "$managed" ]] && echo "$managed" | grep -q "^$domain:"
 }

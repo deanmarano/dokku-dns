@@ -25,9 +25,7 @@ main() {
   local DOMAIN="$3"
 
   # Check if triggers are enabled
-  local TRIGGERS_ENABLED_FILE="$PLUGIN_DATA_ROOT/TRIGGERS_ENABLED"
-  if [[ ! -f "$TRIGGERS_ENABLED_FILE" ]]; then
-    # Triggers are disabled - exit silently
+  if ! dns_property_exists "--global" "TRIGGERS_ENABLED"; then
     return 0
   fi
 
