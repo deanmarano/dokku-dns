@@ -220,6 +220,28 @@ jobs:
           fi
         "
       
+    - name: Run Vitest integration tests
+      run: |
+        echo "🧪 Running Vitest integration tests in dokku-local container..."
+        docker exec -i dokku-local bash -c "
+          cd /tmp &&
+
+          # Install Node.js
+          if ! command -v node >/dev/null 2>&1; then
+            echo '📦 Installing Node.js...' &&
+            curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null 2>&1 &&
+            apt-get install -y nodejs >/dev/null 2>&1 &&
+            echo '✅ Node.js installed:' && node --version
+          fi &&
+
+          # Install dependencies and run tests
+          cd /tmp/dokku-dns &&
+          cp -r . /tmp/dokku-dns-vitest &&
+          cd /tmp/dokku-dns-vitest &&
+          npm ci --ignore-scripts >/dev/null 2>&1 &&
+          npx vitest run --reporter=verbose
+        "
+
     - name: Stop test containers
       if: always()
       run: |

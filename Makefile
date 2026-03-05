@@ -133,6 +133,10 @@ lint: lint-setup format-check
 		exit $$EXIT_CODE; \
 	fi
 
+vitest:
+	@echo "Running vitest integration tests..."
+	@npx vitest run
+
 test: lint unit-tests
 
 docker-test:

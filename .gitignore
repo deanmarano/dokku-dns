@@ -5,3 +5,4 @@ test-server-*.log
 .env
 .env.local
 .env.*.local
+node_modules/
