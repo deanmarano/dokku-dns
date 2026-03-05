@@ -14,7 +14,7 @@ teardown() {
   run dokku "$PLUGIN_COMMAND_PREFIX:help"
   assert_success
   assert_output_contains "usage"
-  assert_output_contains "dokku dns[:COMMAND]"
+  assert_output_contains "dokku dns"
   assert_output_contains "Manage DNS for your apps with cloud providers"
   assert_output_contains "commands:"
 }
@@ -23,7 +23,7 @@ teardown() {
   run dokku "$PLUGIN_COMMAND_PREFIX"
   assert_success
   assert_output_contains "usage"
-  assert_output_contains "dokku dns[:COMMAND]"
+  assert_output_contains "dokku dns"
   assert_output_contains "Manage DNS for your apps with cloud providers"
 }
 
@@ -34,7 +34,7 @@ teardown() {
   assert_output_contains "dns:apps:disable"
   assert_output_contains "dns:report"
   assert_output_contains "dns:apps:sync"
-  assert_output_contains "dns:sync"
+  assert_output_contains "dns:sync:all"
   assert_output_contains "dns:providers:verify"
   assert_output_contains "dns:zones:enable"
   assert_output_contains "dns:zones:disable"

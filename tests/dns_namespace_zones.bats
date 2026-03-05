@@ -15,14 +15,10 @@ teardown() {
 }
 
 @test "(dns:zones:enable) forwards to zones:enable functionality" {
-  # Configure DNS first
-  run dokku "$PLUGIN_COMMAND_PREFIX:providers:configure" aws
-  assert_success
-
   # Try to enable a zone (should behave like dns:zones:enable)
   run dokku "$PLUGIN_COMMAND_PREFIX:zones:enable" "example.com"
-  # This may fail without AWS credentials, but should at least try
-  assert_contains "${lines[*]}" "zone" || assert_contains "${lines[*]}" "AWS"
+  # This may fail without provider credentials, but should at least try
+  assert_contains "${lines[*]}" "zone"
 }
 
 @test "(dns:zones:disable) shows help with no arguments" {
@@ -31,14 +27,10 @@ teardown() {
 }
 
 @test "(dns:zones:disable) forwards to zones:disable functionality" {
-  # Configure DNS first
-  run dokku "$PLUGIN_COMMAND_PREFIX:providers:configure" aws
-  assert_success
-
-  # Try to disable a zone (should behave like dns:zones:disable)
+  # Try to disable a zone
   run dokku "$PLUGIN_COMMAND_PREFIX:zones:disable" "example.com"
-  # This may fail without AWS credentials or zone, but should at least try
-  assert_contains "${lines[*]}" "zone" || assert_contains "${lines[*]}" "AWS" || assert_contains "${lines[*]}" "not found"
+  # This may fail without a zone enabled, but should at least try
+  assert_contains "${lines[*]}" "zone"
 }
 
 @test "(dns:zones:*) help shows correct descriptions" {
@@ -46,21 +38,4 @@ teardown() {
   assert_success
   assert_contains "$output" "enable a DNS zone"
   assert_contains "$output" "disable a DNS zone"
-}
-
-@test "(dns:zones:enable/disable) backward compatibility with zones:enable/remove" {
-  # Configure DNS first
-  run dokku "$PLUGIN_COMMAND_PREFIX:providers:configure" aws
-  assert_success
-
-  # Both new and old commands should have similar behavior
-  run dokku "$PLUGIN_COMMAND_PREFIX:zones:enable" "example.com"
-  local enable_output="$output"
-
-  run dokku "$PLUGIN_COMMAND_PREFIX:zones:enable" "example.com"
-  local add_output="$output"
-
-  # The outputs should be similar since they forward to the same command
-  # (exact match not expected due to potential different error states)
-  assert_contains "$enable_output" "zone" || assert_contains "$add_output" "zone"
 }

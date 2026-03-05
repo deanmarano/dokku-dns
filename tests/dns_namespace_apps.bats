@@ -47,10 +47,6 @@ teardown() {
 }
 
 @test "(dns:apps:report) requires app name and shows usage without it" {
-  # Configure DNS first so report command works
-  run dokku "$PLUGIN_COMMAND_PREFIX:providers:configure" aws
-  assert_success
-
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:report"
   assert_failure
   assert_contains "${lines[*]}" "Usage: dokku dns:apps:report <app>"
