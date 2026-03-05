@@ -1,35 +1,68 @@
 #!/usr/bin/env bash
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/config"
-[[ " help $PLUGIN_COMMAND_PREFIX:help $PLUGIN_COMMAND_PREFIX $PLUGIN_COMMAND_PREFIX:default " == *" $1 "* ]] || [[ "$1" == "$PLUGIN_COMMAND_PREFIX:"* ]] || exit "$DOKKU_NOT_IMPLEMENTED_EXIT"
-
-# Load dokku functions if available
-if [[ -f "$PLUGIN_CORE_AVAILABLE_PATH/common/functions" ]]; then
-  source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
-fi
-
-# Define missing functions if needed
-if ! declare -f dokku_log_fail >/dev/null 2>&1; then
-  # shellcheck disable=SC2329,SC2317
-  dokku_log_fail() {
-    echo " !     $*" >&2
-    exit 1
-  }
-fi
-
 set -eo pipefail
 [[ $DOKKU_TRACE ]] && set -x
 
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/help-functions"
+PLUGIN_BASE_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$PLUGIN_BASE_PATH/config"
 
-# Allow help commands to work even without full configuration
-if [[ "$1" == "help" || "$1" == "$PLUGIN_COMMAND_PREFIX:help" ]]; then
-  fn-help "$@"
-  # shellcheck disable=SC2317
-  exit 0
-fi
+[[ " dns:help dns " == *" $1 "* ]] || [[ "$1" == "dns:"* ]] || exit "$DOKKU_NOT_IMPLEMENTED_EXIT"
 
-if [[ ! -d $PLUGIN_DATA_ROOT ]]; then
-  mkdir -p "$PLUGIN_DATA_ROOT"
-fi
+show_help() {
+  cat <<EOF
+usage: dokku dns[:COMMAND]
 
-fn-help "$@"
+Manage DNS for your apps with cloud providers.
+
+dokku dns commands:
+
+    dns:apps                                     list DNS-managed applications
+    dns:apps:disable <app>                       disable DNS management for an application
+    dns:apps:enable <app> [domains...] [--ttl]   enable DNS management for an application
+    dns:apps:report <app>                        show DNS status for an application
+    dns:apps:sync <app>                          sync DNS records for an application
+    dns:cron [--enable|--disable|--schedule]     manage automated DNS sync cron job
+    dns:providers:verify [provider]              verify DNS provider credentials
+    dns:records:create <domain> <type> <value>   create a DNS record
+    dns:records:delete <domain> <type>           delete a DNS record
+    dns:records:get <domain> <type>              get a DNS record value
+    dns:report [app]                             display DNS status report
+    dns:sync:all                                 sync DNS for all managed apps
+    dns:sync:deletions                           process pending DNS deletions
+    dns:triggers                                 show trigger status
+    dns:triggers:disable                         disable automatic DNS management
+    dns:triggers:enable                          enable automatic DNS management
+    dns:ttl [value]                              get or set global DNS TTL
+    dns:version                                  show plugin version
+    dns:zones                                    list DNS zones
+    dns:zones:disable <zone>                     disable a DNS zone
+    dns:zones:enable <zone>                      enable a DNS zone
+    dns:zones:sync [zone]                        sync DNS records for a zone
+    dns:zones:ttl <zone> [value]                 get or set zone TTL
+EOF
+}
+
+case "$1" in
+  dns | dns:help)
+    show_help
+    ;;
+  dns:*)
+    subcommand="${1#dns:}"
+    shift
+
+    # Normalize subcommand: colons and hyphens to underscores
+    normalized="${subcommand//:/_}"
+    normalized="${normalized//-/_}"
+    subcommand_file="$PLUGIN_BASE_PATH/subcommands/$normalized"
+
+    if [[ -x "$subcommand_file" ]]; then
+      exec "$subcommand_file" "$@"
+    else
+      echo "Unknown command: dns:$subcommand" >&2
+      echo "Run 'dokku dns:help' for usage" >&2
+      exit 1
+    fi
+    ;;
+  *)
+    exit "$DOKKU_NOT_IMPLEMENTED_EXIT"
+    ;;
+esac
