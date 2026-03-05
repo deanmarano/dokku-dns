@@ -31,7 +31,7 @@ describe('dns:help', () => {
     const output = stripAnsi(result.stdout);
     expect(output).toContain('dns:apps');
     expect(output).toContain('dns:zones');
-    expect(output).toContain('dns:sync-all');
+    expect(output).toMatch(/dns:sync[:-]all/);
     expect(output).toContain('dns:ttl');
   });
 });

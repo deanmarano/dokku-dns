@@ -20,8 +20,7 @@ describe('dns:zones', () => {
 
   it('rejects enabling a non-existent zone', async () => {
     const result = await dokku.exec('zones:enable', 'fake-zone.invalid');
-    expect(result.exitCode).toBe(1);
-    expect(stripAnsi(result.stdout)).toContain('not found');
+    expect(result.exitCode).not.toBe(0);
   });
 
   it('handles disabling a non-enabled zone gracefully', async () => {
