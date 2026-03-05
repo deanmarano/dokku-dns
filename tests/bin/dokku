@@ -19,24 +19,9 @@ else
     fi
 fi
 
-# Route dns:* commands to subcommands
-if [[ "$1" == "dns:"* ]]; then
-    subcommand="${1#dns:}"
-    shift
-    # Normalize subcommand: colons and hyphens to underscores
-    normalized="${subcommand//:/_}"
-    normalized="${normalized//-/_}"
-    subcommand_file="$PLUGIN_ROOT/subcommands/$normalized"
-    if [[ -x "$subcommand_file" ]]; then
-        exec "$subcommand_file" "$@"
-    fi
-elif [[ "$1" == "dns:help" ]] || [[ "$1" == "dns" ]]; then
+# Route dns commands through the commands file (same as real dokku)
+if [[ "$1" == "dns" ]] || [[ "$1" == "dns:"* ]]; then
     exec "$PLUGIN_ROOT/commands" "$@"
-elif [[ "$1" =~ ^dns:[^:]+:help$ ]]; then
-    # Handle subcommand help like dns:configure:help
-    SUBCOMMAND=${1#dns:}
-    SUBCOMMAND=${SUBCOMMAND%:help}
-    exec "$PLUGIN_ROOT/commands" "dns:help" "$SUBCOMMAND"
 else
     # For non-DNS commands, provide basic mocks
     # Use apps tracking file from environment variable

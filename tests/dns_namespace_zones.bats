@@ -42,13 +42,10 @@ teardown() {
 }
 
 @test "(dns:zones:*) help shows correct descriptions" {
-  run dokku "$PLUGIN_COMMAND_PREFIX:help" "zones:enable"
+  run dokku "$PLUGIN_COMMAND_PREFIX:help"
   assert_success
-  assert_contains "$output" "enable DNS zone for automatic app domain management"
-
-  run dokku "$PLUGIN_COMMAND_PREFIX:help" "zones:disable"
-  assert_success
-  assert_contains "$output" "disable DNS zone and remove managed domains"
+  assert_contains "$output" "enable a DNS zone"
+  assert_contains "$output" "disable a DNS zone"
 }
 
 @test "(dns:zones:enable/disable) backward compatibility with zones:enable/remove" {

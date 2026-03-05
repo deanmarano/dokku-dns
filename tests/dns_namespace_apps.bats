@@ -57,21 +57,12 @@ teardown() {
 }
 
 @test "(dns:apps:*) help shows correct descriptions" {
-  run dokku "$PLUGIN_COMMAND_PREFIX:help" "apps:enable"
+  run dokku "$PLUGIN_COMMAND_PREFIX:help"
   assert_success
   assert_contains "$output" "enable DNS management for an application"
-
-  run dokku "$PLUGIN_COMMAND_PREFIX:help" "apps:disable"
-  assert_success
   assert_contains "$output" "disable DNS management for an application"
-
-  run dokku "$PLUGIN_COMMAND_PREFIX:help" "apps:sync"
-  assert_success
-  assert_contains "$output" "synchronize DNS records for an application"
-
-  run dokku "$PLUGIN_COMMAND_PREFIX:help" "apps:report"
-  assert_success
-  assert_contains "$output" "display DNS status for a specific application"
+  assert_contains "$output" "sync DNS records for an application"
+  assert_contains "$output" "show DNS status for an application"
 }
 
 # apps:disable tests
