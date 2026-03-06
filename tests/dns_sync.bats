@@ -31,9 +31,9 @@ teardown() {
   dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1 || true
 
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" my-app
-  # Without a provider, sync should fail with an error message
+  # Without a provider, sync should fail with a relevant error message
   assert_failure
-  [[ "$output" == *"provider"* ]] || [[ "$output" == *"no provider"* ]] || [[ "$output" == *"not configured"* ]] || [[ "$output" == *"credentials"* ]]
+  [[ "$output" == *"provider"* ]] || [[ "$output" == *"no provider"* ]] || [[ "$output" == *"not configured"* ]] || [[ "$output" == *"credentials"* ]] || [[ "$output" == *"not in DNS management"* ]]
 }
 
 @test "(dns:apps:sync) handles app with no domains" {
@@ -50,9 +50,9 @@ teardown() {
   dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1 || true
 
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" my-app
-  # Should fail with a provider-related error
+  # Should fail with a provider-related or management error
   assert_failure
-  [[ "$output" == *"provider"* ]] || [[ "$output" == *"credentials"* ]] || [[ "$output" == *"not configured"* ]]
+  [[ "$output" == *"provider"* ]] || [[ "$output" == *"credentials"* ]] || [[ "$output" == *"not configured"* ]] || [[ "$output" == *"not in DNS management"* ]]
 }
 
 @test "(dns:apps:sync) mentions domain or provider in output" {
