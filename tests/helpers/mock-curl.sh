@@ -44,45 +44,59 @@ fi
 case "$url" in
   # Cloudflare API
   *api.cloudflare.com/client/v4/user*)
-    cat <<'EOF'
+    if [[ -f "$RESPONSES_DIR/cf-error" ]]; then
+      echo '{"success":false,"errors":[{"code":9103,"message":"Unknown X-Auth-Key or X-Auth-Email"}]}'
+    else
+      cat <<'EOF'
 {"success":true,"result":{"id":"mock-user-id","email":"mock@example.com"}}
 EOF
+    fi
     ;;
   *api.cloudflare.com/client/v4/zones/*/dns_records/*)
     # Individual record operations (PUT/DELETE)
-    case "$method" in
-      PUT)
-        cat <<'EOF'
+    if [[ -f "$RESPONSES_DIR/cf-error" ]]; then
+      echo '{"success":false,"errors":[{"code":7003,"message":"Could not route to /zones/dns_records"}]}'
+    else
+      case "$method" in
+        PUT)
+          cat <<'EOF'
 {"success":true,"result":{"id":"mock-record-id","type":"A","name":"test.example.com","content":"1.2.3.4","ttl":300}}
 EOF
-        ;;
-      DELETE)
-        cat <<'EOF'
+          ;;
+        DELETE)
+          cat <<'EOF'
 {"success":true,"result":{"id":"mock-record-id"}}
 EOF
-        ;;
-    esac
+          ;;
+      esac
+    fi
     ;;
   *api.cloudflare.com/client/v4/zones/*/dns_records*)
     # Record listing/creation
-    case "$method" in
-      GET)
-        # Check for canned response
-        if [[ -f "$RESPONSES_DIR/cf-dns-records.json" ]]; then
-          cat "$RESPONSES_DIR/cf-dns-records.json"
-        else
-          echo '{"success":true,"result":[]}'
-        fi
-        ;;
-      POST)
-        cat <<'EOF'
+    if [[ -f "$RESPONSES_DIR/cf-error" ]]; then
+      echo '{"success":false,"errors":[{"code":7003,"message":"Could not route to /zones/dns_records"}]}'
+    else
+      case "$method" in
+        GET)
+          # Check for canned response
+          if [[ -f "$RESPONSES_DIR/cf-dns-records.json" ]]; then
+            cat "$RESPONSES_DIR/cf-dns-records.json"
+          else
+            echo '{"success":true,"result":[]}'
+          fi
+          ;;
+        POST)
+          cat <<'EOF'
 {"success":true,"result":{"id":"mock-new-record-id","type":"A","name":"test.example.com","content":"1.2.3.4","ttl":300}}
 EOF
-        ;;
-    esac
+          ;;
+      esac
+    fi
     ;;
   *api.cloudflare.com/client/v4/zones*)
-    if [[ -f "$RESPONSES_DIR/cf-zones.json" ]]; then
+    if [[ -f "$RESPONSES_DIR/cf-error" ]]; then
+      echo '{"success":false,"errors":[{"code":9103,"message":"Unknown X-Auth-Key or X-Auth-Email"}]}'
+    elif [[ -f "$RESPONSES_DIR/cf-zones.json" ]]; then
       cat "$RESPONSES_DIR/cf-zones.json"
     else
       cat <<'EOF'
@@ -91,21 +105,66 @@ EOF
     fi
     ;;
   # DigitalOcean API
+  *api.digitalocean.com/v2/account*)
+    if [[ -f "$RESPONSES_DIR/do-error" ]]; then
+      echo '{"id":"Unauthorized","message":"Unable to authenticate you"}'
+    else
+      echo '{"account":{"uuid":"mock-account-uuid","email":"mock@example.com","status":"active"}}'
+    fi
+    ;;
+  *api.digitalocean.com/v2/domains/*/records/*)
+    # Individual record operations (PUT/DELETE)
+    if [[ -f "$RESPONSES_DIR/do-error" ]]; then
+      echo '{"id":"not_found","message":"The resource you requested could not be found."}'
+    else
+      case "$method" in
+        PUT)
+          echo '{"domain_record":{"id":12345,"type":"A","name":"test","data":"1.2.3.4","ttl":1800}}'
+          ;;
+        DELETE)
+          # DigitalOcean returns empty on successful delete
+          echo ''
+          ;;
+      esac
+    fi
+    ;;
   *api.digitalocean.com/v2/domains/*/records*)
-    case "$method" in
-      GET)
-        echo '{"domain_records":[]}'
-        ;;
-      POST)
-        echo '{"domain_record":{"id":12345,"type":"A","name":"test","data":"1.2.3.4","ttl":300}}'
-        ;;
-      DELETE)
-        echo '{}'
-        ;;
-    esac
+    if [[ -f "$RESPONSES_DIR/do-error" ]]; then
+      echo '{"id":"not_found","message":"The resource you requested could not be found."}'
+    else
+      # Extract domain from URL: /v2/domains/<domain>/records
+      domain_name=$(echo "$url" | sed -n 's|.*/v2/domains/\([^/]*\)/records.*|\1|p')
+      case "$method" in
+        GET)
+          if [[ -f "$RESPONSES_DIR/do-records-${domain_name}.json" ]]; then
+            cat "$RESPONSES_DIR/do-records-${domain_name}.json"
+          else
+            echo '{"domain_records":[]}'
+          fi
+          ;;
+        POST)
+          echo '{"domain_record":{"id":12345,"type":"A","name":"test","data":"1.2.3.4","ttl":1800}}'
+          ;;
+      esac
+    fi
+    ;;
+  *api.digitalocean.com/v2/domains/*)
+    # Single domain lookup: /v2/domains/<domain>
+    if [[ -f "$RESPONSES_DIR/do-error" ]]; then
+      echo '{"id":"not_found","message":"The resource you requested could not be found."}'
+    else
+      domain_name=$(echo "$url" | sed -n 's|.*/v2/domains/\([^/?]*\).*|\1|p')
+      echo "{\"domain\":{\"name\":\"$domain_name\"}}"
+    fi
     ;;
   *api.digitalocean.com/v2/domains*)
-    echo '{"domains":[{"name":"example.com"}]}'
+    if [[ -f "$RESPONSES_DIR/do-error" ]]; then
+      echo '{"id":"Unauthorized","message":"Unable to authenticate you"}'
+    elif [[ -f "$RESPONSES_DIR/do-domains.json" ]]; then
+      cat "$RESPONSES_DIR/do-domains.json"
+    else
+      echo '{"domains":[{"name":"example.com"}]}'
+    fi
     ;;
   # IP detection services (used by get_server_ip)
   *ifconfig.me* | *icanhazip.com* | *checkip.amazonaws.com* | *ipecho.net*)

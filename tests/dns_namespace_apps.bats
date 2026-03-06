@@ -14,8 +14,8 @@ teardown() {
 
 @test "(dns:apps) lists DNS-managed applications" {
   run dokku "$PLUGIN_COMMAND_PREFIX:apps"
-  # Will show error if not configured, but command should exist
-  assert_contains "${lines[*]}" "DNS-managed applications" || assert_contains "${lines[*]}" "not configured"
+  assert_success
+  [[ "$output" == *"DNS-managed"* ]] || [[ "$output" == *"No DNS"* ]]
 }
 
 @test "(dns:apps:enable) command exists and can be called" {
@@ -25,14 +25,17 @@ teardown() {
   # Just verify the command can be invoked (output may be empty due to error handling)
 }
 
-@test "(dns:apps:enable) forwards to add command functionality" {
+@test "(dns:apps:enable) enables DNS for an app with domains" {
   # Add some domains to the app
-  run dokku domains:add "$TEST_APP" "test.example.com"
+  dokku domains:add "$TEST_APP" "test.example.com" >/dev/null 2>&1 || true
+  mkdir -p "$PLUGIN_DATA_ROOT"
+  echo "example.com" >"$PLUGIN_DATA_ROOT/ENABLED_ZONES"
 
-  # Try to enable DNS (should behave like dns:apps:enable)
+  # Enable DNS management
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" "$TEST_APP"
-  # This may fail without provider/zones, but should try to enable domains
-  assert_contains "${lines[*]}" "zone" || assert_contains "${lines[*]}" "domain" || assert_contains "${lines[*]}" "Enabled"
+  assert_success
+  # Should confirm enablement
+  [[ "$output" == *"Enabled"* ]] || [[ "$output" == *"enabled"* ]] || [[ "$output" == *"domain"* ]]
 }
 
 @test "(dns:apps:disable) shows help with no arguments" {
@@ -84,9 +87,9 @@ teardown() {
 
 @test "(dns:apps:disable) handles app not in DNS management" {
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:disable" "$TEST_APP"
-  # Should succeed but warn
   assert_success
-  [[ "$output" == *"not currently"* ]] || [[ "$output" == *"Nothing to remove"* ]]
+  # Should indicate there's nothing to disable
+  [[ "$output" == *"not currently"* ]] || [[ "$output" == *"Nothing"* ]] || [[ "$output" == *"not in DNS"* ]]
 }
 
 # apps list tests
@@ -96,7 +99,8 @@ teardown() {
   mkdir -p "$PLUGIN_DATA_ROOT"
 
   run dokku "$PLUGIN_COMMAND_PREFIX:apps"
-  [[ "$output" == *"No DNS-managed"* ]] || [[ "$output" == *"not configured"* ]]
+  assert_success
+  [[ "$output" == *"No DNS-managed"* ]] || [[ "$output" == *"No DNS"* ]]
 }
 
 @test "(dns:apps) lists managed apps with domain counts" {
@@ -107,5 +111,6 @@ teardown() {
   dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" "$TEST_APP" >/dev/null 2>&1 || true
 
   run dokku "$PLUGIN_COMMAND_PREFIX:apps"
-  [[ "$output" == *"$TEST_APP"* ]] || [[ "$output" == *"domain"* ]]
+  assert_success
+  assert_contains "$output" "$TEST_APP"
 }

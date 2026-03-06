@@ -22,8 +22,10 @@ describe('dns:apps', () => {
 
   it('enables an app for DNS management', async () => {
     const result = await dokku.exec('apps:enable', APP);
-    // May succeed or fail depending on zone config, but should not crash
+    // May succeed or fail depending on zone config, but should produce output
     expect([0, 1]).toContain(result.exitCode);
+    const output = result.stdout + result.stderr;
+    expect(output.length).toBeGreaterThan(0);
   });
 
   it('shows app report', async () => {

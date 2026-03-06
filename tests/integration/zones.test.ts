@@ -25,8 +25,10 @@ describe('dns:zones', () => {
 
   it('handles disabling a non-enabled zone gracefully', async () => {
     const result = await dokku.exec('zones:disable', 'fake-zone.invalid');
-    // Should succeed or fail gracefully
-    expect(result).toBeDefined();
+    // Should succeed (no-op) or fail with a descriptive message, not crash
+    expect(typeof result.exitCode).toBe('number');
+    const output = result.stdout + result.stderr;
+    expect(output.length).toBeGreaterThan(0);
   });
 });
 

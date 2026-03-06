@@ -287,3 +287,303 @@ describe('Cloudflare provider API calls', () => {
     expect(deleteCalls[0].url).toContain('cf-rec-1');
   });
 });
+
+describe('DigitalOcean provider API calls', () => {
+  let interceptor: ApiInterceptor;
+
+  beforeEach(() => {
+    interceptor = new ApiInterceptor();
+    interceptor.setDigitalOceanZones([
+      { name: 'example.com' },
+    ]);
+    interceptor.setDigitalOceanRecords('example.com', [
+      { id: 12345, name: 'app', type: 'A', data: '10.0.0.1', ttl: 1800 },
+    ]);
+  });
+
+  it('provider_validate_credentials calls /account endpoint', () => {
+    const result = interceptor.run(`
+      source "${PLUGIN_ROOT}/providers/digitalocean/config.sh"
+      source "${PLUGIN_ROOT}/providers/digitalocean/provider.sh"
+      export DIGITALOCEAN_ACCESS_TOKEN=test-token
+      provider_validate_credentials
+    `);
+
+    expect(result.exitCode).toBe(0);
+
+    const calls = interceptor.curlCalls();
+    const accountCalls = calls.filter(c => c.url?.includes('/account'));
+    expect(accountCalls.length).toBeGreaterThanOrEqual(1);
+
+    // Should use Bearer token auth
+    const authHeaders = accountCalls[0].headers?.filter(h => h.includes('Bearer'));
+    expect(authHeaders?.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('provider_list_zones calls /domains endpoint', () => {
+    const result = interceptor.run(`
+      source "${PLUGIN_ROOT}/providers/digitalocean/config.sh"
+      source "${PLUGIN_ROOT}/providers/digitalocean/provider.sh"
+      export DIGITALOCEAN_ACCESS_TOKEN=test-token
+      provider_list_zones
+    `);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.trim()).toBe('example.com');
+
+    const calls = interceptor.curlCalls();
+    const domainCalls = calls.filter(c => c.url?.includes('/domains') && !c.url?.includes('/records'));
+    expect(domainCalls.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('provider_get_zone_id returns domain name as zone ID', () => {
+    const result = interceptor.run(`
+      source "${PLUGIN_ROOT}/providers/digitalocean/config.sh"
+      source "${PLUGIN_ROOT}/providers/digitalocean/provider.sh"
+      export DIGITALOCEAN_ACCESS_TOKEN=test-token
+      provider_get_zone_id "example.com"
+    `);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.trim()).toBe('example.com');
+  });
+
+  it('provider_get_record fetches record from /domains/records', () => {
+    const result = interceptor.run(`
+      source "${PLUGIN_ROOT}/providers/digitalocean/config.sh"
+      source "${PLUGIN_ROOT}/providers/digitalocean/provider.sh"
+      export DIGITALOCEAN_ACCESS_TOKEN=test-token
+      provider_get_record "example.com" "app" "A"
+    `);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.trim()).toBe('10.0.0.1');
+
+    const calls = interceptor.curlCalls();
+    const recordCalls = calls.filter(c => c.url?.includes('/records'));
+    expect(recordCalls.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('provider_create_record POSTs new record', () => {
+    interceptor.setDigitalOceanRecords('example.com', []);
+
+    const result = interceptor.run(`
+      source "${PLUGIN_ROOT}/providers/digitalocean/config.sh"
+      source "${PLUGIN_ROOT}/providers/digitalocean/provider.sh"
+      export DIGITALOCEAN_ACCESS_TOKEN=test-token
+      provider_create_record "example.com" "new" "A" "10.0.0.2" 3600
+    `);
+
+    expect(result.exitCode).toBe(0);
+
+    const calls = interceptor.curlCalls();
+    const postCalls = calls.filter(c => c.method === 'POST' && c.url?.includes('/records'));
+    expect(postCalls.length).toBe(1);
+
+    expect(postCalls[0].data).toBeDefined();
+    expect(postCalls[0].data.name).toBe('new');
+    expect(postCalls[0].data.type).toBe('A');
+    expect(postCalls[0].data.data).toBe('10.0.0.2');
+    expect(postCalls[0].data.ttl).toBe(3600);
+  });
+
+  it('provider_create_record PUTs existing record', () => {
+    const result = interceptor.run(`
+      source "${PLUGIN_ROOT}/providers/digitalocean/config.sh"
+      source "${PLUGIN_ROOT}/providers/digitalocean/provider.sh"
+      export DIGITALOCEAN_ACCESS_TOKEN=test-token
+      provider_create_record "example.com" "app" "A" "10.0.0.99" 1800
+    `);
+
+    expect(result.exitCode).toBe(0);
+
+    const calls = interceptor.curlCalls();
+    const putCalls = calls.filter(c => c.method === 'PUT' && c.url?.includes('/records'));
+    expect(putCalls.length).toBe(1);
+    expect(putCalls[0].url).toContain('12345');
+  });
+
+  it('provider_delete_record DELETEs by record ID', () => {
+    const result = interceptor.run(`
+      source "${PLUGIN_ROOT}/providers/digitalocean/config.sh"
+      source "${PLUGIN_ROOT}/providers/digitalocean/provider.sh"
+      export DIGITALOCEAN_ACCESS_TOKEN=test-token
+      provider_delete_record "example.com" "app" "A"
+    `);
+
+    expect(result.exitCode).toBe(0);
+
+    const calls = interceptor.curlCalls();
+    const deleteCalls = calls.filter(c => c.method === 'DELETE' && c.url?.includes('/records'));
+    expect(deleteCalls.length).toBe(1);
+    expect(deleteCalls[0].url).toContain('12345');
+  });
+});
+
+describe('Error handling - AWS', () => {
+  let interceptor: ApiInterceptor;
+
+  beforeEach(() => {
+    interceptor = new ApiInterceptor();
+  });
+
+  it('provider_validate_credentials fails with invalid credentials', () => {
+    interceptor.setAwsError('sts', 'InvalidClientTokenId', 'The security token included in the request is invalid.');
+
+    const result = interceptor.run(`
+      source "${PLUGIN_ROOT}/providers/aws/config.sh"
+      source "${PLUGIN_ROOT}/providers/aws/provider.sh"
+      export AWS_ACCESS_KEY_ID=bad-key
+      export AWS_SECRET_ACCESS_KEY=bad-secret
+      provider_validate_credentials
+    `);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain('credentials');
+  });
+
+  it('provider_list_zones fails with error response', () => {
+    interceptor.setAwsError('list-hosted-zones', 'AccessDenied', 'User is not authorized');
+
+    const result = interceptor.run(`
+      source "${PLUGIN_ROOT}/providers/aws/config.sh"
+      source "${PLUGIN_ROOT}/providers/aws/provider.sh"
+      export AWS_ACCESS_KEY_ID=test-key
+      export AWS_SECRET_ACCESS_KEY=test-secret
+      provider_list_zones
+    `);
+
+    expect(result.exitCode).not.toBe(0);
+  });
+
+  it('provider_get_record fails for nonexistent record', () => {
+    interceptor.setAwsZones([{ id: 'Z1TESTZONE', name: 'example.com' }]);
+    interceptor.setAwsRecords('Z1TESTZONE', []);
+
+    const result = interceptor.run(`
+      source "${PLUGIN_ROOT}/providers/aws/config.sh"
+      source "${PLUGIN_ROOT}/providers/aws/provider.sh"
+      export AWS_ACCESS_KEY_ID=test-key
+      export AWS_SECRET_ACCESS_KEY=test-secret
+      provider_get_record "Z1TESTZONE" "nonexistent.example.com" "A"
+    `);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain('not found');
+  });
+
+  it('provider_get_zone_id fails for unknown domain', () => {
+    interceptor.setAwsZones([]);
+
+    const result = interceptor.run(`
+      source "${PLUGIN_ROOT}/providers/aws/config.sh"
+      source "${PLUGIN_ROOT}/providers/aws/provider.sh"
+      export AWS_ACCESS_KEY_ID=test-key
+      export AWS_SECRET_ACCESS_KEY=test-secret
+      provider_get_zone_id "unknown.example.com"
+    `);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain('not found');
+  });
+});
+
+describe('Error handling - Cloudflare', () => {
+  let interceptor: ApiInterceptor;
+
+  beforeEach(() => {
+    interceptor = new ApiInterceptor();
+  });
+
+  it('provider_validate_credentials fails with invalid token', () => {
+    interceptor.setCloudflareError();
+
+    const result = interceptor.run(`
+      source "${PLUGIN_ROOT}/providers/cloudflare/config.sh"
+      source "${PLUGIN_ROOT}/providers/cloudflare/provider.sh"
+      export CLOUDFLARE_API_TOKEN=bad-token
+      provider_validate_credentials
+    `);
+
+    expect(result.exitCode).not.toBe(0);
+  });
+
+  it('provider_list_zones fails with error response', () => {
+    interceptor.setCloudflareError();
+
+    const result = interceptor.run(`
+      source "${PLUGIN_ROOT}/providers/cloudflare/config.sh"
+      source "${PLUGIN_ROOT}/providers/cloudflare/provider.sh"
+      export CLOUDFLARE_API_TOKEN=bad-token
+      provider_list_zones
+    `);
+
+    expect(result.exitCode).not.toBe(0);
+  });
+
+  it('provider_get_record fails for nonexistent record', () => {
+    interceptor.setCloudflareZones([{ id: 'cf-zone-1', name: 'example.com' }]);
+    interceptor.setCloudflareRecords([]);
+
+    const result = interceptor.run(`
+      source "${PLUGIN_ROOT}/providers/cloudflare/config.sh"
+      source "${PLUGIN_ROOT}/providers/cloudflare/provider.sh"
+      export CLOUDFLARE_API_TOKEN=test-token
+      provider_get_record "cf-zone-1" "nonexistent.example.com" "A"
+    `);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain('not found');
+  });
+});
+
+describe('Error handling - DigitalOcean', () => {
+  let interceptor: ApiInterceptor;
+
+  beforeEach(() => {
+    interceptor = new ApiInterceptor();
+  });
+
+  it('provider_validate_credentials fails with invalid token', () => {
+    interceptor.setDigitalOceanError();
+
+    const result = interceptor.run(`
+      source "${PLUGIN_ROOT}/providers/digitalocean/config.sh"
+      source "${PLUGIN_ROOT}/providers/digitalocean/provider.sh"
+      export DIGITALOCEAN_ACCESS_TOKEN=bad-token
+      provider_validate_credentials
+    `);
+
+    expect(result.exitCode).not.toBe(0);
+  });
+
+  it('provider_get_record fails for nonexistent record', () => {
+    interceptor.setDigitalOceanZones([{ name: 'example.com' }]);
+    interceptor.setDigitalOceanRecords('example.com', []);
+
+    const result = interceptor.run(`
+      source "${PLUGIN_ROOT}/providers/digitalocean/config.sh"
+      source "${PLUGIN_ROOT}/providers/digitalocean/provider.sh"
+      export DIGITALOCEAN_ACCESS_TOKEN=test-token
+      provider_get_record "example.com" "nonexistent" "A"
+    `);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain('not found');
+  });
+
+  it('provider_delete_record fails for nonexistent record', () => {
+    interceptor.setDigitalOceanZones([{ name: 'example.com' }]);
+    interceptor.setDigitalOceanRecords('example.com', []);
+
+    const result = interceptor.run(`
+      source "${PLUGIN_ROOT}/providers/digitalocean/config.sh"
+      source "${PLUGIN_ROOT}/providers/digitalocean/provider.sh"
+      export DIGITALOCEAN_ACCESS_TOKEN=test-token
+      provider_delete_record "example.com" "nonexistent" "A"
+    `);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain('not found');
+  });
+});

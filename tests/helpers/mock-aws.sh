@@ -16,6 +16,10 @@ case "$1" in
   sts)
     case "$2" in
       get-caller-identity)
+        if [[ -f "$RESPONSES_DIR/aws-error-sts.json" ]]; then
+          cat "$RESPONSES_DIR/aws-error-sts.json" >&2
+          exit 1
+        fi
         cat <<'EOF'
 {"UserId":"MOCKUSERID123","Account":"123456789012","Arn":"arn:aws:iam::123456789012:user/mock-user"}
 EOF
@@ -25,7 +29,9 @@ EOF
   route53)
     case "$2" in
       list-hosted-zones)
-        if [[ -f "$RESPONSES_DIR/list-hosted-zones.json" ]]; then
+        if [[ -f "$RESPONSES_DIR/aws-error-list-hosted-zones.json" ]]; then
+          cat "$RESPONSES_DIR/aws-error-list-hosted-zones.json"
+        elif [[ -f "$RESPONSES_DIR/list-hosted-zones.json" ]]; then
           cat "$RESPONSES_DIR/list-hosted-zones.json"
         else
           cat <<'EOF'

@@ -148,6 +148,44 @@ export class ApiInterceptor {
     if (existsSync(this.curlLogFile)) unlinkSync(this.curlLogFile);
   }
 
+  /** Set a canned response for DigitalOcean domains (zones) */
+  setDigitalOceanZones(zones: Array<{ name: string }>): void {
+    const response = {
+      domains: zones.map(z => ({ name: z.name })),
+    };
+    writeFileSync(join(this.responsesDir, 'do-domains.json'), JSON.stringify(response));
+  }
+
+  /** Set canned DNS records for a DigitalOcean domain */
+  setDigitalOceanRecords(domain: string, records: Array<{ id: number; name: string; type: string; data: string; ttl?: number }>): void {
+    const response = {
+      domain_records: records.map(r => ({
+        id: r.id,
+        name: r.name,
+        type: r.type,
+        data: r.data,
+        ttl: r.ttl ?? 1800,
+      })),
+    };
+    writeFileSync(join(this.responsesDir, `do-records-${domain}.json`), JSON.stringify(response));
+  }
+
+  /** Set a canned error response for AWS */
+  setAwsError(command: string, errorCode: string, errorMessage: string): void {
+    const response = { Error: { Code: errorCode, Message: errorMessage } };
+    writeFileSync(join(this.responsesDir, `aws-error-${command}.json`), JSON.stringify(response));
+  }
+
+  /** Set a canned error response for Cloudflare */
+  setCloudflareError(): void {
+    writeFileSync(join(this.responsesDir, 'cf-error'), '1');
+  }
+
+  /** Set a canned error response for DigitalOcean */
+  setDigitalOceanError(): void {
+    writeFileSync(join(this.responsesDir, 'do-error'), '1');
+  }
+
   /** Clean up temp directory */
   cleanup(): void {
     execSync(`rm -rf "${this.tmpDir}"`);

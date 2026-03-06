@@ -8,10 +8,12 @@ describe('dns:providers:verify', () => {
     dokku = new DokkuDns();
   });
 
-  it('runs provider verification', async () => {
+  it('runs provider verification without crashing', async () => {
     const result = await dokku.exec('providers:verify');
-    // Will fail if no providers configured, but should not crash
-    expect(result).toBeDefined();
+    // Should return a valid exit code and produce output (even if no providers configured)
+    expect(typeof result.exitCode).toBe('number');
+    const output = result.stdout + result.stderr;
+    expect(output.length).toBeGreaterThan(0);
   });
 });
 
