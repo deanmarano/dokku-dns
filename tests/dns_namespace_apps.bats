@@ -3,6 +3,7 @@ load test_helper
 
 setup() {
   cleanup_dns_data
+  mkdir -p "$PLUGIN_DATA_ROOT"
   export TEST_APP="test-app-$$"
   create_test_app "$TEST_APP"
 }
@@ -14,8 +15,8 @@ teardown() {
 
 @test "(dns:apps) lists DNS-managed applications" {
   run dokku "$PLUGIN_COMMAND_PREFIX:apps"
-  # May fail if PLUGIN_DATA_ROOT doesn't exist yet, but should produce output
-  [[ "$output" == *"DNS-managed"* ]] || [[ "$output" == *"No DNS"* ]] || [[ "$output" == *"not configured"* ]]
+  assert_success
+  [[ "$output" == *"DNS-managed"* ]] || [[ "$output" == *"No DNS"* ]]
 }
 
 @test "(dns:apps:enable) command exists and can be called" {

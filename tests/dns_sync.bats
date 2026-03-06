@@ -27,13 +27,15 @@ teardown() {
   [[ "$output" == *"not in DNS management"* ]]
 }
 
-@test "(dns:apps:sync) fails gracefully without provider configuration" {
-  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1 || true
+@test "(dns:apps:sync) fails gracefully without provider for domain's zone" {
+  # Create DOMAINS file with a domain that has no matching zone in mock provider
+  mkdir -p "$PLUGIN_DATA_ROOT/my-app"
+  echo "test1.com" >"$PLUGIN_DATA_ROOT/my-app/DOMAINS"
 
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" my-app
-  # Without a provider, sync should fail with a relevant error message
+  # Sync should fail - the domain's zone isn't managed by any provider
   assert_failure
-  [[ "$output" == *"provider"* ]] || [[ "$output" == *"no provider"* ]] || [[ "$output" == *"not configured"* ]] || [[ "$output" == *"credentials"* ]] || [[ "$output" == *"not in DNS management"* ]]
+  [[ "$output" == *"no zone"* ]] || [[ "$output" == *"no provider"* ]] || [[ "$output" == *"Failed: 1"* ]] || [[ "$output" == *"provider"* ]]
 }
 
 @test "(dns:apps:sync) handles app with no domains" {
@@ -46,19 +48,23 @@ teardown() {
   cleanup_test_app empty-app
 }
 
-@test "(dns:apps:sync) shows helpful error when provider not accessible" {
-  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1 || true
+@test "(dns:apps:sync) shows domain name and failure count when zone not found" {
+  # Create DOMAINS file with a domain that has no matching zone
+  mkdir -p "$PLUGIN_DATA_ROOT/my-app"
+  echo "test1.com" >"$PLUGIN_DATA_ROOT/my-app/DOMAINS"
 
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" my-app
-  # Should fail with a provider-related or management error
   assert_failure
-  [[ "$output" == *"provider"* ]] || [[ "$output" == *"credentials"* ]] || [[ "$output" == *"not configured"* ]] || [[ "$output" == *"not in DNS management"* ]]
+  [[ "$output" == *"test1.com"* ]]
+  [[ "$output" == *"Failed: 1"* ]] || [[ "$output" == *"no zone"* ]]
 }
 
-@test "(dns:apps:sync) mentions domain or provider in output" {
-  dokku "$PLUGIN_COMMAND_PREFIX:apps:enable" my-app >/dev/null 2>&1 || true
+@test "(dns:apps:sync) mentions domain in output" {
+  # Create DOMAINS file directly so sync can proceed
+  mkdir -p "$PLUGIN_DATA_ROOT/my-app"
+  echo "test1.com" >"$PLUGIN_DATA_ROOT/my-app/DOMAINS"
 
   run dokku "$PLUGIN_COMMAND_PREFIX:apps:sync" my-app
-  # Output should reference either the domain being synced or a provider error
-  [[ "$output" == *"test1.com"* ]] || [[ "$output" == *"provider"* ]] || [[ "$output" == *"credentials"* ]]
+  # Output should reference the domain being synced
+  [[ "$output" == *"test1.com"* ]]
 }
