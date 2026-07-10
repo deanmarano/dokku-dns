@@ -262,29 +262,13 @@ dns_get_record_ip() {
 }
 
 dns_get_server_ip() {
-  # Try to get the server's public IP using multiple methods
+  # Delegate to the canonical host-based detector (see get_server_ip). Detecting the
+  # IP from our own managed DNS records is circular and hides IP drift, so both entry
+  # points share the same host-first logic.
   local SERVER_IP
+  SERVER_IP=$(get_server_ip)
 
-  # First try to use global domains to resolve server IP
-  local GLOBAL_DOMAINS
-  # Use dokku domains:report to get global domains
-  # Note: This is acceptable as it's using the domains plugin API correctly
-  GLOBAL_DOMAINS=$(dokku domains:report --domains-global-vhosts 2>/dev/null || echo "")
-
-  if [[ -n "$GLOBAL_DOMAINS" ]]; then
-    # Use the first global domain to resolve server IP
-    local FIRST_GLOBAL_DOMAIN
-    FIRST_GLOBAL_DOMAIN=$(echo "$GLOBAL_DOMAINS" | head -n1)
-    SERVER_IP=$(dig +short "$FIRST_GLOBAL_DOMAIN" | tail -n1 2>/dev/null || echo "")
-  fi
-
-  # If no global domains or couldn't resolve, try to get server IP another way
-  if [[ -z "$SERVER_IP" ]]; then
-    # Try to get the server's public IP
-    SERVER_IP=$(curl -s --max-time 3 ifconfig.me 2>/dev/null || curl -s --max-time 3 ipecho.net/plain 2>/dev/null || curl -s --max-time 3 icanhazip.com 2>/dev/null || echo "")
-  fi
-
-  if [[ -z "$SERVER_IP" ]]; then
+  if [[ -z "$SERVER_IP" ]] || [[ "$SERVER_IP" == "Unknown" ]]; then
     dokku_log_fail "Could not determine server IP. Please ensure your server has internet access or configure global domains."
   fi
 
@@ -740,8 +724,38 @@ get_server_ip() {
     return 0
   fi
 
-  # Method 1: Try global domains first (fastest, no external calls)
-  if command -v dokku >/dev/null 2>&1 && command -v dig >/dev/null 2>&1; then
+  # Operator override: pin the server IP explicitly (e.g. behind NAT/floating IP)
+  if [[ -n "${DOKKU_DNS_SERVER_IP:-}" ]]; then
+    _CACHED_SERVER_IP="$DOKKU_DNS_SERVER_IP"
+    echo "$_CACHED_SERVER_IP"
+    return 0
+  fi
+
+  # IMPORTANT: Detect the IP from the *host itself*, never by resolving our own
+  # managed domains. Using DNS as the source of truth is circular — it reads back
+  # the very records we maintain, so a changed host IP looks "already correct" and
+  # records go stale forever. Host-based detection is the only way to catch drift.
+
+  # Method 1: Cloud metadata service (AWS/GCP/etc.) — authoritative for the host
+  if command -v curl >/dev/null 2>&1; then
+    SERVER_IP=$(curl -s --max-time 3 http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null | tr -d '[:space:]' || echo "")
+    [[ ! "$SERVER_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] && SERVER_IP=""
+  fi
+
+  # Method 2: External IP echo services (try several for resilience)
+  if [[ -z "$SERVER_IP" ]] && command -v curl >/dev/null 2>&1; then
+    local ip_service
+    for ip_service in "http://checkip.amazonaws.com" "http://ipv4.icanhazip.com" "https://ifconfig.me" "https://ipecho.net/plain"; do
+      SERVER_IP=$(curl -s --max-time 3 "$ip_service" 2>/dev/null | tr -d '[:space:]' || echo "")
+      [[ "$SERVER_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] && break
+      SERVER_IP=""
+    done
+  fi
+
+  # Method 3 (last resort, air-gapped hosts only): resolve a global domain via DNS.
+  # This can report a stale value if the host IP just changed, so it is intentionally
+  # the final fallback — used only when no host-based method is reachable.
+  if [[ -z "$SERVER_IP" ]] && command -v dokku >/dev/null 2>&1 && command -v dig >/dev/null 2>&1; then
     local GLOBAL_DOMAINS
     GLOBAL_DOMAINS=$(dokku domains:report --domains-global-vhosts 2>/dev/null || echo "")
     if [[ -n "$GLOBAL_DOMAINS" ]]; then
@@ -750,11 +764,6 @@ get_server_ip() {
       SERVER_IP=$(dig +short "$FIRST_GLOBAL_DOMAIN" 2>/dev/null | tail -n1 || echo "")
       [[ "$SERVER_IP" == "127.0.0.1" ]] && SERVER_IP=""
     fi
-  fi
-
-  # Method 2: Try one fast external service (only if needed)
-  if [[ -z "$SERVER_IP" ]] && command -v curl >/dev/null 2>&1; then
-    SERVER_IP=$(curl -s --max-time 2 ifconfig.me 2>/dev/null | tr -d '[:space:]' || echo "")
   fi
 
   _CACHED_SERVER_IP="${SERVER_IP:-Unknown}"
