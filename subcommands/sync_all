@@ -63,10 +63,12 @@ service-sync-all-cmd() {
 
   # Global vhosts belong to no app, so they never appear in LINKS/DOMAINS. They
   # still serve live traffic, so sync them too — otherwise they silently go stale.
+  # The --global flag is required: without it, domains:report emits one row per
+  # app, repeating every global vhost once per app on the host.
   local global_domains=()
   while IFS= read -r domain; do
     [[ -n "$domain" ]] && global_domains+=("$domain")
-  done < <(dokku domains:report --domains-global-vhosts 2>/dev/null | tr ' ' '\n' || true)
+  done < <(dokku domains:report --global --domains-global-vhosts 2>/dev/null | tr ' ' '\n' | sort -u || true)
 
   if [[ ${#apps[@]} -eq 0 && ${#global_domains[@]} -eq 0 ]]; then
     echo "No apps in DNS management"
