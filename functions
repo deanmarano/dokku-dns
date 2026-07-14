@@ -1289,6 +1289,47 @@ unrecord_managed_domain() {
   fi
 }
 
+# Is this domain currently served as a vhost by any app, or as a global vhost?
+#
+# Deletions are queued when a domain is removed, but nothing invalidates the queue if the
+# domain later comes back. Re-adding a vhost left a stale entry that would delete a live
+# record — three live vhosts sat queued for months this way. dokku is the source of truth,
+# so ask it at deletion time rather than trusting the queue.
+#
+# Usage: dns_domain_is_live_vhost <domain>
+# Returns 0 if the domain is a live vhost, 1 otherwise (including on lookup failure).
+dns_domain_is_live_vhost() {
+  local domain="$1"
+  [[ -z "$domain" ]] && return 1
+
+  local live
+  # No app argument: this intentionally reports every app's vhosts, one row per app.
+  live=$(
+    dokku domains:report --domains-app-vhosts 2>/dev/null | tr ' ' '\n'
+    dokku domains:report --global --domains-global-vhosts 2>/dev/null | tr ' ' '\n'
+  )
+
+  echo "$live" | grep -qxF "$domain"
+}
+
+dequeue_domain_deletion() {
+  declare desc="Remove a domain from the pending deletions queue"
+  local domain="$1"
+
+  local pending
+  pending=$(dns_property_get "--global" "PENDING_DELETIONS" "")
+  [[ -z "$pending" ]] && return 0
+
+  local filtered
+  filtered=$(echo "$pending" | grep -v "^$domain:" || true)
+
+  if [[ -n "$filtered" ]]; then
+    dns_property_write "--global" "PENDING_DELETIONS" "$filtered"
+  else
+    dns_property_delete "--global" "PENDING_DELETIONS"
+  fi
+}
+
 queue_domain_deletion() {
   declare desc="Add a domain to the pending deletions queue"
   local domain="$1"

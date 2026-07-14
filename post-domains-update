@@ -60,6 +60,12 @@ handle_domain_add() {
     app_was_managed=true
   fi
 
+  # The domain is serving again, so any deletion queued when it was removed is now
+  # stale and would delete a live record. Drop it.
+  if declare -f dequeue_domain_deletion >/dev/null 2>&1; then
+    dequeue_domain_deletion "$DOMAIN"
+  fi
+
   # Add the new domain to DNS management
   if dns_add_app_domains "$APP" "$DOMAIN"; then
     if [[ "$app_was_managed" == "false" ]]; then

@@ -46,7 +46,28 @@ else
             APP_ARG="$2"
             if [[ -n "$DOKKU_APPS_FILE" ]]; then
                 DOMAINS_DIR="$(dirname "$DOKKU_APPS_FILE")/domains"
-                if [[ -f "$DOMAINS_DIR/$APP_ARG" ]]; then
+                if [[ "$APP_ARG" == "--global" ]]; then
+                    # Global vhosts live in their own file, not under an app.
+                    GLOBAL_VHOST_FILE="$(dirname "$DOKKU_APPS_FILE")/global_vhosts"
+                    if [[ -f "$GLOBAL_VHOST_FILE" ]]; then
+                        tr '\n' ' ' < "$GLOBAL_VHOST_FILE"
+                        echo
+                    else
+                        echo ""
+                    fi
+                elif [[ -z "$APP_ARG" || "$APP_ARG" == --* ]]; then
+                    # No app argument: real dokku reports every app's vhosts, one row per
+                    # app. The deletion guard relies on this to spot live vhosts.
+                    if [[ -d "$DOMAINS_DIR" ]]; then
+                        for _app_file in "$DOMAINS_DIR"/*; do
+                            [[ -e "$_app_file" ]] || continue
+                            tr '\n' ' ' < "$_app_file"
+                            echo
+                        done
+                    else
+                        echo ""
+                    fi
+                elif [[ -f "$DOMAINS_DIR/$APP_ARG" ]]; then
                     tr '\n' ' ' < "$DOMAINS_DIR/$APP_ARG"
                     echo
                 else

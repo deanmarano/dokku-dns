@@ -115,13 +115,32 @@ service-sync-deletions-cmd() {
   local skipped_count=0
   local -a successfully_deleted=()
 
+  local -a rescued=()
+
   for entry in "${pending_deletions[@]}"; do
     IFS=: read -r domain zone_id timestamp <<< "$entry"
+
+    # A queued domain that is serving again must never be deleted. Nothing invalidates
+    # the queue when a vhost comes back, so entries outlive the removal that created
+    # them — three live vhosts sat queued for months here. Deleting one would take the
+    # site down, and --force would do it without asking. Re-check dokku, which is the
+    # source of truth, and drop the entry instead.
+    if dns_domain_is_live_vhost "$domain"; then
+      echo "  $domain... ⏭️  Skipped (live vhost again — dequeued, not deleted)"
+      rescued+=("$domain")
+      skipped_count=$((skipped_count + 1))
+      continue
+    fi
 
     # Individual confirmation unless --force is specified
     if [[ "$FORCE" != "true" ]]; then
       echo
-      read -rp "Delete $domain (A record)? [y/N] " confirm
+      # read fails on EOF (non-interactive: cron, pipes, CI). Under `set -e` that aborted
+      # the whole command mid-loop — silently, with exit 0 and no summary, so it looked
+      # like a clean run. Treat EOF as "no" and carry on.
+      if ! read -rp "Delete $domain (A record)? [y/N] " confirm; then
+        confirm=""
+      fi
 
       if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
         echo "  Skipped"
@@ -170,24 +189,25 @@ service-sync-deletions-cmd() {
     fi
   done
 
-  # Remove successfully deleted domains from the queue
-  if [[ ${#successfully_deleted[@]} -gt 0 ]]; then
+  # Rewrite the queue, dropping entries that were deleted or rescued. This is the only
+  # writer: it rebuilds the file from the list read at start, so anything removed
+  # mid-loop would be restored here.
+  if [[ ${#successfully_deleted[@]} -gt 0 ]] || [[ ${#rescued[@]} -gt 0 ]]; then
     local temp_file
     temp_file=$(mktemp)
 
-    # Write all entries except successfully deleted ones
     for entry in "${pending_deletions[@]}"; do
       IFS=: read -r domain zone_id timestamp <<< "$entry"
-      local is_deleted=false
+      local drop=false
 
-      for deleted_domain in "${successfully_deleted[@]}"; do
-        if [[ "$domain" == "$deleted_domain" ]]; then
-          is_deleted=true
+      for gone_domain in ${successfully_deleted[@]+"${successfully_deleted[@]}"} ${rescued[@]+"${rescued[@]}"}; do
+        if [[ "$domain" == "$gone_domain" ]]; then
+          drop=true
           break
         fi
       done
 
-      if [[ "$is_deleted" == "false" ]]; then
+      if [[ "$drop" == "false" ]]; then
         echo "$entry" >> "$temp_file"
       fi
     done
@@ -202,6 +222,14 @@ service-sync-deletions-cmd() {
   echo "  Skipped: $skipped_count"
   echo "  Failed:  $failed_count"
   echo "  Total:   ${#pending_deletions[@]}"
+
+  if [[ ${#rescued[@]} -gt 0 ]]; then
+    echo
+    dokku_log_warn "${#rescued[@]} queued domain(s) are live vhosts again and were dequeued, not deleted:"
+    for domain in "${rescued[@]}"; do
+      echo "  - $domain"
+    done
+  fi
 
   if [[ $failed_count -gt 0 ]]; then
     echo
