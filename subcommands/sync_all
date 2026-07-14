@@ -9,28 +9,66 @@ fi
 
 source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
 
+# Sync a single domain's A record to the server IP.
+# Usage: sync_one_domain <app> <domain> <server_ip>
+# Prints a per-domain status line. Returns 0 if synced, 1 if failed.
+# <app> is used only for TTL lookup; pass "--global" for global vhosts.
+sync_one_domain() {
+  local app="$1" domain="$2" server_ip="$3"
+
+  local zone_id
+  if ! zone_id=$(multi_get_zone_id "$domain" 2>/dev/null); then
+    echo "✗ $domain (no zone)"
+    return 1
+  fi
+
+  local current_ip
+  current_ip=$(multi_get_record "$zone_id" "$domain" "A" 2>/dev/null || echo "")
+
+  if [[ "$current_ip" == "$server_ip" ]]; then
+    echo "✓ $domain"
+    return 0
+  fi
+
+  local ttl
+  ttl=$(get_domain_ttl "$app" "$domain" 2>/dev/null || echo "300")
+
+  if multi_create_record "$zone_id" "$domain" "A" "$server_ip" "$ttl" 2>/dev/null; then
+    echo "✓ $domain (updated)"
+    return 0
+  fi
+
+  echo "✗ $domain (failed)"
+  return 1
+}
+
 service-sync-all-cmd() {
   #E synchronize DNS records for all apps with DNS management enabled
   #E dokku $PLUGIN_COMMAND_PREFIX:sync-all
   #E this will iterate through all apps that have DNS management enabled
   #E and sync their DNS records using the configured provider.
+  #E Global vhosts (dokku domains:report --global) are synced as well.
   #E AWS Route53 uses efficient batch API calls grouped by hosted zone.
   #E Other providers sync each app individually for compatibility.
   declare desc="synchronize DNS records for all DNS-managed apps"
 
   local LINKS_FILE="$PLUGIN_DATA_ROOT/LINKS"
 
-  if [[ ! -f "$LINKS_FILE" ]]; then
-    echo "No apps in DNS management"
-    return 0
+  local apps=()
+  if [[ -f "$LINKS_FILE" ]]; then
+    while IFS= read -r app; do
+      [[ -n "$app" ]] && apps+=("$app")
+    done < "$LINKS_FILE"
   fi
 
-  local apps=()
-  while IFS= read -r app; do
-    [[ -n "$app" ]] && apps+=("$app")
-  done < "$LINKS_FILE"
+  # Global vhosts belong to no app, so they never appear in LINKS/DOMAINS. They
+  # still serve live traffic, so sync them too — otherwise they silently go stale.
+  local global_domains=()
+  while IFS= read -r domain; do
+    [[ -n "$domain" ]] && global_domains+=("$domain")
+  done < <(dokku domains:report --domains-global-vhosts 2>/dev/null | tr ' ' '\n' || true)
 
-  if [[ ${#apps[@]} -eq 0 ]]; then
+  if [[ ${#apps[@]} -eq 0 && ${#global_domains[@]} -eq 0 ]]; then
     echo "No apps in DNS management"
     return 0
   fi
@@ -54,6 +92,8 @@ service-sync-all-cmd() {
 
   local total_synced=0 total_failed=0
 
+  local synced_domains=()
+
   for app in "${apps[@]}"; do
     local domains_file="$PLUGIN_DATA_ROOT/$app/DOMAINS"
     [[ ! -f "$domains_file" ]] && continue
@@ -63,34 +103,33 @@ service-sync-all-cmd() {
     while IFS= read -r domain; do
       [[ -z "$domain" ]] && continue
 
-      local zone_id
-      if ! zone_id=$(multi_get_zone_id "$domain" 2>/dev/null); then
-        echo "✗ $domain (no zone)"
-        total_failed=$((total_failed + 1))
-        continue
-      fi
-
-      local current_ip
-      current_ip=$(multi_get_record "$zone_id" "$domain" "A" 2>/dev/null || echo "")
-
-      if [[ "$current_ip" == "$SERVER_IP" ]]; then
-        echo "✓ $domain"
-        total_synced=$((total_synced + 1))
-        continue
-      fi
-
-      local ttl
-      ttl=$(get_domain_ttl "$app" "$domain" 2>/dev/null || echo "300")
-
-      if multi_create_record "$zone_id" "$domain" "A" "$SERVER_IP" "$ttl" 2>/dev/null; then
-        echo "✓ $domain (updated)"
+      if sync_one_domain "$app" "$domain" "$SERVER_IP"; then
         total_synced=$((total_synced + 1))
       else
-        echo "✗ $domain (failed)"
         total_failed=$((total_failed + 1))
       fi
+      synced_domains+=("$domain")
     done < "$domains_file"
   done
+
+  if [[ ${#global_domains[@]} -gt 0 ]]; then
+    echo "=== global vhosts ==="
+
+    for domain in "${global_domains[@]}"; do
+      # An app may also declare a global vhost; don't sync it twice.
+      local already=0 seen
+      for seen in ${synced_domains[@]+"${synced_domains[@]}"}; do
+        [[ "$seen" == "$domain" ]] && already=1 && break
+      done
+      [[ $already -eq 1 ]] && continue
+
+      if sync_one_domain "--global" "$domain" "$SERVER_IP"; then
+        total_synced=$((total_synced + 1))
+      else
+        total_failed=$((total_failed + 1))
+      fi
+    done
+  fi
 
   echo
   echo "Total: $total_synced synced, $total_failed failed"
