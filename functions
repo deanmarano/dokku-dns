@@ -370,6 +370,82 @@ report_skipped_domains() {
   echo
 }
 
+# Reconcile an app's tracked DOMAINS against dokku's live vhosts.
+#
+# The DOMAINS file is written when an app is enabled and only ever appended to, so
+# renaming a vhost leaves the old name tracked and synced forever while the real one
+# goes unmanaged and silently stale. Dokku is the source of truth for vhosts, so
+# re-read it on every sync rather than trusting a cache that nothing invalidates.
+#
+# Removed domains are handed to queue_domain_deletion, which only queues records the
+# plugin actually created (it checks MANAGED_RECORDS), so foreign records are never
+# touched.
+#
+# Usage: dns_reconcile_app_domains <app>
+# Prints one line per change. Always returns 0 — reconciliation must never block a sync.
+dns_reconcile_app_domains() {
+  local APP="$1"
+  local domains_file="$PLUGIN_DATA_ROOT/$APP/DOMAINS"
+
+  [[ -f "$domains_file" ]] || return 0
+
+  local live_raw
+  live_raw=$(dokku domains:report "$APP" --domains-app-vhosts 2>/dev/null || echo "")
+
+  local live=() tracked=()
+  read -ra live <<<"$live_raw"
+
+  # No domains means vhosts are disabled, the app is gone, or dokku errored — all cases
+  # we cannot tell apart. Never treat that as "every domain was removed", or a transient
+  # error would wipe the app's records. Check the split array, not the raw string: the
+  # report is whitespace-padded, so a blank result is " " rather than "".
+  [[ ${#live[@]} -eq 0 ]] && return 0
+
+  while IFS= read -r domain; do
+    [[ -n "$domain" ]] && tracked+=("$domain")
+  done <"$domains_file"
+
+  local domain seen changed=0
+
+  # Untrack domains dokku no longer serves, and queue their records for cleanup.
+  for domain in ${tracked[@]+"${tracked[@]}"}; do
+    local still_live=0
+    for seen in ${live[@]+"${live[@]}"}; do
+      [[ "$domain" == "$seen" ]] && still_live=1 && break
+    done
+    [[ $still_live -eq 1 ]] && continue
+
+    echo "  - $domain (no longer a vhost, untracking)"
+    changed=1
+
+    local zone_id=""
+    if declare -f multi_get_zone_id >/dev/null 2>&1; then
+      zone_id=$(multi_get_zone_id "$domain" 2>/dev/null || echo "")
+    fi
+    if declare -f queue_domain_deletion >/dev/null 2>&1; then
+      queue_domain_deletion "$domain" "$zone_id"
+    fi
+  done
+
+  # Track vhosts dokku serves that we never picked up (added while triggers were off).
+  for domain in ${live[@]+"${live[@]}"}; do
+    local already=0
+    for seen in ${tracked[@]+"${tracked[@]}"}; do
+      [[ "$domain" == "$seen" ]] && already=1 && break
+    done
+    [[ $already -eq 1 ]] && continue
+
+    echo "  + $domain (new vhost, tracking)"
+    changed=1
+  done
+
+  if [[ $changed -eq 1 ]]; then
+    printf '%s\n' "${live[@]}" >"$domains_file"
+  fi
+
+  return 0
+}
+
 dns_add_app_domains() {
   local APP="$1"
   local TTL="$2"
