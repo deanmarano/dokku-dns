@@ -4,8 +4,20 @@ This provider manages DNS zones hosted by OVHcloud through its signed API.
 
 ## Setup
 
-Create API credentials at <https://api.ovh.com/createToken/> for the API endpoint
-that hosts your account. Grant the consumer key the following access rules:
+The preferred authentication method is an OVHcloud OAuth2 service account:
+
+```shell
+dokku config:set --global \
+  OVH_CLIENT_ID=your_client_id \
+  OVH_CLIENT_SECRET=your_client_secret
+```
+
+For a non-European account, also set `OVH_API_ENDPOINT` and
+`OVH_OAUTH_TOKEN_URL` to its regional endpoints.
+
+The provider also supports legacy signed API credentials. Create them at
+<https://api.ovh.com/createToken/> for the API endpoint that hosts your account,
+granting the consumer key the following access rules:
 
 - `GET /me`
 - `GET /domain/zone/*`

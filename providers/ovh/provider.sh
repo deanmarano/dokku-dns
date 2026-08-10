@@ -16,26 +16,45 @@ _ovh_api_call() {
   local endpoint="$2"
   local data="${3:-}"
   local url="${OVH_API_ENDPOINT}${endpoint}"
-  local timestamp signature
-
-  timestamp=$(curl -s "${OVH_API_ENDPOINT}/auth/time")
-  if [[ ! "$timestamp" =~ ^[0-9]+$ ]]; then
-    echo "Failed to get time from OVHcloud API" >&2
-    return 1
-  fi
-
-  signature=$(printf '%s' "${OVH_APPLICATION_SECRET}+${OVH_CONSUMER_KEY}+${method}+${url}+${data}+${timestamp}" | _ovh_sha1)
   local curl_args=(
     -s
     -X "$method"
-    -H "X-Ovh-Application: $OVH_APPLICATION_KEY"
-    -H "X-Ovh-Consumer: $OVH_CONSUMER_KEY"
-    -H "X-Ovh-Timestamp: $timestamp"
-    -H "X-Ovh-Signature: \$1\$$signature"
     -H "Content-Type: application/json"
   )
+
+  if [[ -n "${OVH_CLIENT_ID:-}" ]]; then
+    local access_token
+    access_token=$(_ovh_oauth_access_token) || return 1
+    curl_args+=(-H "Authorization: Bearer $access_token")
+  else
+    local timestamp signature
+    timestamp=$(curl -s "${OVH_API_ENDPOINT}/auth/time")
+    if [[ ! "$timestamp" =~ ^[0-9]+$ ]]; then
+      echo "Failed to get time from OVHcloud API" >&2
+      return 1
+    fi
+    signature=$(printf '%s' "${OVH_APPLICATION_SECRET}+${OVH_CONSUMER_KEY}+${method}+${url}+${data}+${timestamp}" | _ovh_sha1)
+    curl_args+=(
+      -H "X-Ovh-Application: $OVH_APPLICATION_KEY"
+      -H "X-Ovh-Consumer: $OVH_CONSUMER_KEY"
+      -H "X-Ovh-Timestamp: $timestamp"
+      -H "X-Ovh-Signature: \$1\$$signature"
+    )
+  fi
   [[ -n "$data" ]] && curl_args+=(-d "$data")
   curl "${curl_args[@]}" "$url"
+}
+
+_ovh_oauth_access_token() {
+  local response access_token
+  response=$(curl -s -u "${OVH_CLIENT_ID}:${OVH_CLIENT_SECRET}" \
+    -d 'grant_type=client_credentials' -d 'scope=all' "$OVH_OAUTH_TOKEN_URL")
+  access_token=$(printf '%s' "$response" | jq -r '.access_token // empty' 2>/dev/null)
+  if [[ -z "$access_token" ]]; then
+    echo "Failed to obtain an OVHcloud OAuth access token" >&2
+    return 1
+  fi
+  printf '%s\n' "$access_token"
 }
 
 _ovh_check_response() {
@@ -87,6 +106,17 @@ _ovh_refresh_zone() {
 }
 
 provider_validate_credentials() {
+  if [[ -n "${OVH_CLIENT_ID:-}" || -n "${OVH_CLIENT_SECRET:-}" ]]; then
+    if [[ -z "${OVH_CLIENT_ID:-}" || -z "${OVH_CLIENT_SECRET:-}" ]]; then
+      echo "OVH_CLIENT_ID and OVH_CLIENT_SECRET must be set together" >&2
+      return 1
+    fi
+    local oauth_response
+    oauth_response=$(_ovh_api_call GET /me) || return 1
+    _ovh_check_response "$oauth_response" "validating OAuth credentials"
+    return
+  fi
+
   local variable
   for variable in OVH_APPLICATION_KEY OVH_APPLICATION_SECRET OVH_CONSUMER_KEY; do
     if [[ -z "${!variable:-}" ]]; then
@@ -212,6 +242,7 @@ provider_setup_env() {
     echo "jq is required for the OVHcloud provider" >&2
     return 1
   }
+  [[ -n "${OVH_CLIENT_ID:-}" ]] && return 0
   command -v sha1sum >/dev/null 2>&1 || command -v shasum >/dev/null 2>&1 || {
     echo "sha1sum or shasum is required for the OVHcloud provider" >&2
     return 1

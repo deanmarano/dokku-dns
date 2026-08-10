@@ -23,6 +23,8 @@ load_credentials_from_dokku_config() {
     "OVH_APPLICATION_KEY"
     "OVH_APPLICATION_SECRET"
     "OVH_CONSUMER_KEY"
+    "OVH_CLIENT_ID"
+    "OVH_CLIENT_SECRET"
   )
 
   for var in "${env_vars[@]}"; do

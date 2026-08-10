@@ -109,7 +109,7 @@ dokku dns:providers:verify digitalocean
 
 **Option D: OVHcloud**
 ```shell
-dokku config:set --global OVH_APPLICATION_KEY=your_key OVH_APPLICATION_SECRET=your_secret OVH_CONSUMER_KEY=your_consumer_key
+dokku config:set --global OVH_CLIENT_ID=your_client_id OVH_CLIENT_SECRET=your_client_secret
 dokku dns:providers:verify ovh
 ```
 
