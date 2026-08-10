@@ -2,12 +2,12 @@
 
 **Automated DNS management for Dokku apps with multi-provider support**
 
-Seamlessly manage DNS records for your Dokku applications across multiple cloud providers including AWS Route53, Cloudflare, and DigitalOcean. Automatically create, update, and synchronize DNS records as you deploy and manage your apps.
+Seamlessly manage DNS records for your Dokku applications across multiple cloud providers including AWS Route53, Cloudflare, DigitalOcean, and OVHcloud. Automatically create, update, and synchronize DNS records as you deploy and manage your apps.
 
 ## ✨ Key Features
 
 - 🤖 **Fully Automatic**: Enable triggers once, never think about DNS again - records are created, updated, and cleaned up automatically
-- 🚀 **Multi-Provider Support**: AWS Route53, Cloudflare, DigitalOcean, and extensible architecture for more providers
+- 🚀 **Multi-Provider Support**: AWS Route53, Cloudflare, DigitalOcean, OVHcloud, and extensible architecture for more providers
 - 🔄 **Lifecycle Integration**: Hooks into Dokku's app lifecycle (create, domains add/remove, destroy) for seamless DNS management
 - 🎯 **Zone-Based Routing**: Intelligent routing of domains to appropriate DNS providers
 - ⚡ **Batch Operations**: Efficient bulk DNS updates across all your apps
@@ -39,6 +39,12 @@ dokku dns:providers:verify cloudflare
 ```shell
 dokku config:set --global DIGITALOCEAN_ACCESS_TOKEN=your_api_token
 dokku dns:providers:verify digitalocean
+```
+
+**Option D: OVHcloud**
+```shell
+dokku config:set --global OVH_APPLICATION_KEY=your_key OVH_APPLICATION_SECRET=your_secret OVH_CONSUMER_KEY=your_consumer_key
+dokku dns:providers:verify ovh
 ```
 
 ### 3. Enable Automatic DNS Management
@@ -136,7 +142,7 @@ dokku dns:apps:sync myapp              # Manually sync DNS records
 
 - dokku 0.19.x+
 - docker 1.8.x
-- DNS provider credentials (AWS Route53, Cloudflare, or DigitalOcean)
+- DNS provider credentials (AWS Route53, Cloudflare, DigitalOcean, or OVHcloud)
 
 ## Installation
 
@@ -263,4 +269,4 @@ Synchronize `DNS` records for all apps with `DNS` management enabled:
 dokku dns:sync-all
 ```
 
-This will iterate through all apps that have `DNS` management enabled and sync their `DNS` records using the configured provider. `AWS` Route53 uses efficient batch `API` calls grouped by hosted zone. Other providers sync each app individually for compatibility.
+This will iterate through all apps that have `DNS` management enabled and sync their `DNS` records using the configured provider. Global vhosts (dokku domains:report --global) are synced as well. `AWS` Route53 uses efficient batch `API` calls grouped by hosted zone. Other providers sync each app individually for compatibility.
