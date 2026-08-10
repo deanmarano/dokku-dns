@@ -111,10 +111,10 @@ provider_validate_credentials() {
       echo "OVH_CLIENT_ID and OVH_CLIENT_SECRET must be set together" >&2
       return 1
     fi
-    local oauth_response
-    oauth_response=$(_ovh_api_call GET /me) || return 1
-    _ovh_check_response "$oauth_response" "validating OAuth credentials"
-    return
+    # OAuth service accounts may deliberately lack access to /me. Listing DNS
+    # zones verifies both authentication and the permission this provider needs.
+    provider_list_zones >/dev/null
+    return $?
   fi
 
   local variable
