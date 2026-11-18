@@ -95,7 +95,7 @@ _ovh_find_record_id() {
   response=$(_ovh_api_call GET "/domain/zone/$zone/record?fieldType=$record_type&subDomain=$subdomain") || return 1
   _ovh_check_response "$response" "looking up record" || return 1
   record_id=$(printf '%s' "$response" | jq -r '.[0] // empty' 2>/dev/null)
-  [[ -n "$record_id" ]] && printf '%s\n' "$record_id"
+  [[ -z "$record_id" ]] || printf '%s\n' "$record_id"
 }
 
 _ovh_refresh_zone() {

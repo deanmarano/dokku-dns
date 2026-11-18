@@ -30,9 +30,11 @@ setup() {
 
 @test "(ovh provider) creates a subdomain record and refreshes its zone" {
   source providers/ovh/provider.sh
-  calls=()
+  # _ovh_api_call runs inside $(...) subshells, so record calls in a file
+  calls_file="$BATS_TEST_TMPDIR/ovh-calls"
+  : >"$calls_file"
   _ovh_api_call() {
-    calls+=("$1 $2 $3")
+    echo "$1 $2 $3" >>"$calls_file"
     case "$1 $2" in
       "GET /domain/zone/example.com/record?fieldType=A&subDomain=api") printf '[]' ;;
       "POST /domain/zone/example.com/record") printf '42' ;;
@@ -41,8 +43,8 @@ setup() {
   }
   _ovh_refresh_zone() { _ovh_api_call POST "/domain/zone/$1/refresh" '{}'; }
   provider_create_record example.com api.example.com A 192.0.2.10 600
-  [[ "${calls[*]}" == *"POST /domain/zone/example.com/record"* ]]
-  [[ "${calls[*]}" == *"POST /domain/zone/example.com/refresh"* ]]
+  grep -q "^POST /domain/zone/example.com/record " "$calls_file"
+  grep -q "^POST /domain/zone/example.com/refresh " "$calls_file"
 }
 
 @test "(ovh provider) reads the apex record using an empty subdomain" {
