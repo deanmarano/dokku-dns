@@ -151,6 +151,34 @@ dokku dns:apps:sync myapp              # Manually sync DNS records
 sudo dokku plugin:install https://github.com/deanmarano/dokku-dns.git --name dns
 ```
 
+## Upgrading
+
+```shell
+# update to the latest commit on main
+sudo dokku plugin:update dns
+
+# or move to a specific release tag
+sudo dokku plugin:update dns v0.4.0
+
+# confirm the running version
+dokku dns:version
+```
+
+If you installed with `--committish` (or updated to a tag), the plugin is pinned:
+a bare `dokku plugin:update dns` will not move it, so pass the ref you want.
+
+Settings live in `/var/lib/dokku/config/dns` and plugin data in
+`/var/lib/dokku/services/dns`; both are kept across upgrades.
+
+**Upgrading from 0.3.x or earlier:** older versions changed file permissions
+inside the plugin's git checkout during install, which makes `plugin:update`
+fail. Reset the checkout once before updating:
+
+```shell
+sudo git -C /var/lib/dokku/plugins/available/dns checkout -- .
+sudo dokku plugin:update dns v0.4.0
+```
+
 ## Commands
 
 ```

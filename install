@@ -20,13 +20,6 @@ plugin-install() {
   mkdir -p "$PLUGIN_DATA_ROOT"
   chown "${DOKKU_SYSTEM_USER:-dokku}:${DOKKU_SYSTEM_GROUP:-dokku}" "$PLUGIN_DATA_ROOT" 2>/dev/null || true
 
-  # Ensure provider scripts are executable
-  local PLUGIN_ROOT
-  PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  if [[ -d "$PLUGIN_ROOT/providers" ]]; then
-    find "$PLUGIN_ROOT/providers" -type f -exec chmod +x {} \; 2>/dev/null || true
-  fi
-
   echo "-----> $PLUGIN_SERVICE plugin installed successfully"
 }
 

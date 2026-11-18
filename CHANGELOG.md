@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-18
+
+First tagged release. Everything below this entry was developed before
+releases were tagged and ships in 0.4.0 too.
+
+### Added
+- **OVHcloud DNS provider**, supporting OAuth2 and legacy signed API credentials (#97, thanks @monperrus)
+- **DNS record commands** for arbitrary record types (`dns:records:*`)
+- Provider credentials are loaded from dokku global config
+- `dns:version` reports the git commit and commit time
+- Upgrade directions in the README
+
+### Fixed
+- Bare `help` no longer exits 10, which broke `dokku help --all` and the dokku
+  package postinst (#99, thanks @AntonioIbarraOrtiz)
+- `install` no longer changes file permissions inside the plugin checkout,
+  which made `dokku plugin:update` fail
+- Never delete a domain that is still a live vhost; tracked domains are
+  reconciled against dokku vhosts on sync
+- Global vhosts are synced by `dns:sync:all`
+- Server IP is detected from the host rather than from its own DNS records
+- Empty `update` trigger avoids exit 10 on `plugin:update`
+
+## Pre-0.4.0 development
+
 ### Added
 - **Multi-provider DNS support**: AWS Route53, Cloudflare, and DigitalOcean providers
 - **Provider verification command**: `dokku dns:providers:verify` with auto-detection and troubleshooting
