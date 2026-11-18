@@ -51,3 +51,28 @@ teardown() {
   run dokku "$PLUGIN_COMMAND_PREFIX:nonexistent-command"
   assert_failure
 }
+
+# `dokku help --all` runs `<plugin>/commands help` for every plugin under
+# `set -eo pipefail`. Returning DOKKU_NOT_IMPLEMENTED_EXIT there aborts that
+# loop and breaks the dokku package postinst, so bare `help` must succeed.
+@test "(help) bare help argument succeeds" {
+  DOKKU_NOT_IMPLEMENTED_EXIT=10 run "$PLUGIN_ROOT/commands" help
+  assert_success
+}
+
+@test "(help) bare help emits comma-separated command,description pairs" {
+  DOKKU_NOT_IMPLEMENTED_EXIT=10 run "$PLUGIN_ROOT/commands" help
+  assert_success
+  # every line must carry exactly one comma for `column -c2 -t -s,`
+  [ "$(echo "$output" | grep -cv ',')" -eq 0 ]
+  [ "$(echo "$output" | awk -F, 'NF>2' | wc -l)" -eq 0 ]
+}
+
+@test "(help) bare help lists the same commands as dns:help" {
+  DOKKU_NOT_IMPLEMENTED_EXIT=10 run "$PLUGIN_ROOT/commands" help
+  assert_success
+  assert_output_contains "dns:apps:enable"
+  assert_output_contains "dns:report"
+  assert_output_contains "dns:sync:all"
+  assert_output_contains "dns:version"
+}

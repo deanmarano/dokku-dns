@@ -5,7 +5,7 @@ set -eo pipefail
 PLUGIN_BASE_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$PLUGIN_BASE_PATH/config"
 
-[[ " dns:help dns " == *" $1 "* ]] || [[ "$1" == "dns:"* ]] || exit "$DOKKU_NOT_IMPLEMENTED_EXIT"
+[[ " help dns:help dns " == *" $1 "* ]] || [[ "$1" == "dns:"* ]] || exit "$DOKKU_NOT_IMPLEMENTED_EXIT"
 
 show_help() {
   cat <<EOF
@@ -42,6 +42,13 @@ EOF
 }
 
 case "$1" in
+  # `dokku help --all` invokes every plugin's `commands` file with a bare `help`
+  # argument and pipes the result through `column -c2 -t -s,`, so emit the
+  # command table in `command,description` form. Derived from show_help() so the
+  # two listings cannot drift apart.
+  help)
+    show_help | sed -n -E 's/^    ([^[:space:]].*[^[:space:]])[[:space:]]{2,}(.*)$/    \1,\2/p'
+    ;;
   dns | dns:help)
     show_help
     ;;
