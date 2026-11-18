@@ -7,6 +7,9 @@ on:
     tags:
       - "*"
 
+permissions:
+  contents: write
+
 jobs:
   tagged-release:
     name: tagged-release
