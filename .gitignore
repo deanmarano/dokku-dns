@@ -6,3 +6,4 @@ test-server-*.log
 .env.local
 .env.*.local
 node_modules/
+.claude/settings.local.json
