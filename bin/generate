@@ -68,12 +68,12 @@ def description(service, full_image, version):
     if service == "dns":
         return """**Automated DNS management for Dokku apps with multi-provider support**
 
-Seamlessly manage DNS records for your Dokku applications across multiple cloud providers including AWS Route53, Cloudflare, DigitalOcean, and OVHcloud. Automatically create, update, and synchronize DNS records as you deploy and manage your apps.
+Seamlessly manage DNS records for your Dokku applications across multiple cloud providers including AWS Route53, Cloudflare, DigitalOcean, OVHcloud, and Namecheap. Automatically create, update, and synchronize DNS records as you deploy and manage your apps.
 
 ## ✨ Key Features
 
 - 🤖 **Fully Automatic**: Enable triggers once, never think about DNS again - records are created, updated, and cleaned up automatically
-- 🚀 **Multi-Provider Support**: AWS Route53, Cloudflare, DigitalOcean, OVHcloud, and extensible architecture for more providers
+- 🚀 **Multi-Provider Support**: AWS Route53, Cloudflare, DigitalOcean, OVHcloud, Namecheap, and extensible architecture for more providers
 - 🔄 **Lifecycle Integration**: Hooks into Dokku's app lifecycle (create, domains add/remove, destroy) for seamless DNS management
 - 🎯 **Zone-Based Routing**: Intelligent routing of domains to appropriate DNS providers
 - ⚡ **Batch Operations**: Efficient bulk DNS updates across all your apps
@@ -111,6 +111,12 @@ dokku dns:providers:verify digitalocean
 ```shell
 dokku config:set --global OVH_CLIENT_ID=your_client_id OVH_CLIENT_SECRET=your_client_secret
 dokku dns:providers:verify ovh
+```
+
+**Option E: Namecheap**
+```shell
+dokku config:set --global NAMECHEAP_API_USER=your_username NAMECHEAP_API_KEY=your_api_key
+dokku dns:providers:verify namecheap
 ```
 
 ### 3. Enable Automatic DNS Management
