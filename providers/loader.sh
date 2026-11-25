@@ -25,6 +25,8 @@ load_credentials_from_dokku_config() {
     "OVH_CONSUMER_KEY"
     "OVH_CLIENT_ID"
     "OVH_CLIENT_SECRET"
+    "NAMECHEAP_API_USER"
+    "NAMECHEAP_API_KEY"
   )
 
   for var in "${env_vars[@]}"; do
