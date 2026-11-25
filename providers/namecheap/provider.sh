@@ -92,7 +92,7 @@ _check_namecheap_response() {
 
   if echo "$response" | grep -q 'Status="ERROR"'; then
     local error
-    error=$(echo "$response" | grep -oP '(?<=<Error Number="[0-9]{1,10}">)[^<]+|(?<=<Message>)[^<]+' | head -1)
+    error=$(echo "$response" | grep -oP '<Error Number="[0-9]+">\K[^<]+|<Message>\K[^<]+' | head -1)
     echo "Namecheap API error in $context: ${error:-Unknown error}" >&2
     return 1
   fi
@@ -279,9 +279,9 @@ provider_validate_credentials() {
     return 1
   fi
 
-  # Test API connectivity by listing domains (page size 1)
+  # Test API connectivity by listing domains (10 is the API's minimum PageSize)
   local response
-  response=$(_namecheap_api_call "namecheap.domains.getList" "PageSize=1") || return 1
+  response=$(_namecheap_api_call "namecheap.domains.getList" "PageSize=10") || return 1
 
   if ! _check_namecheap_response "$response" "credential validation"; then
     echo "Namecheap API authentication failed. Check your NAMECHEAP_API_USER and NAMECHEAP_API_KEY." >&2
